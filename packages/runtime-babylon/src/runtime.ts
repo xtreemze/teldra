@@ -1,4 +1,5 @@
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
+import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
@@ -111,7 +112,7 @@ export async function createBabylonTwinRuntime(
 async function createEngine(
   canvas: HTMLCanvasElement,
   antialias: boolean,
-): Promise<{ engine: Engine; backend: BabylonBackend }> {
+): Promise<{ engine: AbstractEngine; backend: BabylonBackend }> {
   if (await WebGPUEngine.IsSupportedAsync) {
     const engine = new WebGPUEngine(canvas, {
       antialias,
