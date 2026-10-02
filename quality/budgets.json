@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "0.1.0",
+  "browserPolicy": {
+    "release": [
+      {
+        "browser": "chrome",
+        "versions": "current-and-previous-major",
+        "platforms": ["windows", "macos", "linux"],
+        "babylonBackend": "webgpu-preferred-webgl2-fallback",
+        "deckBackend": "webgl2"
+      },
+      {
+        "browser": "edge",
+        "versions": "current-stable-and-extended-stable",
+        "platforms": ["windows", "macos"],
+        "babylonBackend": "webgpu-preferred-webgl2-fallback",
+        "deckBackend": "webgl2"
+      },
+      {
+        "browser": "firefox",
+        "versions": "current-stable",
+        "platforms": ["windows", "macos", "linux"],
+        "babylonBackend": "webgpu-when-supported-webgl2-fallback",
+        "deckBackend": "webgl2"
+      },
+      {
+        "browser": "safari",
+        "versions": "current-major",
+        "platforms": ["macos", "ios", "ipados"],
+        "babylonBackend": "webgpu-when-supported-webgl2-fallback",
+        "deckBackend": "webgl2"
+      },
+      {
+        "browser": "chrome-android",
+        "versions": "current-stable",
+        "platforms": ["android"],
+        "babylonBackend": "webgpu-when-supported-webgl2-fallback",
+        "deckBackend": "webgl2"
+      }
+    ],
+    "ci": {
+      "required": ["chromium"],
+      "planned": ["firefox", "webkit"],
+      "note": "Playwright WebKit is a web-platform signal, not a substitute for release certification on real Safari."
+    }
+  },
+  "accessibility": {
+    "standard": "WCAG 2.2 AA",
+    "minimumPointerTargetCssPx": 24,
+    "preferredTouchTargetCssPx": 44,
+    "keyboardEquivalentRequiredForCanvasCriticalActions": true,
+    "reducedMotionRequired": true
+  },
+  "assetBudgets": {
+    "initialShellBrotliKiB": 300,
+    "lazyThreeDRuntimeBrotliKiB": 1800,
+    "initialCssBrotliKiB": 100,
+    "referenceHomeGlbMiB": 25,
+    "referenceHomeCompressedTexturesMiB": 64,
+    "singleTextureMaxDimensionPx": 4096
+  },
+  "interactionBudgets": {
+    "desktopTargetFrameTimeMs": 16.7,
+    "mobileTargetFrameTimeMs": 33.3,
+    "selectionP95Ms": 50,
+    "cameraInputP95Ms": 50,
+    "liveStateToVisualP95Ms": 100
+  },
+  "startupBudgets": {
+    "referenceDesktopCachedProjectInteractiveMs": 2000,
+    "referenceDesktopColdProjectInteractiveMs": 5000,
+    "referenceMobileCachedProjectInteractiveMs": 4000
+  },
+  "referenceScale": {
+    "renderNodes": 10000,
+    "liveCapabilities": 2000,
+    "simultaneousAnalyticalPoints": 100000,
+    "minimumInteractiveFpsDesktop": 55,
+    "minimumInteractiveFpsMobile": 28
+  },
+  "enforcement": {
+    "policyShape": "hard-ci",
+    "assetBudgets": "hard-when-build-metrics-exist",
+    "interactionBudgets": "hard-when-reference-harness-exists",
+    "startupBudgets": "hard-when-reference-harness-exists",
+    "referenceScale": "release-certification"
+  }
+}
