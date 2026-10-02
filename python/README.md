@@ -1,13 +1,24 @@
-# Python toolchain
+# Teldra Python workspace
 
-Python will host the IFC, Sweet Home 3D import, Blender automation, asset build, and bake pipelines.
+The Python workspace owns IFC manipulation, Sweet Home 3D import, Blender/offline asset automation, and future build/bake tooling. Canonical application semantics remain language-neutral through the checked-in Teldra schemas.
 
-Planned packages:
+## Toolchain
 
-- `twin-ifc`: IfcOpenShell authoring, validation, identity, and migrations;
-- `sh3d-importer`: semantic .sh3d/Home.xml import;
-- `asset-pipeline`: GLB/KTX2/material processing and validation;
-- `bake-pipeline`: Blender/Cycles radiance bases and reflection probes;
-- `cli`: reproducible project import/build/validate/bake commands.
+- Python 3.12
+- uv 0.12.19
+- IfcOpenShell 0.9.0
+- pytest
+- Ruff
 
-The Python workspace will be managed by uv. Python implementation starts after the serialization and identity contracts in this bootstrap are reviewed.
+## Commands
+
+From `python/`:
+
+```bash
+uv sync --group dev
+uv run pytest
+uv run ruff check .
+uv run ruff format --check .
+```
+
+The first package, `teldra-ifc`, deliberately does not depend on Blender or Bonsai. It creates and edits canonical IFC through IfcOpenShell so the same services can later be called by Blender, importers, CLI tools, and tests.

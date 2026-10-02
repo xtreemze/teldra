@@ -42,3 +42,31 @@ jobs:
           python -m json.tool schemas/json/twin.schema.json >/dev/null
           python -m json.tool schemas/json/project.schema.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/twin.json >/dev/null
+
+  python:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          version: "0.12.19"
+          enable-cache: false
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Resolve workspace
+        run: uv sync --group dev
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Test
+        run: uv run pytest
