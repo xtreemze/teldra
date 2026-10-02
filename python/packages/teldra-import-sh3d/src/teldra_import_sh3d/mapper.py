@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from math import cos, sin
 from types import MappingProxyType
+
 import ifcopenshell
 import ifcopenshell.api.aggregate
 import ifcopenshell.api.geometry
