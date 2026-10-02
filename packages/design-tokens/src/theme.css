@@ -1,0 +1,23 @@
+:root {
+  color-scheme: light dark;
+  --teldra-space-1: 0.25rem;
+  --teldra-space-2: 0.5rem;
+  --teldra-space-3: 0.75rem;
+  --teldra-space-4: 1rem;
+  --teldra-radius-control: 0.625rem;
+  --teldra-control-min-size: 2.75rem;
+  --teldra-font-body: ui-sans-serif, system-ui, sans-serif;
+  --teldra-surface: color-mix(in srgb, Canvas 94%, CanvasText 6%);
+  --teldra-surface-hover: color-mix(in srgb, Canvas 88%, CanvasText 12%);
+  --teldra-border: color-mix(in srgb, CanvasText 28%, transparent);
+  --teldra-text: CanvasText;
+  --teldra-accent: AccentColor;
+  --teldra-accent-text: AccentColorText;
+}
+
+body {
+  margin: 0;
+  font-family: var(--teldra-font-body);
+  background: Canvas;
+  color: var(--teldra-text);
+}

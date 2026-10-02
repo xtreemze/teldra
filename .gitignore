@@ -13,6 +13,11 @@ __pycache__/
 .DS_Store
 *.blend1
 
+# Generated UI/test output
+storybook-static/
+playwright-report/
+test-results/
+
 # Derived Teldra artifacts
 *.glb
 *.gltf

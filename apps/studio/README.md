@@ -1,5 +1,15 @@
 # Teldra Studio
 
-Teldra Studio will be the primary browser application for authoring, exploring, and operating a smart-home digital twin.
+Teldra Studio is the primary SolidJS browser application for authoring, exploring, and operating a smart-home digital twin.
 
-The app is intentionally downstream of application and projection packages. UI framework state, camera state, renderer objects, and Home Assistant connection state are not canonical project data.
+SolidJS is a presentation boundary only. Domain, application, projection, Babylon.js, and deck.gl packages remain framework-neutral.
+
+## Component workbench
+
+```bash
+pnpm --filter @teldra/studio storybook
+pnpm --filter @teldra/studio storybook:build
+pnpm --filter @teldra/studio storybook:test
+```
+
+Stories are development specifications. Playwright runs against the built Storybook in Chromium and axe verifies accessibility for representative interactive states.

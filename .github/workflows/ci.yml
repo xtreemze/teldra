@@ -40,6 +40,15 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Build Storybooks
+        run: pnpm storybook:build
+
+      - name: Install Chromium
+        run: pnpm --filter @teldra/studio exec playwright install --with-deps chromium
+
+      - name: Test Storybooks
+        run: pnpm storybook:test
+
       - name: Validate JSON syntax
         run: |
           python -m json.tool schemas/json/twin.schema.json >/dev/null

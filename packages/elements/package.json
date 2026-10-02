@@ -1,0 +1,35 @@
+{
+  "name": "@teldra/elements",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "storybook": "storybook dev -p 6007",
+    "storybook:build": "storybook build -o storybook-static",
+    "storybook:test": "playwright test"
+  },
+  "dependencies": {
+    "@teldra/design-tokens": "workspace:*",
+    "@teldra/ui-core": "workspace:*",
+    "lit": "3.3.3"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@storybook/addon-a11y": "10.6.0",
+    "@storybook/addon-docs": "10.6.0",
+    "@storybook/web-components-vite": "10.6.0",
+    "storybook": "10.6.0",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  },
+  "nx": {
+    "tags": ["layer:runtime"]
+  }
+}
