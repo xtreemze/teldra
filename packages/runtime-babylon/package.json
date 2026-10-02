@@ -1,0 +1,22 @@
+{
+  "name": "@teldra/runtime-babylon",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "types": "./src/index.ts",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@babylonjs/core": "9.29.0",
+    "@babylonjs/loaders": "9.29.0",
+    "@teldra/scene-manifest": "workspace:*"
+  },
+  "nx": {
+    "tags": ["layer:runtime"]
+  }
+}
