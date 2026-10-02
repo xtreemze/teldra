@@ -113,6 +113,7 @@ def test_unknown_level_reference_is_rejected_instead_of_relocated() -> None:
     with pytest.raises(Sh3dIfcMappingError, match="unknown SH3D level"):
         import_home_to_ifc(home)
 
+
 def test_ambiguous_bound_door_window_is_not_attached_by_guessing() -> None:
     home = parse_home_xml(
         b"""<home wallHeight='250'>
