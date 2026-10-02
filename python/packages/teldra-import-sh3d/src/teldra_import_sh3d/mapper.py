@@ -61,7 +61,11 @@ def import_home_to_ifc(
     home: Sh3dHome,
     *,
     project_name: str | None = None,
+    existing_model: ifcopenshell.file | None = None,
 ) -> Sh3dIfcImportResult:
+    preserved_global_ids = (
+        _source_global_ids(existing_model) if existing_model is not None else {}
+    )
     model, spine, contexts = create_ifc4_project(project_name or home.name or "Imported SH3D Home")
     source_to_global_id: dict[str, str] = {}
     warnings: list[str] = []
@@ -85,6 +89,7 @@ def import_home_to_ifc(
             matrix=_placement_matrix(0.0, 0.0, level.elevation_m, 0.0),
             is_si=True,
         )
+        _restore_global_id(storey, level.source, preserved_global_ids)
         _attach_provenance(model, storey, level.source)
         _remember(source_to_global_id, level.source, storey)
 
@@ -103,6 +108,7 @@ def import_home_to_ifc(
             relating_object=container,
             products=[space],
         )
+        _restore_global_id(space, room.source, preserved_global_ids)
         _attach_provenance(model, space, room.source)
         _remember(source_to_global_id, room.source, space)
 
@@ -118,6 +124,7 @@ def import_home_to_ifc(
             relating_structure=container,
             products=[wall_entity],
         )
+        _restore_global_id(wall_entity, wall.source, preserved_global_ids)
         _attach_provenance(model, wall_entity, wall.source)
         _remember(source_to_global_id, wall.source, wall_entity)
         mapped_walls.append(_MappedWall(source=wall, entity=wall_entity))
@@ -178,6 +185,7 @@ def import_home_to_ifc(
             ),
             is_si=True,
         )
+        _restore_global_id(entity, piece.source, preserved_global_ids)
         _attach_provenance(
             model,
             entity,
@@ -382,6 +390,51 @@ def _attach_provenance(
         pset=pset,
         properties=properties,
     )
+
+
+def _source_global_ids(model: ifcopenshell.file) -> dict[str, str]:
+    """Recover source-authored IFC identities from a prior SH3D import."""
+
+    import ifcopenshell.util.element
+
+    identities: dict[str, str] = {}
+    for entity in model.by_type("IfcObject"):
+        global_id = getattr(entity, "GlobalId", None)
+        if not isinstance(global_id, str):
+            continue
+
+        pset = ifcopenshell.util.element.get_psets(entity).get("Teldra_Source")
+        if not isinstance(pset, dict):
+            continue
+        if pset.get("SourceSystem") != "Sweet Home 3D":
+            continue
+        # Derived objects may intentionally carry their source element's
+        # provenance, but they do not own that source identity.
+        if pset.get("DerivedRole") is not None:
+            continue
+
+        source_key = pset.get("SourceKey")
+        if not isinstance(source_key, str):
+            continue
+
+        previous = identities.get(source_key)
+        if previous is not None and previous != global_id:
+            raise Sh3dIfcMappingError(
+                f'Existing IFC contains duplicate SH3D source identity "{source_key}".'
+            )
+        identities[source_key] = global_id
+
+    return identities
+
+
+def _restore_global_id(
+    entity: ifcopenshell.entity_instance,
+    source: Sh3dSourceRef,
+    preserved_global_ids: Mapping[str, str],
+) -> None:
+    global_id = preserved_global_ids.get(source.key)
+    if global_id is not None:
+        entity.GlobalId = global_id
 
 
 def _remember(
