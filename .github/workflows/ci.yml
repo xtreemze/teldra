@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Check generated schema contracts
+        run: pnpm schema:check
+
       - name: Enforce architecture boundaries
         run: pnpm architecture:check
 

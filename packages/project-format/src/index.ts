@@ -4,26 +4,33 @@ import Ajv2020, {
 } from "ajv/dist/2020.js";
 import projectSchema from "@teldra/schemas/project" with { type: "json" };
 import twinSchema from "@teldra/schemas/twin" with { type: "json" };
+import type { SerializedProjectManifest } from "@teldra/schemas/types/project";
 import {
   TwinIntegrityError,
   assertTwinIntegrity,
   type TwinProject,
 } from "@teldra/domain";
+import {
+  ProjectFormatMigrationError,
+  projectMigrationRegistry,
+  twinMigrationRegistry,
+} from "./migrations.js";
 
-export interface ProjectArtifact {
-  path: string;
-  sha256: string;
-}
+export {
+  CURRENT_PROJECT_FORMAT_VERSION,
+  CURRENT_TWIN_SCHEMA_VERSION,
+  MigrationRegistry,
+  ProjectFormatMigrationError,
+  projectMigrationRegistry,
+  twinMigrationRegistry,
+  type MigrationStep,
+} from "./migrations.js";
 
-export interface TeldraProjectManifest {
-  formatVersion: "0.1.0";
-  building: ProjectArtifact;
-  twin: ProjectArtifact;
-  derived?: readonly ProjectArtifact[];
-}
+export type ProjectArtifact = SerializedProjectManifest["building"];
+export type TeldraProjectManifest = SerializedProjectManifest;
 
 export interface ValidationIssue {
-  source: "schema" | "integrity";
+  source: "schema" | "integrity" | "migration";
   path: string;
   message: string;
 }
@@ -94,13 +101,13 @@ export function validateTwinProject(value: unknown): ValidationResult<TwinProjec
 }
 
 export function parseTwinProject(value: unknown): TwinProject {
-  const result = validateTwinProject(value);
-
-  if (!result.valid) {
-    throw new ProjectFormatError("Invalid Teldra twin document.", result.issues);
-  }
-
-  return result.value;
+  return parseMigrated(
+    value,
+    (candidate) => twinMigrationRegistry.migrate(candidate),
+    validateTwinProject,
+    "Invalid Teldra twin document.",
+    "/schemaVersion",
+  );
 }
 
 export function validateProjectManifest(
@@ -121,10 +128,44 @@ export function validateProjectManifest(
 }
 
 export function parseProjectManifest(value: unknown): TeldraProjectManifest {
-  const result = validateProjectManifest(value);
+  return parseMigrated(
+    value,
+    (candidate) => projectMigrationRegistry.migrate(candidate),
+    validateProjectManifest,
+    "Invalid Teldra project manifest.",
+    "/formatVersion",
+  );
+}
+
+function parseMigrated<T>(
+  value: unknown,
+  migrate: (value: unknown) => unknown,
+  validate: (value: unknown) => ValidationResult<T>,
+  message: string,
+  versionPath: string,
+): T {
+  let migrated: unknown;
+
+  try {
+    migrated = migrate(value);
+  } catch (error) {
+    if (error instanceof ProjectFormatMigrationError) {
+      throw new ProjectFormatError(message, [
+        {
+          source: "migration",
+          path: versionPath,
+          message: error.message,
+        },
+      ]);
+    }
+
+    throw error;
+  }
+
+  const result = validate(migrated);
 
   if (!result.valid) {
-    throw new ProjectFormatError("Invalid Teldra project manifest.", result.issues);
+    throw new ProjectFormatError(message, result.issues);
   }
 
   return result.value;
