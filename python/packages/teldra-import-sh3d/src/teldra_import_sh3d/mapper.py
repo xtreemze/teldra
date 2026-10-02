@@ -112,7 +112,9 @@ def import_home_to_ifc(
 
         wall_height = wall.height_m or home.default_wall_height_m
         if wall_height is None:
-            warnings.append(\n                f"{wall.source.key}: wall height is unavailable; body geometry is deferred."\n            )
+            warnings.append(
+                f"{wall.source.key}: wall height is unavailable; body geometry is deferred."
+            )
             continue
 
         level_elevation = _global_z(container)
