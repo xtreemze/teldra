@@ -154,13 +154,12 @@ export class LiveTwinStore {
     const current = this.#capabilities.get(capabilityKey(deviceId, capabilityId));
     const capabilityAvailability = current?.availability;
     const deviceAvailability = this.#deviceAvailability.get(deviceId);
+    const availability = capabilityAvailability ?? deviceAvailability;
 
     return {
       ...(current?.observed === undefined ? {} : { observed: current.observed }),
       ...(current?.desired === undefined ? {} : { desired: current.desired }),
-      ...(capabilityAvailability === undefined && deviceAvailability === undefined
-        ? {}
-        : { availability: capabilityAvailability ?? deviceAvailability }),
+      ...(availability === undefined ? {} : { availability }),
       ...(current?.commandAck === undefined
         ? {}
         : { commandAck: current.commandAck }),
@@ -333,10 +332,10 @@ export class LiveTwinStore {
 }
 
 interface MutableCapabilityRuntimeState {
-  observed?: Observation;
-  desired?: DesiredState;
-  availability?: Availability;
-  commandAck?: CommandAck;
+  observed?: Observation | undefined;
+  desired?: DesiredState | undefined;
+  availability?: Availability | undefined;
+  commandAck?: CommandAck | undefined;
 }
 
 function compareObservationOrder(
