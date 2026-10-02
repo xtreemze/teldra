@@ -119,13 +119,13 @@ export async function createBabylonTwinRuntime(
       return null;
     }
 
-    // Babylon's input manager forwards canvas-local CSS coordinates to
-    // scene.pick(). Do the same here. Scaling to render-buffer pixels would
-    // double-apply device-pixel scaling when adaptToDeviceRatio is enabled.
+    const renderX = (localX / rect.width) * engine.getRenderWidth();
+    const renderY = (localY / rect.height) * engine.getRenderHeight();
+
     return resolvePickedMesh(
       scene.pick(
-        localX,
-        localY,
+        renderX,
+        renderY,
         undefined,
         false,
         scene.cameraToUseForPointers ?? undefined,
