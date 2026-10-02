@@ -4,7 +4,7 @@
  * Run: pnpm schema:generate
  */
 
-export interface SerializedProjectManifest {
+export interface TeldraProjectManifest {
   formatVersion: "0.1.0";
   building: Artifact;
   twin: Artifact;
