@@ -4,7 +4,9 @@
  * Run: pnpm schema:generate
  */
 
-export interface SerializedTwin {
+export type Id = string;
+
+export interface TeldraTwin {
   schemaVersion: "0.1.0";
   building: {
     ifcSchema: "IFC4";
@@ -14,7 +16,7 @@ export interface SerializedTwin {
   bindings: Binding[];
 }
 export interface BuildingReference {
-  id: string;
+  id: Id;
   ifcGlobalId: string;
   kind:
     | "site"
@@ -33,21 +35,21 @@ export interface BuildingReference {
   name?: string;
 }
 export interface Device {
-  id: string;
+  id: Id;
   name: string;
-  buildingRefId?: string;
+  buildingRefId?: Id;
   capabilities: Capability[];
 }
 export interface Capability {
-  id: string;
+  id: Id;
   kind: "light" | "opening" | "sensor" | "climate" | "media" | "switch";
   properties?: {
     [k: string]: unknown;
   };
 }
 export interface Binding {
-  id: string;
-  deviceId: string;
+  id: Id;
+  deviceId: Id;
   adapter: string;
   externalId: string;
   capabilityMap?: {
