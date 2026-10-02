@@ -78,7 +78,7 @@ export class TeldraLightControl extends LitElement {
         type="button"
         aria-pressed=${String(this.on)}
         ?disabled=${this.disabled}
-        @click=${this.#activate}
+        @click=${() => this.#activate()}
       >
         <span class="label">${this.label}</span>
         <span aria-hidden="true">${this.on ? "On" : "Off"}</span>
