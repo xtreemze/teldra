@@ -24,7 +24,8 @@ export function TwinViewport(props: TwinViewportProps) {
 
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading");
   const [backend, setBackend] = createSignal<BabylonBackend | null>(null);
-  const [selected, setSelected] = createSignal<TwinRenderIdentity | null>(null);
+  const [selected, setSelected] =
+    createSignal<TwinRenderIdentity | null | undefined>(undefined);
 
   const resize = () => runtime?.resize();
 
@@ -74,7 +75,9 @@ export function TwinViewport(props: TwinViewportProps) {
         <span data-testid="viewport-status">{status()}</span>
         <span data-testid="viewport-backend">{backend() ?? "pending"}</span>
         <span data-testid="selected-canonical-id">
-          {selected()?.canonicalId ?? "none"}
+          {selected() === undefined
+            ? "unattempted"
+            : selected()?.canonicalId ?? "none"}
         </span>
       </div>
     </section>
