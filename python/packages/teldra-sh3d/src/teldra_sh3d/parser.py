@@ -73,26 +73,16 @@ def parse_home_xml(payload: bytes | str) -> Sh3dHome:
 
     levels = tuple(_parse_level(node, index) for index, node in enumerate(root.findall("level")))
     furniture_nodes = [
-        child
-        for child in root
-        if child.tag in {"pieceOfFurniture", "doorOrWindow", "light"}
+        child for child in root if child.tag in {"pieceOfFurniture", "doorOrWindow", "light"}
     ]
-    furniture = tuple(
-        _parse_furniture(node, index) for index, node in enumerate(furniture_nodes)
-    )
+    furniture = tuple(_parse_furniture(node, index) for index, node in enumerate(furniture_nodes))
     walls = tuple(_parse_wall(node, index) for index, node in enumerate(root.findall("wall")))
     rooms = tuple(_parse_room(node, index) for index, node in enumerate(root.findall("room")))
     camera_nodes = [child for child in root if child.tag in {"camera", "observerCamera"}]
     cameras = tuple(_parse_camera(node, index) for index, node in enumerate(camera_nodes))
 
     unsupported = tuple(
-        sorted(
-            {
-                child.tag
-                for child in root
-                if child.tag in {"furnitureGroup", "shelfUnit"}
-            }
-        )
+        sorted({child.tag for child in root if child.tag in {"furnitureGroup", "shelfUnit"}})
     )
 
     return Sh3dHome(
