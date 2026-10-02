@@ -38,6 +38,11 @@ const targets = [
     target: "schemas/generated/lighting.ts",
     name: "SerializedLightingManifest",
   },
+  {
+    source: "schemas/json/live.schema.json",
+    target: "schemas/generated/live.ts",
+    name: "SerializedLiveEnvelope",
+  },
 ];
 
 let failed = false;
