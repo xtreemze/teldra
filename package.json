@@ -9,13 +9,14 @@
   "scripts": {
     "architecture:check": "node tools/architecture/check-boundaries.mjs",
     "architecture:test": "node --test tools/architecture/*.test.mjs",
+    "quality:check": "node tools/quality/check-policy.mjs",
     "schema:generate": "node tools/schema/generate-types.mjs",
     "schema:check": "node tools/schema/generate-types.mjs --check",
     "storybook:build": "nx run-many -t storybook:build",
     "storybook:test": "nx run-many -t storybook:test --parallel=1",
     "typecheck": "nx run-many -t typecheck",
     "test": "pnpm architecture:test && nx run-many -t test",
-    "ci": "pnpm schema:check && pnpm architecture:check && pnpm typecheck && pnpm test"
+    "ci": "pnpm schema:check && pnpm architecture:check && pnpm quality:check && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "json-schema-to-typescript": "16.0.0",
