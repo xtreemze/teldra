@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/lighting/0.1.0",
+  "title": "Teldra Lighting Manifest",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "source",
+    "radianceSpace",
+    "composition",
+    "radianceBases",
+    "reflectionProbes",
+    "toolchain"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "0.1.0" },
+    "source": { "$ref": "#/$defs/source" },
+    "radianceSpace": { "const": "linear-srgb" },
+    "composition": { "const": "additive-linear" },
+    "radianceBases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/radianceBasis" }
+    },
+    "reflectionProbes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reflectionProbe" }
+    },
+    "toolchain": { "$ref": "#/$defs/toolchain" }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "asset": {
+      "type": "object",
+      "required": ["path", "sha256", "format"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "format": { "enum": ["ktx2", "glb"] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "sceneManifestPath",
+        "sceneManifestSha256",
+        "appearanceManifestPath",
+        "appearanceManifestSha256",
+        "bakeSettingsSha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sceneManifestPath": { "type": "string", "minLength": 1 },
+        "sceneManifestSha256": { "$ref": "#/$defs/sha256" },
+        "appearanceManifestPath": { "type": "string", "minLength": 1 },
+        "appearanceManifestSha256": { "$ref": "#/$defs/sha256" },
+        "bakeSettingsSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "radianceBasis": {
+      "type": "object",
+      "required": [
+        "basisId",
+        "kind",
+        "texture",
+        "uvSet",
+        "nodeKeys",
+        "lightIds",
+        "referenceIntensity",
+        "tintable"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "basisId": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["ambient", "daylight", "fixture-group"] },
+        "texture": { "$ref": "#/$defs/asset" },
+        "uvSet": { "const": 1 },
+        "nodeKeys": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "lightIds": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "referenceIntensity": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "tintable": { "type": "boolean" }
+      }
+    },
+    "vector3": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number" }
+    },
+    "probeInfluence": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["shape", "radius"],
+          "additionalProperties": false,
+          "properties": {
+            "shape": { "const": "sphere" },
+            "radius": { "type": "number", "exclusiveMinimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["shape", "halfExtents"],
+          "additionalProperties": false,
+          "properties": {
+            "shape": { "const": "box" },
+            "halfExtents": { "$ref": "#/$defs/vector3" }
+          }
+        }
+      ]
+    },
+    "reflectionState": {
+      "type": "object",
+      "required": ["stateId", "texture"],
+      "additionalProperties": false,
+      "properties": {
+        "stateId": { "type": "string", "minLength": 1 },
+        "texture": { "$ref": "#/$defs/asset" }
+      }
+    },
+    "reflectionProbe": {
+      "type": "object",
+      "required": ["probeId", "position", "influence", "states"],
+      "additionalProperties": false,
+      "properties": {
+        "probeId": { "type": "string", "minLength": 1 },
+        "position": { "$ref": "#/$defs/vector3" },
+        "influence": { "$ref": "#/$defs/probeInfluence" },
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/reflectionState" }
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "required": [
+        "blenderVersion",
+        "cyclesVersion",
+        "pipelineVersion",
+        "settingsSha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "blenderVersion": { "type": "string", "minLength": 1 },
+        "cyclesVersion": { "type": "string", "minLength": 1 },
+        "pipelineVersion": { "type": "string", "minLength": 1 },
+        "settingsSha256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  }
+}
