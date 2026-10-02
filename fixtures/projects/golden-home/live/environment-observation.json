@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "0.1.0",
+  "kind": "observation",
+  "eventId": "observation:climate:13",
+  "subject": {
+    "deviceId": "device:living-room-climate",
+    "capabilityId": "cap:living-room-environment"
+  },
+  "source": {
+    "adapter": "fixture",
+    "streamId": "fixture:environment",
+    "sequence": 13
+  },
+  "observedAt": "2026-10-02T18:00:02Z",
+  "receivedAt": "2026-10-02T18:00:02Z",
+  "values": {
+    "temperature": { "kind": "number", "value": 21.4, "unit": "Cel" },
+    "humidity": { "kind": "number", "value": 0.47, "unit": "ratio" },
+    "co2": { "kind": "number", "value": 612, "unit": "ppm" }
+  }
+}
