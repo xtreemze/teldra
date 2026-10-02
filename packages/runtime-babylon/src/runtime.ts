@@ -155,11 +155,15 @@ export async function createBabylonTwinRuntime(
     const renderHeight = engine.getRenderHeight();
     const viewport = camera.viewport.toGlobal(renderWidth, renderHeight);
     const projected = Vector3.Project(
-      mesh.getBoundingInfo().boundingSphere.centerWorld,
-      Matrix.Identity(),
+      mesh.getBoundingInfo().boundingSphere.center,
+      mesh.getWorldMatrix(),
       scene.getTransformMatrix(),
       viewport,
     );
+
+    if (projected.z < 0 || projected.z > 1) {
+      return null;
+    }
 
     return {
       clientX: rect.left + (projected.x / renderWidth) * rect.width,
