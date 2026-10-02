@@ -9,6 +9,7 @@ export {
 export {
   createBabylonTwinRuntime,
   type BabylonBackend,
+  type BabylonClientPoint,
   type BabylonTwinRuntime,
   type BabylonTwinRuntimeOptions,
 } from "./runtime.js";
