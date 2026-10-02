@@ -64,7 +64,7 @@ function IdentityPickingHarness() {
           setProjected(handle.projectNode(fixtureNodeKey));
         }}
       />
-      <output aria-label="Projected fixture client position">
+      <output hidden aria-label="Projected fixture client position">
         <span data-testid="projected-client-x">
           {projected()?.clientX ?? "pending"}
         </span>
