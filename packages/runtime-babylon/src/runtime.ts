@@ -2,6 +2,7 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
+import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
@@ -25,7 +26,7 @@ export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
   load(glbUrl: string): Promise<void>;
-  pick(clientX: number, clientY: number): TwinRenderIdentity | null;
+  onPick(listener: (identity: TwinRenderIdentity | null) => void): () => void;
   start(): void;
   stop(): void;
   resize(): void;
@@ -77,6 +78,19 @@ export async function createBabylonTwinRuntime(
 
   ensureLoadersRegistered();
 
+  const resolvePickedMesh = (
+    pickedMesh: AbstractMesh | null | undefined,
+  ): TwinRenderIdentity | null => {
+    if (pickedMesh === null || pickedMesh === undefined) {
+      return null;
+    }
+
+    return (
+      identityByMesh.get(pickedMesh) ??
+      resolveTwinIdentity(pickedMesh, manifestByNodeKey)
+    );
+  };
+
   return {
     backend,
     manifest,
@@ -120,22 +134,19 @@ export async function createBabylonTwinRuntime(
       }
     },
 
-    pick(clientX: number, clientY: number): TwinRenderIdentity | null {
-      const rect = canvas.getBoundingClientRect();
-      const result = scene.pick(
-        clientX - rect.left,
-        clientY - rect.top,
+    onPick(listener): () => void {
+      const observer = scene.onPointerObservable.add(
+        (pointerInfo) => {
+          listener(resolvePickedMesh(pointerInfo.pickInfo?.pickedMesh));
+        },
+        PointerEventTypes.POINTERPICK,
       );
-      const pickedMesh = result?.pickedMesh ?? null;
 
-      if (pickedMesh === null) {
-        return null;
-      }
-
-      return (
-        identityByMesh.get(pickedMesh) ??
-        resolveTwinIdentity(pickedMesh, manifestByNodeKey)
-      );
+      return () => {
+        if (observer !== null) {
+          scene.onPointerObservable.remove(observer);
+        }
+      };
     },
 
     start(): void {
