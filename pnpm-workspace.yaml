@@ -4,4 +4,5 @@ packages:
   - "schemas"
 
 allowBuilds:
+  esbuild@0.28.2: true
   nx@23.2.1: true
