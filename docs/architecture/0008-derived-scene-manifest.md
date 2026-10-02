@@ -18,13 +18,29 @@ A canonical object may produce multiple renderer nodes. Therefore:
 - non-building nodes must not impersonate IFC identity;
 - `renderPart` distinguishes body, label anchor, helper, or other derived parts when useful.
 
-The exporter must embed the same `nodeKey` into the matching GLB node metadata so runtime picking can resolve through the manifest without depending on node array indices or human-readable names.
+The exporter must embed the same `nodeKey` into the matching GLB node `extras.teldra` metadata so runtime picking can resolve through the manifest without depending on node array indices or human-readable names.
 
 ## Coordinates
 
-The manifest records the canonical-to-scene transform explicitly and follows ADR 0005. Teldra canonical/project space remains metres, right-handed, and Z-up. Exporters may adopt transport-native conventions only through an explicit matrix.
+The manifest records the canonical-to-scene transform explicitly and follows ADR 0005. Teldra canonical/project space remains metres, right-handed, and Z-up. glTF is transported as right-handed Y-up.
+
+All 4×4 matrices in scene manifests use column-major array layout.
+
+The baseline canonical-to-glTF transform rotates -90° about X:
+
+```text
+canonical (x, y, z) -> glTF (x, z, -y)
+```
+
+Exporters may introduce additional transport transforms only when they are recorded explicitly in the manifest.
 
 Per-node canonical transforms are optional because the GLB already carries local scene transforms; they are included when a consumer needs an independently verifiable canonical placement.
+
+## Geometry conversion
+
+The baseline exporter uses IfcOpenShell's geometry iterator and official glTF/GLB serializer. Teldra does not maintain a competing IFC triangulation engine.
+
+After serialization, Teldra rewrites only the GLB JSON chunk to attach canonical identity metadata. Binary geometry chunks remain unchanged.
 
 ## Hashes and invalidation
 
