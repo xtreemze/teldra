@@ -2,7 +2,6 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
-import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
@@ -230,17 +229,14 @@ export async function createBabylonTwinRuntime(
     },
 
     onPick(listener): () => void {
-      const observer = scene.onPointerObservable.add(
-        (pointerInfo) => {
-          listener(resolvePickedMesh(pointerInfo.pickInfo?.pickedMesh));
-        },
-        PointerEventTypes.POINTERPICK,
-      );
+      const handleClick = (event: MouseEvent) => {
+        listener(pickAtClient(event.clientX, event.clientY));
+      };
+
+      canvas.addEventListener("click", handleClick);
 
       return () => {
-        if (observer !== null) {
-          scene.onPointerObservable.remove(observer);
-        }
+        canvas.removeEventListener("click", handleClick);
       };
     },
 
