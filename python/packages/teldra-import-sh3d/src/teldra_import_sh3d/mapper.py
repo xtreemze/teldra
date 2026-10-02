@@ -221,11 +221,7 @@ def _bind_door_or_window(
     if binding is None or not binding.bound_to_wall:
         return
 
-    candidates = [
-        mapped
-        for mapped in mapped_walls
-        if _piece_matches_wall(piece, mapped.source)
-    ]
+    candidates = [mapped for mapped in mapped_walls if _piece_matches_wall(piece, mapped.source)]
 
     if len(candidates) != 1:
         warnings.append(
