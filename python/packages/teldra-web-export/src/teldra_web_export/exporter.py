@@ -316,9 +316,7 @@ def _write_glb(
             payload = json_payload
             replaced_json = True
 
-        encoded_chunks.append(
-            struct.pack("<II", len(payload), chunk_type) + payload
-        )
+        encoded_chunks.append(struct.pack("<II", len(payload), chunk_type) + payload)
 
     if not replaced_json:
         raise WebSceneExportError("Cannot rewrite GLB without JSON chunk.")
