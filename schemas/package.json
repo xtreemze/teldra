@@ -5,8 +5,10 @@
   "type": "module",
   "exports": {
     "./project": "./json/project.schema.json",
+    "./scene": "./json/scene.schema.json",
     "./twin": "./json/twin.schema.json",
     "./types/project": "./generated/project.ts",
+    "./types/scene": "./generated/scene.ts",
     "./types/twin": "./generated/twin.ts"
   },
   "nx": {

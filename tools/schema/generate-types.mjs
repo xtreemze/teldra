@@ -23,6 +23,11 @@ const targets = [
     target: "schemas/generated/project.ts",
     name: "SerializedProjectManifest",
   },
+  {
+    source: "schemas/json/scene.schema.json",
+    target: "schemas/generated/scene.ts",
+    name: "SerializedSceneManifest",
+  },
 ];
 
 let failed = false;

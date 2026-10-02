@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/scene/0.1.0",
+  "title": "Teldra Scene Manifest",
+  "type": "object",
+  "required": ["schemaVersion", "coordinateSystem", "source", "scene", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "coordinateSystem": {
+      "$ref": "#/$defs/coordinateSystem"
+    },
+    "source": {
+      "$ref": "#/$defs/sourceArtifact"
+    },
+    "scene": {
+      "$ref": "#/$defs/sceneArtifact"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sceneNode"
+      }
+    },
+    "lightingManifestPath": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$defs": {
+    "matrix4": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "items": {
+        "type": "number"
+      }
+    },
+    "coordinateSystem": {
+      "type": "object",
+      "required": ["unit", "handedness", "upAxis"],
+      "additionalProperties": false,
+      "properties": {
+        "unit": {
+          "const": "metre"
+        },
+        "handedness": {
+          "const": "right"
+        },
+        "upAxis": {
+          "const": "Z"
+        }
+      }
+    },
+    "sourceArtifact": {
+      "type": "object",
+      "required": ["buildingPath", "buildingSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "buildingPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "buildingSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "sceneArtifact": {
+      "type": "object",
+      "required": ["assetPath", "assetSha256", "format", "canonicalToScene"],
+      "additionalProperties": false,
+      "properties": {
+        "assetPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assetSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "format": {
+          "const": "glb"
+        },
+        "canonicalToScene": {
+          "$ref": "#/$defs/matrix4"
+        }
+      }
+    },
+    "sceneNode": {
+      "type": "object",
+      "required": ["nodeKey", "canonicalId", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "nodeKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ifcGlobalId": {
+          "type": "string",
+          "minLength": 22,
+          "maxLength": 22
+        },
+        "kind": {
+          "enum": ["building", "device", "presentation"]
+        },
+        "renderPart": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonicalToNode": {
+          "$ref": "#/$defs/matrix4"
+        }
+      }
+    }
+  }
+}
