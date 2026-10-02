@@ -12,9 +12,9 @@ const meta = {
   title: "Elements/LightControl",
   render: (args: LightControlArgs) => html`
     <teldra-light-control
-      label=${args.label}
-      ?on=${args.on}
-      ?disabled=${args.disabled}
+      .label=${args.label}
+      .on=${args.on}
+      .disabled=${args.disabled}
     ></teldra-light-control>
   `,
   args: {
