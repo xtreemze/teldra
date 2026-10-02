@@ -36,6 +36,8 @@ Desired state never silently overwrites observed state.
 
 An optimistic UI may display desired values while a command is pending, but must preserve enough state to distinguish them from observed values and reconcile on observation, rejection, failure, or timeout.
 
+Timeout reconciliation is explicit: the runtime store exposes a clock-driven expiry sweep. Application code must advance that clock policy rather than relying on reads to mutate state implicitly.
+
 ### Command acknowledgement
 
 An acknowledgement describes adapter/transport lifecycle:
@@ -58,6 +60,8 @@ Availability is separate from capability values:
 
 `stale` is not serialized as availability. Staleness is derived from the age of the last accepted observation and a capability/application freshness policy.
 
+Device-level and capability-level availability share one effective timeline. The newest applicable event wins; a stale capability-level `online` event must not mask a newer device-level `offline` event.
+
 ## Time and ordering
 
 `observedAt` is the source event time.
@@ -71,6 +75,10 @@ For two observations of the same capability from the same stream:
 1. higher sequence wins when both have a sequence;
 2. otherwise later `observedAt` wins;
 3. `receivedAt` is a deterministic final tie-breaker.
+
+Availability and command-ack events use the same-stream sequence when both events provide one. Availability falls back to `observedAt` then `receivedAt`; command acknowledgements fall back to `receivedAt`.
+
+Sequences from different streams are not comparable. Across streams, observations and availability therefore fall back to source/receive timestamps. If a future deployment allows multiple simultaneously authoritative adapters for one capability, source-arbitration policy must be explicit rather than inferred from adapter names.
 
 An older/out-of-order envelope may remain useful for history but must not replace newer current state.
 
