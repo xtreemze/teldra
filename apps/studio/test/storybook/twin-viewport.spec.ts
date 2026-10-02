@@ -11,9 +11,11 @@ test("loads the GLB and resolves a picked render node to canonical identity", as
   const canvas = page.getByTestId("twin-canvas");
   await expect(canvas).toBeVisible();
 
+  const selection = page.getByTestId("selected-canonical-id");
+  await expect(selection).toHaveText("unattempted");
+
   await canvas.click();
 
-  await expect(page.getByTestId("selected-canonical-id")).toHaveText(
-    "wall:fixture",
-  );
+  await expect(selection).not.toHaveText("unattempted");
+  await expect(selection).toHaveText("wall:fixture");
 });
