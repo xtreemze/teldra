@@ -28,6 +28,16 @@ const targets = [
     target: "schemas/generated/scene.ts",
     name: "SerializedSceneManifest",
   },
+  {
+    source: "schemas/json/appearance.schema.json",
+    target: "schemas/generated/appearance.ts",
+    name: "SerializedAppearanceManifest",
+  },
+  {
+    source: "schemas/json/lighting.schema.json",
+    target: "schemas/generated/lighting.ts",
+    name: "SerializedLightingManifest",
+  },
 ];
 
 let failed = false;
