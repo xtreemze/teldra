@@ -1,0 +1,50 @@
+{
+  "schemaVersion": "0.1.0",
+  "coordinateSystem": {
+    "unit": "metre",
+    "handedness": "right",
+    "upAxis": "Z"
+  },
+  "source": {
+    "buildingPath": "building.ifc",
+    "buildingSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "scene": {
+    "assetPath": "cache/scene.glb",
+    "assetSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "format": "glb",
+    "canonicalToScene": [
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 1, 0,
+      0, 0, 0, 1
+    ]
+  },
+  "nodes": [
+    {
+      "nodeKey": "ifc:3ZYNKvi3P3FvKPBGP9UP7n:body",
+      "canonicalId": "space:living-room",
+      "ifcGlobalId": "3ZYNKvi3P3FvKPBGP9UP7n",
+      "kind": "building",
+      "renderPart": "body",
+      "canonicalToNode": [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1
+      ]
+    },
+    {
+      "nodeKey": "ifc:0ufYQjmwP0Ah$QRRxVbqR3:body",
+      "canonicalId": "fixture:living-room-floor-lamp",
+      "ifcGlobalId": "0ufYQjmwP0Ah$QRRxVbqR3",
+      "kind": "building",
+      "renderPart": "body"
+    },
+    {
+      "nodeKey": "device:living-room-floor-lamp",
+      "canonicalId": "device:living-room-floor-lamp",
+      "kind": "device"
+    }
+  ]
+}
