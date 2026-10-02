@@ -8,6 +8,7 @@ import type {
   CommandAck,
   DesiredState,
   Observation,
+  StateValue,
   TeldraLiveEnvelope,
   Values,
 } from "@teldra/schemas/types/live";
@@ -154,7 +155,10 @@ export class LiveTwinStore {
     const current = this.#capabilities.get(capabilityKey(deviceId, capabilityId));
     const capabilityAvailability = current?.availability;
     const deviceAvailability = this.#deviceAvailability.get(deviceId);
-    const availability = capabilityAvailability ?? deviceAvailability;
+    const availability = latestAvailability(
+      capabilityAvailability,
+      deviceAvailability,
+    );
 
     return {
       ...(current?.observed === undefined ? {} : { observed: current.observed }),
@@ -164,6 +168,21 @@ export class LiveTwinStore {
         ? {}
         : { commandAck: current.commandAck }),
     };
+  }
+
+  expireDesiredStates(now: string): number {
+    // Validate the caller's clock value even when there are no desired states.
+    timestampMs(now);
+
+    let expired = 0;
+    for (const state of this.#capabilities.values()) {
+      if (state.desired !== undefined && isExpired(state.desired, now)) {
+        state.desired = undefined;
+        expired += 1;
+      }
+    }
+
+    return expired;
   }
 
   getEffectiveValues(
@@ -312,8 +331,7 @@ export class LiveTwinStore {
 
     if (
       state.commandAck !== undefined &&
-      state.commandAck.commandId === event.commandId &&
-      compareTimestamp(event.receivedAt, state.commandAck.receivedAt) < 0
+      compareCommandAckOrder(event, state.commandAck) < 0
     ) {
       return { status: "ignored-older" };
     }
@@ -363,6 +381,37 @@ function compareTimedEventOrder(
     : compareTimestamp(next.receivedAt, previous.receivedAt);
 }
 
+function compareCommandAckOrder(
+  next: CommandAck,
+  previous: CommandAck,
+): number {
+  if (
+    next.source.streamId === previous.source.streamId &&
+    next.source.sequence !== undefined &&
+    previous.source.sequence !== undefined
+  ) {
+    return next.source.sequence - previous.source.sequence;
+  }
+
+  return compareTimestamp(next.receivedAt, previous.receivedAt);
+}
+
+function latestAvailability(
+  capability: Availability | undefined,
+  device: Availability | undefined,
+): Availability | undefined {
+  if (capability === undefined) {
+    return device;
+  }
+  if (device === undefined) {
+    return capability;
+  }
+
+  return compareTimedEventOrder(capability, device) >= 0
+    ? capability
+    : device;
+}
+
 function compareTimestamp(next: string, previous: string): number {
   return timestampMs(next) - timestampMs(previous);
 }
@@ -398,11 +447,39 @@ function valuesEqual(left: Values, right: Values): boolean {
   }
 
   return leftKeys.every((key) =>
-    JSON.stringify(left[key]) === JSON.stringify(right[key]));
+    stateValueEqual(left[key], right[key]));
+}
+
+function stateValueEqual(
+  left: StateValue | undefined,
+  right: StateValue | undefined,
+): boolean {
+  if (left === undefined || right === undefined || left.kind !== right.kind) {
+    return false;
+  }
+
+  switch (left.kind) {
+    case "boolean":
+    case "text":
+      return left.value === right.value;
+    case "number":
+      return (
+        right.kind === "number" &&
+        Object.is(left.value, right.value) &&
+        left.unit === right.unit
+      );
+    case "rgb":
+      return (
+        right.kind === "rgb" &&
+        left.value.length === right.value.length &&
+        left.value.every((component, index) =>
+          Object.is(component, right.value[index]))
+      );
+  }
 }
 
 function capabilityKey(deviceId: string, capabilityId: string): string {
-  return `${deviceId}\u0000${capabilityId}`;
+  return JSON.stringify([deviceId, capabilityId]);
 }
 
 function validateIntegrity(
