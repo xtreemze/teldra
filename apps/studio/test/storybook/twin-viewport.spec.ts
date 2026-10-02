@@ -14,7 +14,19 @@ test("loads the GLB and resolves a picked render node to canonical identity", as
   const selection = page.getByTestId("selected-canonical-id");
   await expect(selection).toHaveText("unattempted");
 
-  await canvas.click();
+  const projectedX = page.getByTestId("projected-client-x");
+  const projectedY = page.getByTestId("projected-client-y");
+
+  await expect(projectedX).not.toHaveText("pending");
+  await expect(projectedY).not.toHaveText("pending");
+
+  const clientX = Number(await projectedX.textContent());
+  const clientY = Number(await projectedY.textContent());
+
+  expect(Number.isFinite(clientX)).toBe(true);
+  expect(Number.isFinite(clientY)).toBe(true);
+
+  await page.mouse.click(clientX, clientY);
 
   await expect(selection).not.toHaveText("unattempted");
   await expect(selection).toHaveText("wall:fixture");
