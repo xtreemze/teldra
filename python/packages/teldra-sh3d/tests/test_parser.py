@@ -6,13 +6,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import pytest
 from teldra_sh3d import Sh3dFormatError, load_sh3d, parse_home_xml
 
-FIXTURE = (
-    Path(__file__).parents[4]
-    / "fixtures"
-    / "sh3d"
-    / "golden-home"
-    / "Home.xml"
-)
+FIXTURE = Path(__file__).parents[4] / "fixtures" / "sh3d" / "golden-home" / "Home.xml"
 
 
 def test_parse_home_xml_normalizes_lengths_to_metres_and_preserves_semantics() -> None:
