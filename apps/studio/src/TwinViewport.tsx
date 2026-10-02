@@ -18,6 +18,7 @@ export interface TwinViewportClientPoint {
 
 export interface TwinViewportHandle {
   projectNode(nodeKey: string): TwinViewportClientPoint | null;
+  pick(clientX: number, clientY: number): TwinRenderIdentity | null;
 }
 
 export interface TwinViewportProps {
@@ -58,6 +59,9 @@ export function TwinViewport(props: TwinViewportProps) {
         props.onReady?.({
           projectNode(nodeKey) {
             return readyRuntime.projectNode(nodeKey);
+          },
+          pick(clientX, clientY) {
+            return readyRuntime.pick(clientX, clientY);
           },
         });
 
