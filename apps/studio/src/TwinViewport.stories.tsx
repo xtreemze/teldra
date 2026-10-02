@@ -54,6 +54,7 @@ type Story = StoryObj<typeof meta>;
 function IdentityPickingHarness() {
   const [projected, setProjected] =
     createSignal<TwinViewportClientPoint | null>(null);
+  const [roundTripId, setRoundTripId] = createSignal<string>("pending");
 
   return (
     <>
@@ -61,7 +62,13 @@ function IdentityPickingHarness() {
         manifest={manifest}
         glbUrl="/fixtures/twin-pick.glb"
         onReady={(handle) => {
-          setProjected(handle.projectNode(fixtureNodeKey));
+          const point = handle.projectNode(fixtureNodeKey);
+          setProjected(point);
+          if (point !== null) {
+            setRoundTripId(
+              handle.pick(point.clientX, point.clientY)?.canonicalId ?? "none",
+            );
+          }
         }}
       />
       <output hidden aria-label="Projected fixture client position">
@@ -71,6 +78,7 @@ function IdentityPickingHarness() {
         <span data-testid="projected-client-y">
           {projected()?.clientY ?? "pending"}
         </span>
+        <span data-testid="projected-roundtrip-id">{roundTripId()}</span>
       </output>
     </>
   );
