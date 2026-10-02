@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.1.0",
+  "kind": "observation",
+  "eventId": "observation:media:21",
+  "subject": {
+    "deviceId": "device:living-room-speaker",
+    "capabilityId": "cap:living-room-media"
+  },
+  "source": {
+    "adapter": "fixture",
+    "streamId": "fixture:media",
+    "sequence": 21
+  },
+  "observedAt": "2026-10-02T18:00:03Z",
+  "receivedAt": "2026-10-02T18:00:03Z",
+  "values": {
+    "playback": { "kind": "text", "value": "playing" },
+    "volume": { "kind": "number", "value": 0.4, "unit": "ratio" }
+  }
+}
