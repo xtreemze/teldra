@@ -24,6 +24,10 @@
         "$ref": "#/$defs/sceneNode"
       }
     },
+    "appearanceManifestPath": {
+      "type": "string",
+      "minLength": 1
+    },
     "lightingManifestPath": {
       "type": "string",
       "minLength": 1
