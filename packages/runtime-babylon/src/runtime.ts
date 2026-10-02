@@ -5,7 +5,7 @@ import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Scene } from "@babylonjs/core/scene";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
@@ -21,10 +21,16 @@ import {
 
 export type BabylonBackend = "webgpu" | "webgl";
 
+export interface BabylonClientPoint {
+  readonly clientX: number;
+  readonly clientY: number;
+}
+
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
   load(glbUrl: string): Promise<void>;
+  projectNode(nodeKey: string): BabylonClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
   onPick(listener: (identity: TwinRenderIdentity | null) => void): () => void;
   start(): void;
@@ -48,6 +54,7 @@ export async function createBabylonTwinRuntime(
   const manifest = parseSceneManifest(manifestInput);
   const manifestByNodeKey = indexSceneManifest(manifest);
   const identityByMesh = new WeakMap<AbstractMesh, TwinRenderIdentity>();
+  const meshByNodeKey = new Map<string, AbstractMesh>();
   const { engine, backend } = await createEngine(
     canvas,
     options.antialias ?? true,
@@ -102,6 +109,8 @@ export async function createBabylonTwinRuntime(
     const localY = clientY - rect.top;
 
     if (
+      rect.width <= 0 ||
+      rect.height <= 0 ||
       localX < 0 ||
       localY < 0 ||
       localX > rect.width ||
@@ -110,7 +119,53 @@ export async function createBabylonTwinRuntime(
       return null;
     }
 
-    return resolvePickedMesh(scene.pick(localX, localY)?.pickedMesh);
+    const renderWidth = engine.getRenderWidth();
+    const renderHeight = engine.getRenderHeight();
+    const renderX = (localX / rect.width) * renderWidth;
+    const renderY = (localY / rect.height) * renderHeight;
+
+    return resolvePickedMesh(
+      scene.pick(
+        renderX,
+        renderY,
+        undefined,
+        false,
+        scene.cameraToUseForPointers ?? undefined,
+      )?.pickedMesh,
+    );
+  };
+
+  const projectNodeToClient = (
+    nodeKey: string,
+  ): BabylonClientPoint | null => {
+    const mesh = meshByNodeKey.get(nodeKey);
+    const camera = scene.cameraToUseForPointers ?? scene.activeCamera;
+    const rect = canvas.getBoundingClientRect();
+
+    if (
+      mesh === undefined ||
+      camera === null ||
+      rect.width <= 0 ||
+      rect.height <= 0
+    ) {
+      return null;
+    }
+
+    mesh.computeWorldMatrix(true);
+    const renderWidth = engine.getRenderWidth();
+    const renderHeight = engine.getRenderHeight();
+    const viewport = camera.viewport.toGlobal(renderWidth, renderHeight);
+    const projected = Vector3.Project(
+      mesh.getBoundingInfo().boundingSphere.centerWorld,
+      Matrix.Identity(),
+      scene.getTransformMatrix(),
+      viewport,
+    );
+
+    return {
+      clientX: rect.left + (projected.x / renderWidth) * rect.width,
+      clientY: rect.top + (projected.y / renderHeight) * rect.height,
+    };
   };
 
   return {
@@ -133,6 +188,7 @@ export async function createBabylonTwinRuntime(
         const identity = resolveTwinIdentity(mesh, manifestByNodeKey);
         if (identity !== null) {
           identityByMesh.set(mesh, identity);
+          meshByNodeKey.set(identity.nodeKey, mesh);
           if (identity.ifcGlobalId !== undefined) {
             loadedBuildingNodeKeys.add(identity.nodeKey);
           }
@@ -160,6 +216,10 @@ export async function createBabylonTwinRuntime(
       // world matrices, materials, and the first pickable frame are ready.
       await scene.whenReadyAsync();
       scene.render();
+    },
+
+    projectNode(nodeKey: string): BabylonClientPoint | null {
+      return projectNodeToClient(nodeKey);
     },
 
     pick(clientX: number, clientY: number): TwinRenderIdentity | null {
