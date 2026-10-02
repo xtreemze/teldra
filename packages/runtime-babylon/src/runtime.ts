@@ -11,6 +11,7 @@ import {
   parseSceneManifest,
   type TeldraSceneManifest,
 } from "@teldra/scene-manifest";
+import { toRenderCoordinates } from "./coordinates.js";
 import {
   indexSceneManifest,
   resolveTwinIdentity,
@@ -83,9 +84,21 @@ export async function createBabylonTwinRuntime(
 
     pick(clientX: number, clientY: number): TwinRenderIdentity | null {
       const rect = canvas.getBoundingClientRect();
-      const x = clientX - rect.left;
-      const y = clientY - rect.top;
-      const result = scene.pick(x, y);
+      const point = toRenderCoordinates(
+        {
+          x: clientX - rect.left,
+          y: clientY - rect.top,
+        },
+        {
+          width: rect.width,
+          height: rect.height,
+        },
+        {
+          width: engine.getRenderWidth(),
+          height: engine.getRenderHeight(),
+        },
+      );
+      const result = scene.pick(point.x, point.y);
 
       return resolveTwinIdentity(result?.pickedMesh ?? null, manifestByNodeKey);
     },
