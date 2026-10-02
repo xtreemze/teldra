@@ -105,6 +105,7 @@ export async function createBabylonTwinRuntime(
       const loadedBuildingNodeKeys = new Set<string>();
 
       for (const mesh of renderMeshes) {
+        mesh.isPickable = true;
         mesh.computeWorldMatrix(true);
 
         const identity = resolveTwinIdentity(mesh, manifestByNodeKey);
