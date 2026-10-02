@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "0.1.0",
+  "source": {
+    "sceneManifestPath": "scene.manifest.json",
+    "sceneManifestSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "appearanceManifestPath": "appearance.manifest.json",
+    "appearanceManifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "bakeSettingsSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "radianceSpace": "linear-srgb",
+  "composition": "additive-linear",
+  "radianceBases": [
+    {
+      "basisId": "ambient",
+      "kind": "ambient",
+      "texture": {
+        "path": "cache/lighting/ambient.ktx2",
+        "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "format": "ktx2"
+      },
+      "uvSet": 1,
+      "nodeKeys": ["ifc:3ZYNKvi3P3FvKPBGP9UP7n:body"],
+      "lightIds": [],
+      "referenceIntensity": 1,
+      "tintable": false
+    },
+    {
+      "basisId": "living-room-floor-lamp",
+      "kind": "fixture-group",
+      "texture": {
+        "path": "cache/lighting/living-room-floor-lamp.ktx2",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "format": "ktx2"
+      },
+      "uvSet": 1,
+      "nodeKeys": ["ifc:3ZYNKvi3P3FvKPBGP9UP7n:body"],
+      "lightIds": ["device:living-room-floor-lamp"],
+      "referenceIntensity": 1,
+      "tintable": true
+    }
+  ],
+  "reflectionProbes": [
+    {
+      "probeId": "living-room",
+      "position": [0, 0, 1.5],
+      "influence": {
+        "shape": "box",
+        "halfExtents": [3, 2, 1.5]
+      },
+      "states": [
+        {
+          "stateId": "daylight",
+          "texture": {
+            "path": "cache/reflections/living-room-daylight.ktx2",
+            "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "format": "ktx2"
+          }
+        },
+        {
+          "stateId": "evening",
+          "texture": {
+            "path": "cache/reflections/living-room-evening.ktx2",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+            "format": "ktx2"
+          }
+        }
+      ]
+    }
+  ],
+  "toolchain": {
+    "blenderVersion": "fixture-not-baked",
+    "cyclesVersion": "fixture-not-baked",
+    "pipelineVersion": "0.1.0",
+    "settingsSha256": "4444444444444444444444444444444444444444444444444444444444444444"
+  }
+}
