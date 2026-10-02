@@ -119,14 +119,11 @@ export async function createBabylonTwinRuntime(
       return null;
     }
 
-    const renderX = (localX / rect.width) * engine.getRenderWidth();
-    const renderY = (localY / rect.height) * engine.getRenderHeight();
-
     return resolvePickedMesh(
       scene.pick(
-        renderX,
-        renderY,
-        undefined,
+        localX,
+        localY,
+        (mesh) => identityByMesh.has(mesh),
         false,
         scene.cameraToUseForPointers ?? undefined,
       )?.pickedMesh,
