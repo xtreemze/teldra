@@ -6,6 +6,7 @@ import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Ray } from "@babylonjs/core/Culling/ray";
 import { Scene } from "@babylonjs/core/scene";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
@@ -147,70 +148,51 @@ export async function createBabylonTwinRuntime(
     }
 
     mesh.computeWorldMatrix(true);
+
+    // First establish a real surface point using a world-space ray. This
+    // separates mesh/CPU-picking readiness from screen-coordinate conversion.
+    const center = mesh.getBoundingInfo().boundingSphere.centerWorld;
+    const origin = camera.globalPosition;
+    const direction = center.subtract(origin);
+    if (direction.lengthSquared() <= Number.EPSILON) {
+      return null;
+    }
+    direction.normalize();
+
+    const surfacePick = scene.pickWithRay(
+      new Ray(origin, direction),
+      (candidate) => identityByMesh.get(candidate)?.nodeKey === nodeKey,
+      false,
+    );
+    const surfacePoint = surfacePick?.pickedPoint;
+
+    if (surfacePoint === null || surfacePoint === undefined) {
+      return null;
+    }
+
     const renderWidth = engine.getRenderWidth();
     const renderHeight = engine.getRenderHeight();
     const viewport = camera.viewport.toGlobal(renderWidth, renderHeight);
-    const transform = scene.getTransformMatrix();
+    const projected = Vector3.Project(
+      surfacePoint,
+      Matrix.Identity(),
+      scene.getTransformMatrix(),
+      viewport,
+    );
+
+    if (projected.z < 0 || projected.z > 1) {
+      return null;
+    }
+
     const hardwareScaling = engine.getHardwareScalingLevel();
-
-    const toClient = (world: Vector3): BabylonClientPoint | null => {
-      const projected = Vector3.Project(
-        world,
-        Matrix.Identity(),
-        transform,
-        viewport,
-      );
-
-      if (projected.z < 0 || projected.z > 1) {
-        return null;
-      }
-
-      // Babylon's CreatePickingRayToRef converts CSS input coordinates to
-      // render-buffer coordinates with 1 / hardwareScalingLevel. Apply the
-      // exact inverse here rather than deriving a ratio from DOM bounds.
-      return {
-        clientX: rect.left + projected.x * hardwareScaling,
-        clientY: rect.top + projected.y * hardwareScaling,
-      };
+    const point = {
+      clientX: rect.left + projected.x * hardwareScaling,
+      clientY: rect.top + projected.y * hardwareScaling,
     };
 
-    const bounds = mesh.getBoundingInfo();
-    const center = toClient(bounds.boundingSphere.centerWorld);
-    const corners = bounds.boundingBox.vectorsWorld
-      .map(toClient)
-      .filter((point): point is BabylonClientPoint => point !== null);
-
-    const candidates: BabylonClientPoint[] = center === null ? [] : [center];
-
-    if (corners.length > 0) {
-      const xs = corners.map((point) => point.clientX);
-      const ys = corners.map((point) => point.clientY);
-      const minX = Math.max(rect.left, Math.min(...xs));
-      const maxX = Math.min(rect.right, Math.max(...xs));
-      const minY = Math.max(rect.top, Math.min(...ys));
-      const maxY = Math.min(rect.bottom, Math.max(...ys));
-
-      // A projected bounds center is not guaranteed to lie on geometry
-      // (doors, frames, shells, and other BIM meshes may be hollow). Probe a
-      // small deterministic grid and return the first point that actually
-      // resolves to this canonical render node.
-      for (const yRatio of [0.5, 0.25, 0.75]) {
-        for (const xRatio of [0.5, 0.25, 0.75]) {
-          candidates.push({
-            clientX: minX + (maxX - minX) * xRatio,
-            clientY: minY + (maxY - minY) * yRatio,
-          });
-        }
-      }
-    }
-
-    for (const candidate of candidates) {
-      if (pickAtClient(candidate.clientX, candidate.clientY)?.nodeKey === nodeKey) {
-        return candidate;
-      }
-    }
-
-    return null;
+    return pickAtClient(point.clientX, point.clientY)?.nodeKey === nodeKey
+      ? point
+      : null;
   };
 
   return {
