@@ -1,0 +1,19 @@
+[project]
+name = "teldra-import-sh3d"
+version = "0.0.0"
+description = "Semantic Sweet Home 3D to IFC4 mapping for Teldra"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "ifcopenshell==0.9.0",
+  "numpy>=2,<3",
+  "teldra-ifc",
+  "teldra-sh3d",
+]
+
+[tool.uv.sources]
+teldra-ifc = { workspace = true }
+teldra-sh3d = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.19,<0.13"]
+build-backend = "uv_build"

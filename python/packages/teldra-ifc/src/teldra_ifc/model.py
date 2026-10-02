@@ -5,10 +5,24 @@ from pathlib import Path
 
 import ifcopenshell
 import ifcopenshell.api.aggregate
+import ifcopenshell.api.context
 import ifcopenshell.api.project
 import ifcopenshell.api.root
 import ifcopenshell.api.spatial
 import ifcopenshell.api.unit
+
+
+@dataclass(frozen=True, slots=True)
+class IfcProjectSpine:
+    project: ifcopenshell.entity_instance
+    site: ifcopenshell.entity_instance
+    building: ifcopenshell.entity_instance
+
+
+@dataclass(frozen=True, slots=True)
+class IfcModelContexts:
+    model: ifcopenshell.entity_instance
+    body: ifcopenshell.entity_instance
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,8 +35,10 @@ class HomeModelIds:
     wall: str
 
 
-def create_ifc4_home(name: str = "Teldra Home") -> tuple[ifcopenshell.file, HomeModelIds]:
-    """Create the minimal canonical IFC4 spatial spine used by Teldra tests."""
+def create_ifc4_project(
+    name: str = "Teldra Home",
+) -> tuple[ifcopenshell.file, IfcProjectSpine, IfcModelContexts]:
+    """Create the reusable IFC4 project spine used by Teldra authoring services."""
 
     model = ifcopenshell.api.project.create_file(version="IFC4")
     project = ifcopenshell.api.root.create_entity(
@@ -31,6 +47,18 @@ def create_ifc4_home(name: str = "Teldra Home") -> tuple[ifcopenshell.file, Home
         name=name,
     )
     _assign_si_units(model)
+
+    model_context = ifcopenshell.api.context.add_context(
+        model,
+        context_type="Model",
+    )
+    body_context = ifcopenshell.api.context.add_context(
+        model,
+        context_type="Model",
+        context_identifier="Body",
+        target_view="MODEL_VIEW",
+        parent=model_context,
+    )
 
     site = ifcopenshell.api.root.create_entity(
         model,
@@ -42,6 +70,36 @@ def create_ifc4_home(name: str = "Teldra Home") -> tuple[ifcopenshell.file, Home
         ifc_class="IfcBuilding",
         name=name,
     )
+
+    ifcopenshell.api.aggregate.assign_object(
+        model,
+        relating_object=project,
+        products=[site],
+    )
+    ifcopenshell.api.aggregate.assign_object(
+        model,
+        relating_object=site,
+        products=[building],
+    )
+
+    return (
+        model,
+        IfcProjectSpine(
+            project=project,
+            site=site,
+            building=building,
+        ),
+        IfcModelContexts(
+            model=model_context,
+            body=body_context,
+        ),
+    )
+
+
+def create_ifc4_home(name: str = "Teldra Home") -> tuple[ifcopenshell.file, HomeModelIds]:
+    """Create the minimal canonical IFC4 spatial spine used by Teldra tests."""
+
+    model, spine, _ = create_ifc4_project(name)
     storey = ifcopenshell.api.root.create_entity(
         model,
         ifc_class="IfcBuildingStorey",
@@ -60,17 +118,7 @@ def create_ifc4_home(name: str = "Teldra Home") -> tuple[ifcopenshell.file, Home
 
     ifcopenshell.api.aggregate.assign_object(
         model,
-        relating_object=project,
-        products=[site],
-    )
-    ifcopenshell.api.aggregate.assign_object(
-        model,
-        relating_object=site,
-        products=[building],
-    )
-    ifcopenshell.api.aggregate.assign_object(
-        model,
-        relating_object=building,
+        relating_object=spine.building,
         products=[storey],
     )
     ifcopenshell.api.aggregate.assign_object(
@@ -85,9 +133,9 @@ def create_ifc4_home(name: str = "Teldra Home") -> tuple[ifcopenshell.file, Home
     )
 
     return model, HomeModelIds(
-        project=project.GlobalId,
-        site=site.GlobalId,
-        building=building.GlobalId,
+        project=spine.project.GlobalId,
+        site=spine.site.GlobalId,
+        building=spine.building.GlobalId,
         storey=storey.GlobalId,
         space=space.GlobalId,
         wall=wall.GlobalId,
