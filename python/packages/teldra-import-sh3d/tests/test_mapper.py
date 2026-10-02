@@ -33,6 +33,7 @@ def test_golden_home_maps_to_semantic_ifc4_with_provenance() -> None:
     assert len(result.model.by_type("IfcFurniture")) == 1
     assert len(result.model.by_type("IfcLightFixture")) == 1
     assert len(result.model.by_type("IfcBuildingElementProxy")) == 1
+    assert len(result.model.by_type("IfcOpeningElement")) == 1
     assert len(result.cameras) == 1
     assert result.warnings == ()
 
@@ -64,6 +65,12 @@ def test_golden_home_maps_to_semantic_ifc4_with_provenance() -> None:
     assert wall1.Representation is not None
     assert door_proxy.is_a("IfcBuildingElementProxy")
     assert door_proxy.ObjectType == "Sweet Home 3D DoorOrWindow"
+
+    assert len(door_proxy.FillsVoids) == 1
+    opening = door_proxy.FillsVoids[0].RelatingOpeningElement
+    assert opening.is_a("IfcOpeningElement")
+    assert len(opening.VoidsElements) == 1
+    assert opening.VoidsElements[0].RelatingBuildingElement == wall0
 
     psets = ifcopenshell.util.element.get_psets(wall0)
     assert psets["Teldra_Source"]["SourceKey"] == "wall:wall0"
@@ -105,3 +112,34 @@ def test_unknown_level_reference_is_rejected_instead_of_relocated() -> None:
 
     with pytest.raises(Sh3dIfcMappingError, match="unknown SH3D level"):
         import_home_to_ifc(home)
+
+
+
+def test_ambiguous_bound_door_window_is_not_attached_by_guessing() -> None:
+    home = parse_home_xml(
+        b"""<home wallHeight='250'>
+        <level id='level0' name='Ground' elevation='0' floorThickness='12' height='250'/>
+        <doorOrWindow id='opening0' name='Opening' level='level0'
+              x='250' y='0' elevation='0' width='90' depth='15' height='210'
+              angle='0' wallThickness='1' wallDistance='0' wallWidth='1'
+              wallLeft='0' wallHeight='1' wallTop='0' boundToWall='true'/>
+        <wall id='wall0' level='level0' xStart='0' yStart='0'
+              xEnd='500' yEnd='0' thickness='7.5' height='250'/>
+        <wall id='wall1' level='level0' xStart='0' yStart='0'
+              xEnd='500' yEnd='0' thickness='7.5' height='250'/>
+        </home>"""
+    )
+
+    result = import_home_to_ifc(home)
+    proxy = resolve_global_id(
+        result.model,
+        result.source_to_global_id["doorOrWindow:opening0"],
+    )
+
+    assert proxy.is_a("IfcBuildingElementProxy")
+    assert len(result.model.by_type("IfcOpeningElement")) == 0
+    assert proxy.FillsVoids == ()
+    assert result.warnings == (
+        "doorOrWindow:opening0: wall binding matched 2 candidate host walls; "
+        "opening relation was not created.",
+    )
