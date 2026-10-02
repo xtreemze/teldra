@@ -1,5 +1,11 @@
+import { createSignal } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
-import { TwinViewport } from "./TwinViewport";
+import {
+  TwinViewport,
+  type TwinViewportClientPoint,
+} from "./TwinViewport";
+
+const fixtureNodeKey = "ifc:fixture-wall:body";
 
 const manifest = {
   schemaVersion: "0.1.0",
@@ -25,7 +31,7 @@ const manifest = {
   },
   nodes: [
     {
-      nodeKey: "ifc:fixture-wall:body",
+      nodeKey: fixtureNodeKey,
       canonicalId: "wall:fixture",
       ifcGlobalId: "1234567890123456789012",
       kind: "building",
@@ -45,9 +51,35 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+function IdentityPickingHarness() {
+  const [projected, setProjected] =
+    createSignal<TwinViewportClientPoint | null>(null);
+
+  return (
+    <>
+      <TwinViewport
+        manifest={manifest}
+        glbUrl="/fixtures/twin-pick.glb"
+        onReady={(handle) => {
+          setProjected(handle.projectNode(fixtureNodeKey));
+        }}
+      />
+      <output aria-label="Projected fixture client position">
+        <span data-testid="projected-client-x">
+          {projected()?.clientX ?? "pending"}
+        </span>
+        <span data-testid="projected-client-y">
+          {projected()?.clientY ?? "pending"}
+        </span>
+      </output>
+    </>
+  );
+}
+
 export const IdentityPicking: Story = {
   args: {
     manifest,
     glbUrl: "/fixtures/twin-pick.glb",
   },
+  render: () => <IdentityPickingHarness />,
 };
