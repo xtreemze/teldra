@@ -281,7 +281,7 @@ export class LiveTwinStore {
       const current = this.#deviceAvailability.get(event.subject.deviceId);
       if (
         current !== undefined &&
-        compareTimedEventOrder(event, current) <= 0
+        compareAvailabilityOrder(event, current) <= 0
       ) {
         return { status: "ignored-older" };
       }
@@ -296,7 +296,7 @@ export class LiveTwinStore {
     );
     if (
       state.availability !== undefined &&
-      compareTimedEventOrder(event, state.availability) <= 0
+      compareAvailabilityOrder(event, state.availability) <= 0
     ) {
       return { status: "ignored-older" };
     }
@@ -381,6 +381,21 @@ function compareTimedEventOrder(
     : compareTimestamp(next.receivedAt, previous.receivedAt);
 }
 
+function compareAvailabilityOrder(
+  next: Availability,
+  previous: Availability,
+): number {
+  if (
+    next.source.streamId === previous.source.streamId &&
+    next.source.sequence !== undefined &&
+    previous.source.sequence !== undefined
+  ) {
+    return next.source.sequence - previous.source.sequence;
+  }
+
+  return compareTimedEventOrder(next, previous);
+}
+
 function compareCommandAckOrder(
   next: CommandAck,
   previous: CommandAck,
@@ -407,7 +422,7 @@ function latestAvailability(
     return capability;
   }
 
-  return compareTimedEventOrder(capability, device) >= 0
+  return compareAvailabilityOrder(capability, device) >= 0
     ? capability
     : device;
 }
