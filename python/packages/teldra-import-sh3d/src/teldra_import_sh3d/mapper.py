@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from math import cos, sin
 from types import MappingProxyType
-from typing import Mapping
-
 import ifcopenshell
 import ifcopenshell.api.aggregate
 import ifcopenshell.api.geometry
@@ -113,7 +112,7 @@ def import_home_to_ifc(
 
         wall_height = wall.height_m or home.default_wall_height_m
         if wall_height is None:
-            warnings.append(f"{wall.source.key}: wall height is unavailable; body geometry is deferred.")
+            warnings.append(\n                f"{wall.source.key}: wall height is unavailable; body geometry is deferred."\n            )
             continue
 
         level_elevation = _global_z(container)
