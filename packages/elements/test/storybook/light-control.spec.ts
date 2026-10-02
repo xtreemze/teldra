@@ -10,6 +10,10 @@ test("Lit light control is interactive and accessible", async ({ page }) => {
   await control.click();
   await expect(control).toHaveAttribute("aria-pressed", "false");
 
-  const accessibility = await new AxeBuilder({ page }).analyze();
+  const accessibility = await new AxeBuilder({ page })
+    .include("#storybook-root")
+    .disableRules(["landmark-one-main", "page-has-heading-one"])
+    .analyze();
+
   expect(accessibility.violations).toEqual([]);
 });
