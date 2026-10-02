@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ifcopenshell
-
 from teldra_ifc import create_ifc4_home, open_model, resolve_global_id, write_model
 
 
