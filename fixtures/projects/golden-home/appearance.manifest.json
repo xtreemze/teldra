@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "0.1.0",
+  "sceneManifest": {
+    "path": "scene.manifest.json",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "profile": {
+    "materialModel": "metallic-roughness",
+    "primaryUvSet": 0,
+    "lightmapUvSet": 1,
+    "baseColorTransfer": "srgb",
+    "emissiveTransfer": "srgb",
+    "dataTextureTransfer": "linear",
+    "metallicRoughnessPacking": "g-roughness-b-metallic"
+  },
+  "materials": [
+    {
+      "materialKey": "living-room-envelope",
+      "nodeKeys": ["ifc:3ZYNKvi3P3FvKPBGP9UP7n:body"],
+      "textures": [
+        {
+          "semantic": "base-color",
+          "uvSet": 0
+        },
+        {
+          "semantic": "metallic-roughness",
+          "uvSet": 0
+        }
+      ]
+    },
+    {
+      "materialKey": "living-room-floor-lamp",
+      "nodeKeys": ["ifc:0ufYQjmwP0Ah$QRRxVbqR3:body"],
+      "textures": [
+        {
+          "semantic": "base-color",
+          "uvSet": 0
+        },
+        {
+          "semantic": "emissive",
+          "uvSet": 0
+        }
+      ]
+    }
+  ]
+}

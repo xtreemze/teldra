@@ -46,5 +46,7 @@
       "canonicalId": "device:living-room-floor-lamp",
       "kind": "device"
     }
-  ]
+  ],
+  "appearanceManifestPath": "appearance.manifest.json",
+  "lightingManifestPath": "lighting.manifest.json"
 }

@@ -33,6 +33,7 @@ export interface TeldraSceneManifest {
   source: SourceArtifact;
   scene: SceneArtifact;
   nodes: SceneNode[];
+  appearanceManifestPath?: string;
   lightingManifestPath?: string;
 }
 export interface CoordinateSystem {

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/appearance/0.1.0",
+  "title": "Teldra Appearance Manifest",
+  "type": "object",
+  "required": ["schemaVersion", "sceneManifest", "profile", "materials"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "0.1.0" },
+    "sceneManifest": { "$ref": "#/$defs/sourceManifest" },
+    "profile": { "$ref": "#/$defs/profile" },
+    "materials": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/material" }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sourceManifest": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "required": [
+        "materialModel",
+        "primaryUvSet",
+        "lightmapUvSet",
+        "baseColorTransfer",
+        "emissiveTransfer",
+        "dataTextureTransfer",
+        "metallicRoughnessPacking"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "materialModel": { "const": "metallic-roughness" },
+        "primaryUvSet": { "const": 0 },
+        "lightmapUvSet": { "const": 1 },
+        "baseColorTransfer": { "const": "srgb" },
+        "emissiveTransfer": { "const": "srgb" },
+        "dataTextureTransfer": { "const": "linear" },
+        "metallicRoughnessPacking": { "const": "g-roughness-b-metallic" }
+      }
+    },
+    "textureSemantic": {
+      "enum": [
+        "base-color",
+        "normal",
+        "occlusion",
+        "metallic-roughness",
+        "emissive"
+      ]
+    },
+    "textureBinding": {
+      "type": "object",
+      "required": ["semantic", "uvSet"],
+      "additionalProperties": false,
+      "properties": {
+        "semantic": { "$ref": "#/$defs/textureSemantic" },
+        "uvSet": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assetPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assetSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "material": {
+      "type": "object",
+      "required": ["materialKey", "nodeKeys", "textures"],
+      "additionalProperties": false,
+      "properties": {
+        "materialKey": { "type": "string", "minLength": 1 },
+        "nodeKeys": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "textures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/textureBinding" }
+        }
+      }
+    }
+  }
+}
