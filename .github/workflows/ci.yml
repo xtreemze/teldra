@@ -56,10 +56,16 @@ jobs:
           python -m json.tool schemas/json/scene.schema.json >/dev/null
           python -m json.tool schemas/json/appearance.schema.json >/dev/null
           python -m json.tool schemas/json/lighting.schema.json >/dev/null
+          python -m json.tool schemas/json/live.schema.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/twin.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/scene.manifest.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/appearance.manifest.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/lighting.manifest.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/live/light-observation.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/live/opening-observation.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/live/environment-observation.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/live/media-observation.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/live/desired-light.json >/dev/null
 
   python:
     runs-on: ubuntu-latest
