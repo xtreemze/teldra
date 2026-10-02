@@ -4,7 +4,7 @@ import Ajv2020, {
 } from "ajv/dist/2020.js";
 import projectSchema from "@teldra/schemas/project" with { type: "json" };
 import twinSchema from "@teldra/schemas/twin" with { type: "json" };
-import type { SerializedProjectManifest } from "@teldra/schemas/types/project";
+import type { TeldraProjectManifest as SerializedProjectManifest } from "@teldra/schemas/types/project";
 import {
   TwinIntegrityError,
   assertTwinIntegrity,
