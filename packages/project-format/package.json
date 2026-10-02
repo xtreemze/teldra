@@ -1,5 +1,5 @@
 {
-  "name": "@teldra/projection",
+  "name": "@teldra/project-format",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,9 +12,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@teldra/domain": "workspace:*"
+    "@teldra/domain": "workspace:*",
+    "@teldra/schemas": "workspace:*",
+    "ajv": "8.20.0"
   },
   "nx": {
-    "tags": ["layer:projection"]
+    "tags": ["layer:application"]
   }
 }

@@ -7,9 +7,11 @@
     "node": ">=24"
   },
   "scripts": {
+    "architecture:check": "node tools/architecture/check-boundaries.mjs",
+    "architecture:test": "node --test tools/architecture/*.test.mjs",
     "typecheck": "nx run-many -t typecheck",
-    "test": "nx run-many -t test",
-    "ci": "pnpm typecheck && pnpm test"
+    "test": "pnpm architecture:test && nx run-many -t test",
+    "ci": "pnpm architecture:check && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "nx": "23.2.1",
