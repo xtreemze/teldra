@@ -1,5 +1,5 @@
 {
-  "name": "@teldra/projection",
+  "name": "@teldra/contracts",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,14 +8,18 @@
   },
   "types": "./src/index.ts",
   "scripts": {
-    "lint": "eslint src test",
+    "generate": "node scripts/generate.mjs",
+    "lint": "eslint src test scripts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@teldra/domain": "workspace:*"
+    "ajv": "8.17.1"
+  },
+  "devDependencies": {
+    "json-schema-to-typescript": "16.0.0"
   },
   "nx": {
-    "tags": ["layer:projection"]
+    "tags": ["layer:contracts"]
   }
 }

@@ -1,66 +1,15 @@
+import type { TeldraTwin } from "@teldra/contracts";
+
 export type CanonicalId = string;
 export type IfcGlobalId = string;
 
-export type BuildingElementKind =
-  | "site"
-  | "building"
-  | "storey"
-  | "space"
-  | "wall"
-  | "slab"
-  | "roof"
-  | "door"
-  | "window"
-  | "furniture"
-  | "fixture"
-  | "distribution-element"
-  | "other";
-
-export interface BuildingReference {
-  id: CanonicalId;
-  ifcGlobalId: IfcGlobalId;
-  kind: BuildingElementKind;
-  name?: string;
-}
-
-export type CapabilityKind =
-  | "light"
-  | "opening"
-  | "sensor"
-  | "climate"
-  | "media"
-  | "switch";
-
-export interface TwinCapability {
-  id: CanonicalId;
-  kind: CapabilityKind;
-  properties?: Readonly<Record<string, unknown>>;
-}
-
-export interface TwinDevice {
-  id: CanonicalId;
-  name: string;
-  buildingRefId?: CanonicalId;
-  capabilities: readonly TwinCapability[];
-}
-
-export interface ExternalBinding {
-  id: CanonicalId;
-  deviceId: CanonicalId;
-  adapter: string;
-  externalId: string;
-  capabilityMap?: Readonly<Record<CanonicalId, string>>;
-}
-
-export interface TwinProject {
-  schemaVersion: "0.1.0";
-  building: {
-    ifcSchema: "IFC4";
-    refs: readonly BuildingReference[];
-  };
-  devices: readonly TwinDevice[];
-  bindings: readonly ExternalBinding[];
-}
+export type TwinProject = TeldraTwin;
+export type BuildingReference = TwinProject["building"]["refs"][number];
+export type BuildingElementKind = BuildingReference["kind"];
+export type TwinDevice = TwinProject["devices"][number];
+export type TwinCapability = TwinDevice["capabilities"][number];
+export type CapabilityKind = TwinCapability["kind"];
+export type ExternalBinding = TwinProject["bindings"][number];
 
 export class TwinIntegrityError extends Error {
   constructor(message: string) {
@@ -125,7 +74,6 @@ function assertUnique(values: readonly string[], kind: string): void {
     if (seen.has(value)) {
       throw new TwinIntegrityError(`Duplicate ${kind} identity "${value}".`);
     }
-
     seen.add(value);
   }
 }

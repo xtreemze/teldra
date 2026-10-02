@@ -8,7 +8,14 @@
   },
   "types": "./src/index.ts",
   "scripts": {
+    "lint": "eslint src test",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "@teldra/contracts": "workspace:*"
+  },
+  "nx": {
+    "tags": ["layer:domain"]
   }
 }

@@ -7,11 +7,15 @@
     "node": ">=24"
   },
   "scripts": {
+    "postinstall": "pnpm --filter @teldra/contracts generate",
+    "lint": "nx run-many -t lint",
     "typecheck": "nx run-many -t typecheck",
     "test": "nx run-many -t test",
-    "ci": "pnpm typecheck && pnpm test"
+    "ci": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
+    "@nx/eslint-plugin": "23.2.1",
+    "eslint": "9.39.1",
     "nx": "23.2.1",
     "typescript": "7.0.2",
     "vitest": "5.0.3"

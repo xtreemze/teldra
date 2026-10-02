@@ -3,11 +3,16 @@
   "defaultBase": "main",
   "neverConnectToCloud": true,
   "targetDefaults": {
-    "typecheck": {
+    "lint": {
       "cache": true
     },
+    "typecheck": {
+      "cache": true,
+      "dependsOn": ["^typecheck"]
+    },
     "test": {
-      "cache": true
+      "cache": true,
+      "dependsOn": ["^test"]
     }
   }
 }

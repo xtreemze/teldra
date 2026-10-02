@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Enforce architecture and lint
+        run: pnpm lint
+
       - name: Typecheck
         run: pnpm typecheck
 
