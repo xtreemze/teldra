@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "0.1.0",
+  "kind": "observation",
+  "eventId": "observation:living-room-floor-lamp:42",
+  "subject": {
+    "deviceId": "device:living-room-floor-lamp",
+    "capabilityId": "cap:living-room-floor-lamp-light"
+  },
+  "source": {
+    "adapter": "home-assistant",
+    "bindingId": "binding:ha-living-room-floor-lamp",
+    "streamId": "ha:light.living_room_floor_lamp",
+    "sequence": 42
+  },
+  "observedAt": "2026-10-02T18:00:00Z",
+  "receivedAt": "2026-10-02T18:00:00.050Z",
+  "values": {
+    "power": { "kind": "boolean", "value": true },
+    "brightness": { "kind": "number", "value": 0.35, "unit": "ratio" },
+    "color": { "kind": "rgb", "value": [1, 0.78, 0.62] }
+  }
+}
