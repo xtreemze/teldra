@@ -19,6 +19,9 @@ test("loads the GLB and resolves a picked render node to canonical identity", as
 
   await expect(projectedX).not.toHaveText("pending");
   await expect(projectedY).not.toHaveText("pending");
+  await expect(page.getByTestId("projected-roundtrip-id")).toHaveText(
+    "wall:fixture",
+  );
 
   const clientX = Number(await projectedX.textContent());
   const clientY = Number(await projectedY.textContent());
