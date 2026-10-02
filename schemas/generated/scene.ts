@@ -4,6 +4,10 @@
  * Run: pnpm schema:generate
  */
 
+/**
+ * @minItems 16
+ * @maxItems 16
+ */
 export type Matrix4 = [
   number,
   number,
