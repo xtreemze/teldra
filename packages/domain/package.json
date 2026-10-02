@@ -11,6 +11,9 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@teldra/schemas": "workspace:*"
+  },
   "nx": {
     "tags": ["layer:domain"]
   }

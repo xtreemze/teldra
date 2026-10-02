@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     "./project": "./json/project.schema.json",
-    "./twin": "./json/twin.schema.json"
+    "./twin": "./json/twin.schema.json",
+    "./types/project": "./generated/project.ts",
+    "./types/twin": "./generated/twin.ts"
   },
   "nx": {
     "tags": ["layer:schema"]
