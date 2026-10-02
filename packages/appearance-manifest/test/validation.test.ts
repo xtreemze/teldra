@@ -59,7 +59,9 @@ describe("appearance manifest validation", () => {
 
   it("requires external texture path and hash together", () => {
     const candidate = manifest();
-    candidate.materials[0]!.textures[0]!.assetSha256 = undefined;
+    const texture = candidate.materials[0]!.textures[0]!;
+    const { assetSha256: _removed, ...withoutHash } = texture;
+    candidate.materials[0]!.textures[0] = withoutHash;
 
     expect(validateAppearanceManifest(candidate)).toMatchObject({
       valid: false,
