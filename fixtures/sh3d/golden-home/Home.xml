@@ -1,0 +1,36 @@
+<?xml version='1.0'?>
+<home version='7500' name='Golden SH3D Home' camera='topCamera' wallHeight='250'>
+  <camera id='camera0' name='Overview' lens='PINHOLE'
+      x='250' y='200' z='500' yaw='0.5' pitch='0.6'
+      fieldOfView='1.0471975512' attribute='storedCamera'/>
+  <level id='level0' name='Ground Floor' elevation='0'
+      floorThickness='12' height='250' elevationIndex='0'/>
+  <pieceOfFurniture id='chair0' name='Chair' level='level0'
+      x='100' y='100' elevation='0' width='50' depth='50' height='100'
+      angle='0' model='chair.obj'>
+    <material name='Fabric' color='11184810' shininess='0.1'/>
+  </pieceOfFurniture>
+  <doorOrWindow id='door0' name='Door' level='level0'
+      x='250' y='0' elevation='0' width='90' depth='15' height='210'
+      angle='0' wallThickness='1' wallDistance='0' wallWidth='1'
+      wallLeft='0' wallHeight='1' wallTop='0' boundToWall='true'/>
+  <light id='light0' name='Floor Lamp' level='level0'
+      x='200' y='150' elevation='0' width='30' depth='30' height='160'
+      angle='0' power='0.75'>
+    <lightSource x='0.5' y='0.5' z='0.9' color='16777215' diameter='0.1'/>
+  </light>
+  <wall id='wall0' level='level0' wallAtStart='wall3' wallAtEnd='wall1'
+      xStart='0' yStart='0' xEnd='500' yEnd='0' height='250' thickness='7.5'/>
+  <wall id='wall1' level='level0' wallAtStart='wall0' wallAtEnd='wall2'
+      xStart='500' yStart='0' xEnd='500' yEnd='400' height='250' thickness='7.5'/>
+  <wall id='wall2' level='level0' wallAtStart='wall1' wallAtEnd='wall3'
+      xStart='500' yStart='400' xEnd='0' yEnd='400' height='250' thickness='7.5'/>
+  <wall id='wall3' level='level0' wallAtStart='wall2' wallAtEnd='wall0'
+      xStart='0' yStart='400' xEnd='0' yEnd='0' height='250' thickness='7.5'/>
+  <room id='room0' level='level0' name='Living room'>
+    <point x='3.75' y='3.75'/>
+    <point x='496.25' y='3.75'/>
+    <point x='496.25' y='396.25'/>
+    <point x='3.75' y='396.25'/>
+  </room>
+</home>
