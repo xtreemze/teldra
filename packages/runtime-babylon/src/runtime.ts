@@ -2,7 +2,6 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
-import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
@@ -26,6 +25,7 @@ export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
   load(glbUrl: string): Promise<void>;
+  pick(clientX: number, clientY: number): TwinRenderIdentity | null;
   onPick(listener: (identity: TwinRenderIdentity | null) => void): () => void;
   start(): void;
   stop(): void;
@@ -140,18 +140,32 @@ export async function createBabylonTwinRuntime(
       scene.render();
     },
 
+    pick(clientX: number, clientY: number): TwinRenderIdentity | null {
+      const rect = canvas.getBoundingClientRect();
+      const localX = clientX - rect.left;
+      const localY = clientY - rect.top;
+
+      if (
+        localX < 0 ||
+        localY < 0 ||
+        localX > rect.width ||
+        localY > rect.height
+      ) {
+        return null;
+      }
+
+      return resolvePickedMesh(scene.pick(localX, localY)?.pickedMesh);
+    },
+
     onPick(listener): () => void {
-      const observer = scene.onPointerObservable.add(
-        (pointerInfo) => {
-          listener(resolvePickedMesh(pointerInfo.pickInfo?.pickedMesh));
-        },
-        PointerEventTypes.POINTERPICK,
-      );
+      const handleClick = (event: MouseEvent) => {
+        listener(this.pick(event.clientX, event.clientY));
+      };
+
+      canvas.addEventListener("click", handleClick);
 
       return () => {
-        if (observer !== null) {
-          scene.onPointerObservable.remove(observer);
-        }
+        canvas.removeEventListener("click", handleClick);
       };
     },
 
