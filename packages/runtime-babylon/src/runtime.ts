@@ -91,6 +91,26 @@ export async function createBabylonTwinRuntime(
     );
   };
 
+  const pickAtClient = (
+    clientX: number,
+    clientY: number,
+  ): TwinRenderIdentity | null => {
+    const rect = canvas.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+
+    if (
+      localX < 0 ||
+      localY < 0 ||
+      localX > rect.width ||
+      localY > rect.height
+    ) {
+      return null;
+    }
+
+    return resolvePickedMesh(scene.pick(localX, localY)?.pickedMesh);
+  };
+
   return {
     backend,
     manifest,
@@ -141,25 +161,12 @@ export async function createBabylonTwinRuntime(
     },
 
     pick(clientX: number, clientY: number): TwinRenderIdentity | null {
-      const rect = canvas.getBoundingClientRect();
-      const localX = clientX - rect.left;
-      const localY = clientY - rect.top;
-
-      if (
-        localX < 0 ||
-        localY < 0 ||
-        localX > rect.width ||
-        localY > rect.height
-      ) {
-        return null;
-      }
-
-      return resolvePickedMesh(scene.pick(localX, localY)?.pickedMesh);
+      return pickAtClient(clientX, clientY);
     },
 
     onPick(listener): () => void {
       const handleClick = (event: MouseEvent) => {
-        listener(this.pick(event.clientX, event.clientY));
+        listener(pickAtClient(event.clientX, event.clientY));
       };
 
       canvas.addEventListener("click", handleClick);
