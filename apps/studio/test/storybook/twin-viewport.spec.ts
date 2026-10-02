@@ -11,15 +11,7 @@ test("loads the GLB and resolves a picked render node to canonical identity", as
   const canvas = page.getByTestId("twin-canvas");
   await expect(canvas).toBeVisible();
 
-  const bounds = await canvas.boundingBox();
-  if (bounds === null) {
-    throw new Error("Twin viewport canvas has no browser bounds.");
-  }
-
-  await page.mouse.click(
-    bounds.x + bounds.width / 2,
-    bounds.y + bounds.height / 2,
-  );
+  await canvas.click();
 
   await expect(page.getByTestId("selected-canonical-id")).toHaveText(
     "wall:fixture",
