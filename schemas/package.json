@@ -1,0 +1,13 @@
+{
+  "name": "@teldra/schemas",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./project": "./json/project.schema.json",
+    "./twin": "./json/twin.schema.json"
+  },
+  "nx": {
+    "tags": ["layer:schema"]
+  }
+}

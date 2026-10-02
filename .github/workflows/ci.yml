@@ -28,6 +28,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
 
+      - name: Enforce architecture boundaries
+        run: pnpm lint
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -38,3 +41,4 @@ jobs:
         run: |
           python -m json.tool schemas/json/twin.schema.json >/dev/null
           python -m json.tool schemas/json/project.schema.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/twin.json >/dev/null

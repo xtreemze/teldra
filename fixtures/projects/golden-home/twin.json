@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "0.1.0",
+  "building": {
+    "ifcSchema": "IFC4",
+    "refs": [
+      {
+        "id": "space:living-room",
+        "ifcGlobalId": "3ZYNKvi3P3FvKPBGP9UP7n",
+        "kind": "space",
+        "name": "Living room"
+      },
+      {
+        "id": "fixture:living-room-floor-lamp",
+        "ifcGlobalId": "0ufYQjmwP0Ah$QRRxVbqR3",
+        "kind": "fixture",
+        "name": "Living room floor lamp"
+      }
+    ]
+  },
+  "devices": [
+    {
+      "id": "device:living-room-floor-lamp",
+      "name": "Living room floor lamp",
+      "buildingRefId": "fixture:living-room-floor-lamp",
+      "capabilities": [
+        {
+          "id": "capability:living-room-floor-lamp:light",
+          "kind": "light",
+          "properties": {
+            "supportsBrightness": true,
+            "supportsColorTemperature": true
+          }
+        }
+      ]
+    }
+  ],
+  "bindings": [
+    {
+      "id": "binding:living-room-floor-lamp:home-assistant",
+      "deviceId": "device:living-room-floor-lamp",
+      "adapter": "home-assistant",
+      "externalId": "light.living_room_floor_lamp",
+      "capabilityMap": {
+        "capability:living-room-floor-lamp:light": "light"
+      }
+    }
+  ]
+}
