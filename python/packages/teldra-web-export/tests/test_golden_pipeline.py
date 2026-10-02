@@ -39,11 +39,7 @@ def test_golden_home_preserves_identity_from_sh3d_through_web_export(tmp_path: P
     assert result.mapped_node_count >= 1
 
     manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
-    manifest_nodes = [
-        node
-        for node in manifest["nodes"]
-        if node["ifcGlobalId"] == second_global_id
-    ]
+    manifest_nodes = [node for node in manifest["nodes"] if node["ifcGlobalId"] == second_global_id]
 
     assert manifest_nodes
     assert {node["canonicalId"] for node in manifest_nodes} == {CANONICAL_ID}
@@ -61,10 +57,6 @@ def test_golden_home_preserves_identity_from_sh3d_through_web_export(tmp_path: P
 
     assert glb_identities
     assert {identity["canonicalId"] for identity in glb_identities} == {CANONICAL_ID}
-    assert {
-        identity["nodeKey"]
-        for identity in glb_identities
-    } == {
-        node["nodeKey"]
-        for node in manifest_nodes
+    assert {identity["nodeKey"] for identity in glb_identities} == {
+        node["nodeKey"] for node in manifest_nodes
     }
