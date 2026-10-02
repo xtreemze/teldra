@@ -101,6 +101,26 @@ def test_import_provenance_survives_ifc_write_and_reload(tmp_path) -> None:
     assert ifcopenshell.util.element.get_psets(wall)["Teldra_Source"]["SourceKey"] == "wall:wall0"
 
 
+def test_reimport_preserves_source_global_ids_after_ifc_round_trip(tmp_path) -> None:
+    home = parse_home_xml(FIXTURE.read_bytes())
+    first = import_home_to_ifc(home)
+
+    destination = write_model(first.model, tmp_path / "first-import.ifc")
+    existing = open_model(destination)
+    second = import_home_to_ifc(home, existing_model=existing)
+
+    assert dict(second.source_to_global_id) == dict(first.source_to_global_id)
+
+    # The hosted opening carries the door's provenance for traceability, but
+    # the source-authored filling remains the owner of the SH3D source key.
+    assert len(second.model.by_type("IfcOpeningElement")) == 1
+    door = resolve_global_id(
+        second.model,
+        second.source_to_global_id["doorOrWindow:door0"],
+    )
+    assert door.is_a("IfcBuildingElementProxy")
+
+
 def test_unknown_level_reference_is_rejected_instead_of_relocated() -> None:
     home = parse_home_xml(
         b"""<home wallHeight='250'>
