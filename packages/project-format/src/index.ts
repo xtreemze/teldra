@@ -1,4 +1,7 @@
-import Ajv2020, { type ErrorObject } from "ajv/dist/2020.js";
+import Ajv2020, {
+  type ErrorObject,
+  type ValidateFunction,
+} from "ajv/dist/2020.js";
 import projectSchema from "@teldra/schemas/project" with { type: "json" };
 import twinSchema from "@teldra/schemas/twin" with { type: "json" };
 import {
@@ -51,8 +54,10 @@ const ajv = new Ajv2020({
   strict: true,
 });
 
-const validateTwinStructure = ajv.compile(twinSchema);
-const validateProjectStructure = ajv.compile(projectSchema);
+const validateTwinStructure: ValidateFunction<TwinProject> =
+  ajv.compile<TwinProject>(twinSchema);
+const validateProjectStructure: ValidateFunction<TeldraProjectManifest> =
+  ajv.compile<TeldraProjectManifest>(projectSchema);
 
 export function validateTwinProject(value: unknown): ValidationResult<TwinProject> {
   if (!validateTwinStructure(value)) {
@@ -63,7 +68,7 @@ export function validateTwinProject(value: unknown): ValidationResult<TwinProjec
   }
 
   try {
-    assertTwinIntegrity(value as TwinProject);
+    assertTwinIntegrity(value);
   } catch (error) {
     if (error instanceof TwinIntegrityError) {
       return {
@@ -83,7 +88,7 @@ export function validateTwinProject(value: unknown): ValidationResult<TwinProjec
 
   return {
     valid: true,
-    value: value as TwinProject,
+    value,
     issues: [],
   };
 }
@@ -110,7 +115,7 @@ export function validateProjectManifest(
 
   return {
     valid: true,
-    value: value as TeldraProjectManifest,
+    value,
     issues: [],
   };
 }
