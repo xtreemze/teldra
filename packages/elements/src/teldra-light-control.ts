@@ -48,9 +48,16 @@ export class TeldraLightControl extends LitElement {
     }
   `;
 
-  label = "Light";
-  on = false;
-  disabled = false;
+  declare label: string;
+  declare on: boolean;
+  declare disabled: boolean;
+
+  constructor() {
+    super();
+    this.label = "Light";
+    this.on = false;
+    this.disabled = false;
+  }
 
   #activate() {
     const next = nextBinaryControlValue({
