@@ -63,9 +63,7 @@ def import_home_to_ifc(
     project_name: str | None = None,
     existing_model: ifcopenshell.file | None = None,
 ) -> Sh3dIfcImportResult:
-    preserved_global_ids = (
-        _source_global_ids(existing_model) if existing_model is not None else {}
-    )
+    preserved_global_ids = _source_global_ids(existing_model) if existing_model is not None else {}
     model, spine, contexts = create_ifc4_project(project_name or home.name or "Imported SH3D Home")
     source_to_global_id: dict[str, str] = {}
     warnings: list[str] = []
