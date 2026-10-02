@@ -2,7 +2,10 @@
 name = "teldra-python-workspace"
 version = "0.0.0"
 requires-python = ">=3.12,<3.13"
-dependencies = ["teldra-ifc"]
+dependencies = [
+  "teldra-ifc",
+  "teldra-sh3d",
+]
 
 [dependency-groups]
 dev = [
@@ -15,6 +18,7 @@ package = false
 
 [tool.uv.sources]
 teldra-ifc = { workspace = true }
+teldra-sh3d = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
