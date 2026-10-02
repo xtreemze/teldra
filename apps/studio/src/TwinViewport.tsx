@@ -34,6 +34,7 @@ export function TwinViewport(props: TwinViewportProps) {
     void (async () => {
       try {
         runtime = await createBabylonTwinRuntime(canvas, props.manifest);
+        runtime.resize();
         setBackend(runtime.backend);
         unsubscribePick = runtime.onPick((identity) => {
           setSelected(identity);
