@@ -150,21 +150,63 @@ export async function createBabylonTwinRuntime(
     const renderWidth = engine.getRenderWidth();
     const renderHeight = engine.getRenderHeight();
     const viewport = camera.viewport.toGlobal(renderWidth, renderHeight);
-    const projected = Vector3.Project(
-      mesh.getBoundingInfo().boundingSphere.centerWorld,
-      Matrix.Identity(),
-      scene.getTransformMatrix(),
-      viewport,
-    );
+    const transform = scene.getTransformMatrix();
 
-    if (projected.z < 0 || projected.z > 1) {
-      return null;
+    const toClient = (world: Vector3): BabylonClientPoint | null => {
+      const projected = Vector3.Project(
+        world,
+        Matrix.Identity(),
+        transform,
+        viewport,
+      );
+
+      if (projected.z < 0 || projected.z > 1) {
+        return null;
+      }
+
+      return {
+        clientX: rect.left + (projected.x / renderWidth) * rect.width,
+        clientY: rect.top + (projected.y / renderHeight) * rect.height,
+      };
+    };
+
+    const bounds = mesh.getBoundingInfo();
+    const center = toClient(bounds.boundingSphere.centerWorld);
+    const corners = bounds.boundingBox.vectorsWorld
+      .map(toClient)
+      .filter((point): point is BabylonClientPoint => point !== null);
+
+    const candidates: BabylonClientPoint[] = center === null ? [] : [center];
+
+    if (corners.length > 0) {
+      const xs = corners.map((point) => point.clientX);
+      const ys = corners.map((point) => point.clientY);
+      const minX = Math.max(rect.left, Math.min(...xs));
+      const maxX = Math.min(rect.right, Math.max(...xs));
+      const minY = Math.max(rect.top, Math.min(...ys));
+      const maxY = Math.min(rect.bottom, Math.max(...ys));
+
+      // A projected bounds center is not guaranteed to lie on geometry
+      // (doors, frames, shells, and other BIM meshes may be hollow). Probe a
+      // small deterministic grid and return the first point that actually
+      // resolves to this canonical render node.
+      for (const yRatio of [0.5, 0.25, 0.75]) {
+        for (const xRatio of [0.5, 0.25, 0.75]) {
+          candidates.push({
+            clientX: minX + (maxX - minX) * xRatio,
+            clientY: minY + (maxY - minY) * yRatio,
+          });
+        }
+      }
     }
 
-    return {
-      clientX: rect.left + (projected.x / renderWidth) * rect.width,
-      clientY: rect.top + (projected.y / renderHeight) * rect.height,
-    };
+    for (const candidate of candidates) {
+      if (pickAtClient(candidate.clientX, candidate.clientY)?.nodeKey === nodeKey) {
+        return candidate;
+      }
+    }
+
+    return null;
   };
 
   return {
