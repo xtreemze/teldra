@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "0.1.0",
+  "kind": "observation",
+  "eventId": "observation:window:7",
+  "subject": {
+    "deviceId": "device:living-room-window",
+    "capabilityId": "cap:living-room-window-opening"
+  },
+  "source": {
+    "adapter": "fixture",
+    "streamId": "fixture:window",
+    "sequence": 7
+  },
+  "observedAt": "2026-10-02T18:00:01Z",
+  "receivedAt": "2026-10-02T18:00:01Z",
+  "values": {
+    "position": { "kind": "number", "value": 0.25, "unit": "ratio" }
+  }
+}
