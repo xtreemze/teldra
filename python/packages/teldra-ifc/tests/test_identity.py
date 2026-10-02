@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from teldra_ifc import IfcIdentityError, create_ifc4_home, resolve_global_id
 
 
