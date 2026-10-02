@@ -20,6 +20,7 @@ export interface TwinViewportProps {
 export function TwinViewport(props: TwinViewportProps) {
   let canvas!: HTMLCanvasElement;
   let runtime: BabylonTwinRuntime | undefined;
+  let unsubscribePick: (() => void) | undefined;
 
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading");
   const [backend, setBackend] = createSignal<BabylonBackend | null>(null);
@@ -34,6 +35,10 @@ export function TwinViewport(props: TwinViewportProps) {
       try {
         runtime = await createBabylonTwinRuntime(canvas, props.manifest);
         setBackend(runtime.backend);
+        unsubscribePick = runtime.onPick((identity) => {
+          setSelected(identity);
+          props.onSelect?.(identity);
+        });
         await runtime.load(props.glbUrl);
         runtime.start();
         setStatus("ready");
@@ -46,18 +51,9 @@ export function TwinViewport(props: TwinViewportProps) {
 
   onCleanup(() => {
     window.removeEventListener("resize", resize);
+    unsubscribePick?.();
     runtime?.dispose();
   });
-
-  const selectAtPointer = (event: MouseEvent) => {
-    if (runtime === undefined || status() !== "ready") {
-      return;
-    }
-
-    const identity = runtime.pick(event.clientX, event.clientY);
-    setSelected(identity);
-    props.onSelect?.(identity);
-  };
 
   return (
     <section
@@ -72,7 +68,6 @@ export function TwinViewport(props: TwinViewportProps) {
         width="640"
         height="400"
         data-testid="twin-canvas"
-        onClick={selectAtPointer}
       />
       <div class="teldra-twin-viewport__status" aria-live="polite">
         <span data-testid="viewport-status">{status()}</span>
