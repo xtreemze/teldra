@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/twin/0.1.0",
+  "title": "Teldra Twin",
+  "type": "object",
+  "required": ["schemaVersion", "building", "devices", "bindings"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "building": {
+      "type": "object",
+      "required": ["ifcSchema", "refs"],
+      "additionalProperties": false,
+      "properties": {
+        "ifcSchema": {
+          "const": "IFC4"
+        },
+        "refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/buildingReference"
+          }
+        }
+      }
+    },
+    "devices": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/device"
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/binding"
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "buildingReference": {
+      "type": "object",
+      "required": ["id", "ifcGlobalId", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "ifcGlobalId": {
+          "type": "string",
+          "minLength": 22,
+          "maxLength": 22
+        },
+        "kind": {
+          "enum": [
+            "site",
+            "building",
+            "storey",
+            "space",
+            "wall",
+            "slab",
+            "roof",
+            "door",
+            "window",
+            "furniture",
+            "fixture",
+            "distribution-element",
+            "other"
+          ]
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "required": ["id", "kind"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": ["light", "opening", "sensor", "climate", "media", "switch"]
+        },
+        "properties": {
+          "type": "object"
+        }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["id", "name", "capabilities"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "buildingRefId": {
+          "$ref": "#/$defs/id"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/capability"
+          }
+        }
+      }
+    },
+    "binding": {
+      "type": "object",
+      "required": ["id", "deviceId", "adapter", "externalId"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "deviceId": {
+          "$ref": "#/$defs/id"
+        },
+        "adapter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "externalId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capabilityMap": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
