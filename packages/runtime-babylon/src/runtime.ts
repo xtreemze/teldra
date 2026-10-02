@@ -151,6 +151,7 @@ export async function createBabylonTwinRuntime(
     const renderHeight = engine.getRenderHeight();
     const viewport = camera.viewport.toGlobal(renderWidth, renderHeight);
     const transform = scene.getTransformMatrix();
+    const hardwareScaling = engine.getHardwareScalingLevel();
 
     const toClient = (world: Vector3): BabylonClientPoint | null => {
       const projected = Vector3.Project(
@@ -164,9 +165,12 @@ export async function createBabylonTwinRuntime(
         return null;
       }
 
+      // Babylon's CreatePickingRayToRef converts CSS input coordinates to
+      // render-buffer coordinates with 1 / hardwareScalingLevel. Apply the
+      // exact inverse here rather than deriving a ratio from DOM bounds.
       return {
-        clientX: rect.left + (projected.x / renderWidth) * rect.width,
-        clientY: rect.top + (projected.y / renderHeight) * rect.height,
+        clientX: rect.left + projected.x * hardwareScaling,
+        clientY: rect.top + projected.y * hardwareScaling,
       };
     };
 
