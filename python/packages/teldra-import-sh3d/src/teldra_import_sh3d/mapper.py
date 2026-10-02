@@ -2,18 +2,25 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from math import cos, sin
+from math import atan2, cos, hypot, sin
 from types import MappingProxyType
 
 import ifcopenshell
 import ifcopenshell.api.aggregate
+import ifcopenshell.api.feature
 import ifcopenshell.api.geometry
 import ifcopenshell.api.pset
 import ifcopenshell.api.root
 import ifcopenshell.api.spatial
 import numpy as np
 from teldra_ifc import create_ifc4_project
-from teldra_sh3d import Sh3dCamera, Sh3dHome, Sh3dSourceRef
+from teldra_sh3d import (
+    Sh3dCamera,
+    Sh3dFurniture,
+    Sh3dHome,
+    Sh3dSourceRef,
+    Sh3dWall,
+)
 
 
 class Sh3dIfcMappingError(ValueError):
@@ -26,6 +33,12 @@ class Sh3dIfcImportResult:
     source_to_global_id: Mapping[str, str]
     cameras: tuple[Sh3dCamera, ...]
     warnings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _MappedWall:
+    source: Sh3dWall
+    entity: ifcopenshell.entity_instance
 
 
 def source_to_canonical(
@@ -53,6 +66,7 @@ def import_home_to_ifc(
     source_to_global_id: dict[str, str] = {}
     warnings: list[str] = []
     levels: dict[str, ifcopenshell.entity_instance] = {}
+    mapped_walls: list[_MappedWall] = []
 
     for level in home.levels:
         storey = ifcopenshell.api.root.create_entity(
@@ -106,6 +120,7 @@ def import_home_to_ifc(
         )
         _attach_provenance(model, wall_entity, wall.source)
         _remember(source_to_global_id, wall.source, wall_entity)
+        mapped_walls.append(_MappedWall(source=wall, entity=wall_entity))
 
         if wall.arc_extent_rad not in (None, 0.0):
             warnings.append(f"{wall.source.key}: curved wall body geometry is deferred.")
@@ -175,6 +190,15 @@ def import_home_to_ifc(
         )
         _remember(source_to_global_id, piece.source, entity)
 
+        if piece.kind == "doorOrWindow":
+            _bind_door_or_window(
+                model,
+                piece,
+                entity,
+                mapped_walls,
+                warnings,
+            )
+
     for unsupported in home.unsupported_elements:
         warnings.append(f"Unsupported SH3D element class: {unsupported}.")
 
@@ -183,6 +207,107 @@ def import_home_to_ifc(
         source_to_global_id=MappingProxyType(source_to_global_id.copy()),
         cameras=home.cameras,
         warnings=tuple(warnings),
+    )
+
+
+def _bind_door_or_window(
+    model: ifcopenshell.file,
+    piece: Sh3dFurniture,
+    filling: ifcopenshell.entity_instance,
+    mapped_walls: list[_MappedWall],
+    warnings: list[str],
+) -> None:
+    binding = piece.wall_binding
+    if binding is None or not binding.bound_to_wall:
+        return
+
+    candidates = [
+        mapped
+        for mapped in mapped_walls
+        if _piece_matches_wall(piece, mapped.source)
+    ]
+
+    if len(candidates) != 1:
+        warnings.append(
+            f"{piece.source.key}: wall binding matched "
+            f"{len(candidates)} candidate host walls; "
+            "opening relation was not created."
+        )
+        return
+
+    host = candidates[0].entity
+    opening = ifcopenshell.api.root.create_entity(
+        model,
+        ifc_class="IfcOpeningElement",
+        name=f"{piece.name} opening",
+    )
+
+    if filling.ObjectPlacement is not None:
+        filling_matrix = _placement_matrix_from_entity(filling)
+        ifcopenshell.api.geometry.edit_object_placement(
+            model,
+            product=opening,
+            matrix=filling_matrix,
+            is_si=True,
+        )
+
+    _attach_provenance(
+        model,
+        opening,
+        piece.source,
+        extra={"DerivedRole": "HostedOpening"},
+    )
+    ifcopenshell.api.feature.add_feature(
+        model,
+        feature=opening,
+        element=host,
+    )
+    ifcopenshell.api.feature.add_filling(
+        model,
+        opening=opening,
+        element=filling,
+    )
+
+
+def _piece_matches_wall(piece: Sh3dFurniture, wall: Sh3dWall) -> bool:
+    if piece.level_id != wall.level_id:
+        return False
+    if wall.arc_extent_rad not in (None, 0.0):
+        return False
+
+    dx = wall.end.x_m - wall.start.x_m
+    dy = wall.end.y_m - wall.start.y_m
+    length = hypot(dx, dy)
+    if length <= 1e-9:
+        return False
+
+    wall_angle = atan2(dy, dx)
+    if abs(sin(piece.angle_rad - wall_angle)) > 1e-4:
+        return False
+
+    relative_x = piece.x_m - wall.start.x_m
+    relative_y = piece.y_m - wall.start.y_m
+    along = (relative_x * dx + relative_y * dy) / length
+    half_width = piece.width_m / 2.0
+    if along < -half_width or along > length + half_width:
+        return False
+
+    normal_distance = abs(relative_x * dy - relative_y * dx) / length
+    host_tolerance = max(
+        0.01,
+        (wall.thickness_m + piece.depth_m) / 2.0,
+    )
+    return normal_distance <= host_tolerance
+
+
+def _placement_matrix_from_entity(
+    entity: ifcopenshell.entity_instance,
+) -> np.ndarray:
+    import ifcopenshell.util.placement
+
+    return np.asarray(
+        ifcopenshell.util.placement.get_local_placement(entity.ObjectPlacement),
+        dtype=float,
     )
 
 
