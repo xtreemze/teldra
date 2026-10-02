@@ -11,9 +11,19 @@ import {
 } from "@teldra/runtime-babylon";
 import "./TwinViewport.css";
 
+export interface TwinViewportClientPoint {
+  readonly clientX: number;
+  readonly clientY: number;
+}
+
+export interface TwinViewportHandle {
+  projectNode(nodeKey: string): TwinViewportClientPoint | null;
+}
+
 export interface TwinViewportProps {
   readonly manifest: unknown;
   readonly glbUrl: string;
+  readonly onReady?: (handle: TwinViewportHandle) => void;
   readonly onSelect?: (identity: TwinRenderIdentity | null) => void;
 }
 
@@ -43,6 +53,14 @@ export function TwinViewport(props: TwinViewportProps) {
         });
         await runtime.load(props.glbUrl);
         runtime.start();
+
+        const readyRuntime = runtime;
+        props.onReady?.({
+          projectNode(nodeKey) {
+            return readyRuntime.projectNode(nodeKey);
+          },
+        });
+
         setStatus("ready");
       } catch (error) {
         console.error("Failed to initialize Teldra twin viewport.", error);
