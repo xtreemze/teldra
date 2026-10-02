@@ -133,6 +133,11 @@ export async function createBabylonTwinRuntime(
       if (defaultCamera !== undefined && renderMeshes.length > 0) {
         defaultCamera.zoomOn(renderMeshes);
       }
+
+      // A resolved load is a renderer-readiness boundary: camera framing,
+      // world matrices, materials, and the first pickable frame are ready.
+      await scene.whenReadyAsync();
+      scene.render();
     },
 
     onPick(listener): () => void {
