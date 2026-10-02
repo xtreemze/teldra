@@ -70,13 +70,20 @@ export class TwinIntegrityError extends Error {
 }
 
 export function assertTwinIntegrity(project: TwinProject): void {
-  assertUnique(project.building.refs.map((value) => value.id), "building reference");
+  const canonicalIds = [
+    ...project.building.refs.map((value) => value.id),
+    ...project.devices.flatMap((device) => [
+      device.id,
+      ...device.capabilities.map((capability) => capability.id),
+    ]),
+    ...project.bindings.map((value) => value.id),
+  ];
+
+  assertUnique(canonicalIds, "canonical");
   assertUnique(project.building.refs.map((value) => value.ifcGlobalId), "IFC GlobalId");
-  assertUnique(project.devices.map((value) => value.id), "device");
-  assertUnique(project.bindings.map((value) => value.id), "binding");
 
   const buildingIds = new Set(project.building.refs.map((value) => value.id));
-  const deviceIds = new Set(project.devices.map((value) => value.id));
+  const devicesById = new Map(project.devices.map((value) => [value.id, value] as const));
 
   for (const device of project.devices) {
     if (device.buildingRefId !== undefined && !buildingIds.has(device.buildingRefId)) {
@@ -84,18 +91,29 @@ export function assertTwinIntegrity(project: TwinProject): void {
         `Device "${device.id}" references unknown building object "${device.buildingRefId}".`,
       );
     }
-
-    assertUnique(
-      device.capabilities.map((value) => value.id),
-      `capability on device "${device.id}"`,
-    );
   }
 
   for (const binding of project.bindings) {
-    if (!deviceIds.has(binding.deviceId)) {
+    const device = devicesById.get(binding.deviceId);
+
+    if (device === undefined) {
       throw new TwinIntegrityError(
         `Binding "${binding.id}" references unknown device "${binding.deviceId}".`,
       );
+    }
+
+    if (binding.capabilityMap === undefined) {
+      continue;
+    }
+
+    const capabilityIds = new Set(device.capabilities.map((capability) => capability.id));
+
+    for (const capabilityId of Object.keys(binding.capabilityMap)) {
+      if (!capabilityIds.has(capabilityId)) {
+        throw new TwinIntegrityError(
+          `Binding "${binding.id}" maps unknown capability "${capabilityId}" on device "${device.id}".`,
+        );
+      }
     }
   }
 }

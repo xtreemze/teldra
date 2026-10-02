@@ -43,6 +43,21 @@ describe("assertTwinIntegrity", () => {
     expect(() => assertTwinIntegrity(project())).not.toThrow();
   });
 
+  it("rejects a canonical ID collision across building and device records", () => {
+    const candidate = project();
+    const invalid: TwinProject = {
+      ...candidate,
+      devices: [
+        {
+          ...candidate.devices[0]!,
+          id: "room:living",
+        },
+      ],
+    };
+
+    expect(() => assertTwinIntegrity(invalid)).toThrow(/Duplicate canonical identity/);
+  });
+
   it("rejects renderer-independent devices attached to missing BIM identity", () => {
     const candidate = project();
     const invalid: TwinProject = {
@@ -71,5 +86,22 @@ describe("assertTwinIntegrity", () => {
     };
 
     expect(() => assertTwinIntegrity(invalid)).toThrow(/unknown device/);
+  });
+
+  it("rejects adapter mappings for capabilities the device does not own", () => {
+    const candidate = project();
+    const invalid: TwinProject = {
+      ...candidate,
+      bindings: [
+        {
+          ...candidate.bindings[0]!,
+          capabilityMap: {
+            "cap:missing": "brightness",
+          },
+        },
+      ],
+    };
+
+    expect(() => assertTwinIntegrity(invalid)).toThrow(/unknown capability/);
   });
 });

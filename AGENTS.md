@@ -20,6 +20,7 @@ Lower layers must not import higher layers. In particular, domain/application/pr
 
 ## Identity
 
+- Teldra IDs share one canonical identity space across building references, devices, capabilities, and bindings.
 - Keep Teldra canonical IDs stable.
 - Preserve IFC GlobalIds when importing or updating the same architectural element.
 - External platform entity IDs belong to binding records and must not replace canonical identity.
