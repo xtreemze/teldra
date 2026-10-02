@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@teldra/design-tokens": "workspace:*",
+    "@teldra/runtime-babylon": "workspace:*",
     "@teldra/ui-core": "workspace:*",
     "solid-js": "1.9.15"
   },
