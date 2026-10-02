@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/project/0.1.0",
+  "title": "Teldra Project Manifest",
+  "type": "object",
+  "required": ["formatVersion", "building", "twin"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": {
+      "const": "0.1.0"
+    },
+    "building": {
+      "$ref": "#/$defs/artifact"
+    },
+    "twin": {
+      "$ref": "#/$defs/artifact"
+    },
+    "derived": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      },
+      "default": []
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    }
+  }
+}

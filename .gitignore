@@ -1,0 +1,21 @@
+node_modules/
+.pnpm-store/
+.nx/
+dist/
+coverage/
+*.tsbuildinfo
+
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+.DS_Store
+*.blend1
+
+# Derived Teldra artifacts
+*.glb
+*.gltf
+*.ktx2
+*.env
+.cache/
