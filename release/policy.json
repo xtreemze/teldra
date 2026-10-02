@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "0.1.0",
+  "versioning": {
+    "product": "semver",
+    "projectFormat": "explicit-versioned-migrations",
+    "preOneCompatibility": "no-silent-breakage"
+  },
+  "reproducibility": {
+    "requiredLockfiles": [
+      "pnpm-lock.yaml",
+      "python/uv.lock"
+    ],
+    "releaseRequiresCleanGeneratedSchemas": true,
+    "releaseRequiresPinnedToolchainManifest": true,
+    "releaseRequiresSourceCommit": true
+  },
+  "projectCompatibility": {
+    "unknownFutureSchema": "reject-with-actionable-error",
+    "knownOlderSchema": "migrate-or-reject-explicitly",
+    "migrationMustPreserveCanonicalIdentity": true,
+    "migrationMustBeTestedWithFixture": true,
+    "derivedCachesMayBeDiscarded": true
+  },
+  "secrets": {
+    "forbiddenProjectData": [
+      "home-assistant-access-token",
+      "oauth-refresh-token",
+      "private-key",
+      "password"
+    ],
+    "projectFilesMayContainSecretReferences": true,
+    "secretMaterialMustUseHostSecureStorage": true
+  },
+  "imports": {
+    "archive": {
+      "maxEntries": 10000,
+      "maxTotalUncompressedMiB": 2048,
+      "maxSingleEntryMiB": 512,
+      "maxCompressionRatio": 200,
+      "rejectAbsolutePaths": true,
+      "rejectParentTraversal": true,
+      "rejectSymlinks": true,
+      "expandNestedArchives": false
+    },
+    "xml": {
+      "allowExternalEntities": false,
+      "allowNetworkResolution": false
+    },
+    "gltf": {
+      "allowExternalNetworkUrisByDefault": false
+    }
+  },
+  "releaseArtifacts": {
+    "sha256ChecksumsRequired": true,
+    "ciProvenanceRequired": true,
+    "sbomRequired": true,
+    "dependencyLicenseInventoryRequired": true,
+    "platformSigningWhenDistributedAsNativeInstaller": true
+  },
+  "licensing": {
+    "portableCoreTarget": "Apache-2.0-owner-approval-required-before-release",
+    "blenderExtensionTarget": "GPL-3.0-or-later",
+    "ifcLibraryDependency": "LGPL-3.0-or-later",
+    "sh3dCompatibility": "clean-room-format-compatibility-only",
+    "copiedSweetHome3DImplementationInPortableCore": false,
+    "thirdPartyAssetLicenseMetadataRequired": true
+  }
+}
