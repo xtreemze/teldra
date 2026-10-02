@@ -257,4 +257,165 @@ describe("Teldra live semantics", () => {
     expect(snapshot.availability?.status).toBe("offline");
     expect(snapshot.observed).toBeUndefined();
   });
+
+  it("reconciles semantically equal values regardless of JSON property order", () => {
+    const store = new LiveTwinStore();
+    store.apply(desired());
+
+    const reached: Observation = {
+      ...observation("observation:ordered", 1, "2026-10-02T18:00:03Z", 0.5),
+      values: {
+        power: { value: true, kind: "boolean" },
+        brightness: { unit: "ratio", value: 0.5, kind: "number" },
+      },
+    };
+
+    store.apply(reached);
+
+    expect(
+      store.getCapability(subject.deviceId, subject.capabilityId).desired,
+    ).toBeUndefined();
+  });
+
+  it("lets newer device availability override older capability availability", () => {
+    const store = new LiveTwinStore();
+
+    store.apply({
+      schemaVersion: "0.1.0",
+      kind: "availability",
+      eventId: "availability:capability-online",
+      subject,
+      source: {
+        adapter: "test",
+        streamId: "ha:availability",
+        sequence: 1,
+      },
+      observedAt: "2026-10-02T18:00:00Z",
+      receivedAt: "2026-10-02T18:00:00Z",
+      status: "online",
+    });
+
+    store.apply({
+      schemaVersion: "0.1.0",
+      kind: "availability",
+      eventId: "availability:device-offline",
+      subject: { deviceId: subject.deviceId },
+      source: {
+        adapter: "test",
+        streamId: "ha:availability",
+        sequence: 2,
+      },
+      observedAt: "2026-10-02T18:00:01Z",
+      receivedAt: "2026-10-02T18:00:01Z",
+      status: "offline",
+    });
+
+    expect(
+      store.getCapability(subject.deviceId, subject.capabilityId).availability
+        ?.status,
+    ).toBe("offline");
+  });
+
+  it("expires desired state explicitly at its timeout", () => {
+    const store = new LiveTwinStore();
+    store.apply(
+      observation("observation:before-desired", 1, "2026-10-02T18:00:00Z", 0.25),
+    );
+    store.apply(desired());
+
+    expect(store.expireDesiredStates("2026-10-02T18:00:30Z")).toBe(0);
+    expect(store.expireDesiredStates("2026-10-02T18:00:31Z")).toBe(1);
+
+    expect(
+      store.getCapability(subject.deviceId, subject.capabilityId).desired,
+    ).toBeUndefined();
+    expect(
+      store.getEffectiveValues(
+        subject.deviceId,
+        subject.capabilityId,
+        "2026-10-02T18:00:31Z",
+      ),
+    ).toMatchObject({
+      source: "observed",
+      values: {
+        brightness: { kind: "number", value: 0.25, unit: "ratio" },
+      },
+    });
+  });
+
+  it("does not let an older acknowledgement replace a newer command lifecycle", () => {
+    const store = new LiveTwinStore();
+    store.apply(desired("desired:new", "command:new"));
+
+    expect(
+      store.apply({
+        schemaVersion: "0.1.0",
+        kind: "command-ack",
+        eventId: "ack:new",
+        commandId: "command:new",
+        subject,
+        source: {
+          adapter: "test",
+          streamId: "ha:commands",
+          sequence: 2,
+        },
+        receivedAt: "2026-10-02T18:00:05Z",
+        status: "accepted",
+      }),
+    ).toEqual({ status: "applied" });
+
+    expect(
+      store.apply({
+        schemaVersion: "0.1.0",
+        kind: "command-ack",
+        eventId: "ack:old",
+        commandId: "command:old",
+        subject,
+        source: {
+          adapter: "test",
+          streamId: "ha:commands",
+          sequence: 1,
+        },
+        receivedAt: "2026-10-02T18:00:03Z",
+        status: "failed",
+      }),
+    ).toEqual({ status: "ignored-older" });
+
+    expect(
+      store.getCapability(subject.deviceId, subject.capabilityId).commandAck
+        ?.commandId,
+    ).toBe("command:new");
+  });
+
+  it("keeps distinct canonical subjects distinct even when IDs contain separators", () => {
+    const store = new LiveTwinStore();
+
+    const first: Observation = {
+      ...observation("observation:first", 1, "2026-10-02T18:00:00Z", 0.1),
+      subject: {
+        deviceId: "device:a\u0000b",
+        capabilityId: "cap:c",
+      },
+    };
+    const second: Observation = {
+      ...observation("observation:second", 1, "2026-10-02T18:00:01Z", 0.9),
+      subject: {
+        deviceId: "device:a",
+        capabilityId: "b\u0000cap:c",
+      },
+    };
+
+    store.apply(first);
+    store.apply(second);
+
+    expect(
+      store.getCapability(first.subject.deviceId, first.subject.capabilityId)
+        .observed?.values.brightness,
+    ).toEqual({ kind: "number", value: 0.1, unit: "ratio" });
+    expect(
+      store.getCapability(second.subject.deviceId, second.subject.capabilityId)
+        .observed?.values.brightness,
+    ).toEqual({ kind: "number", value: 0.9, unit: "ratio" });
+  });
+
 });
