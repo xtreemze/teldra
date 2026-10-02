@@ -1,6 +1,6 @@
-import type { SerializedTwin } from "@teldra/schemas/types/twin";
+import type { TeldraTwin } from "@teldra/schemas/types/twin";
 
-export type TwinProject = SerializedTwin;
+export type TwinProject = TeldraTwin;
 
 export type CanonicalId = string;
 export type BuildingReference = TwinProject["building"]["refs"][number];
