@@ -19,3 +19,19 @@ The runtime prefers Babylon WebGPU when supported and falls back to WebGL. The s
 The runtime uses Babylon's module-level asset-container loader and dynamically registered built-in loaders. A loaded asset is expected to have been produced by Teldra's IFC→GLB exporter so its glTF nodes carry `extras.teldra` metadata matching `scene.manifest.json`.
 
 Babylon's renderer state, camera, GPU resources, and loaded asset containers remain derived presentation state.
+
+
+## Picking
+
+The public picking boundary is renderer-neutral.
+
+`pick(clientX, clientY)` accepts browser client coordinates, converts them to canvas-local coordinates using the canvas client rect, performs Babylon mesh picking, and resolves the picked render node through the scene manifest to a `TwinRenderIdentity`.
+
+`onPick(listener)` listens to native canvas click events and delegates to the same `pick` primitive. This keeps pointer-event plumbing and programmatic picking consistent while preventing Babylon mesh objects from escaping the runtime.
+
+
+## Projection coordinates
+
+`projectNode(nodeKey)` projects a specific derived render instance to browser client coordinates. The runtime converts through Babylon's active camera, engine render dimensions, and the canvas client rectangle, so callers do not need to know device-pixel ratio or hardware scaling.
+
+The inverse picking path uses the same coordinate spaces: browser client coordinates are normalized through the canvas client rectangle into engine render coordinates before Babylon ray picking. This pair is intended to support renderer composition, analytical overlays, labels, and interaction without exposing Babylon mesh objects.
