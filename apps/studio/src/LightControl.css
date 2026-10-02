@@ -1,0 +1,36 @@
+.teldra-light-control {
+  min-block-size: var(--teldra-control-min-size);
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--teldra-space-4);
+  padding: var(--teldra-space-2) var(--teldra-space-3);
+  border: 1px solid var(--teldra-border);
+  border-radius: var(--teldra-radius-control);
+  background: var(--teldra-surface);
+  color: var(--teldra-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.teldra-light-control:not(:disabled):hover {
+  background: var(--teldra-surface-hover);
+}
+
+.teldra-light-control[aria-pressed="true"] {
+  border-color: var(--teldra-accent);
+}
+
+.teldra-light-control:focus-visible {
+  outline: 2px solid var(--teldra-accent);
+  outline-offset: 2px;
+}
+
+.teldra-light-control:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.teldra-light-control__label {
+  font-weight: 600;
+}

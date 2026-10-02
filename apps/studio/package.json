@@ -1,0 +1,32 @@
+{
+  "name": "@teldra/studio",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build -o storybook-static",
+    "storybook:test": "playwright test"
+  },
+  "dependencies": {
+    "@teldra/design-tokens": "workspace:*",
+    "@teldra/ui-core": "workspace:*",
+    "solid-js": "1.9.15"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@storybook/addon-a11y": "10.6.0",
+    "@storybook/addon-docs": "10.6.0",
+    "storybook": "10.6.0",
+    "storybook-solidjs-vite": "10.7.2",
+    "vite": "8.3.2",
+    "vite-plugin-solid": "2.11.14",
+    "vitest": "5.0.3"
+  },
+  "nx": {
+    "tags": ["layer:app"]
+  }
+}
