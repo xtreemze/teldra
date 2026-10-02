@@ -66,6 +66,8 @@ export async function createBabylonTwinRuntime(
       Vector3.Zero(),
       scene,
     );
+    scene.activeCamera = defaultCamera;
+    scene.cameraToUseForPointers = defaultCamera;
     defaultCamera.attachControl(canvas, true);
     defaultCamera.lowerRadiusLimit = 0.25;
 
