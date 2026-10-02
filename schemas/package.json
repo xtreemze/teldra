@@ -6,11 +6,13 @@
   "exports": {
     "./appearance": "./json/appearance.schema.json",
     "./lighting": "./json/lighting.schema.json",
+    "./live": "./json/live.schema.json",
     "./project": "./json/project.schema.json",
     "./scene": "./json/scene.schema.json",
     "./twin": "./json/twin.schema.json",
     "./types/appearance": "./generated/appearance.ts",
     "./types/lighting": "./generated/lighting.ts",
+    "./types/live": "./generated/live.ts",
     "./types/project": "./generated/project.ts",
     "./types/scene": "./generated/scene.ts",
     "./types/twin": "./generated/twin.ts"

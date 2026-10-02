@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/live/0.1.0",
+  "title": "Teldra Live Envelope",
+  "oneOf": [
+    { "$ref": "#/$defs/observation" },
+    { "$ref": "#/$defs/availability" },
+    { "$ref": "#/$defs/desiredState" },
+    { "$ref": "#/$defs/commandAck" }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilitySubject": {
+      "type": "object",
+      "required": ["deviceId", "capabilityId"],
+      "additionalProperties": false,
+      "properties": {
+        "deviceId": { "$ref": "#/$defs/id" },
+        "capabilityId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "availabilitySubject": {
+      "type": "object",
+      "required": ["deviceId"],
+      "additionalProperties": false,
+      "properties": {
+        "deviceId": { "$ref": "#/$defs/id" },
+        "capabilityId": { "$ref": "#/$defs/id" }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": ["adapter", "streamId"],
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bindingId": { "$ref": "#/$defs/id" },
+        "streamId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "booleanValue": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "boolean" },
+        "value": { "type": "boolean" }
+      }
+    },
+    "numberValue": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "number" },
+        "value": { "type": "number" },
+        "unit": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "textValue": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "text" },
+        "value": { "type": "string" }
+      }
+    },
+    "rgbValue": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "rgb" },
+        "value": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "stateValue": {
+      "oneOf": [
+        { "$ref": "#/$defs/booleanValue" },
+        { "$ref": "#/$defs/numberValue" },
+        { "$ref": "#/$defs/textValue" },
+        { "$ref": "#/$defs/rgbValue" }
+      ]
+    },
+    "values": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/stateValue"
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "kind",
+        "eventId",
+        "subject",
+        "source",
+        "observedAt",
+        "receivedAt",
+        "values"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "const": "0.1.0" },
+        "kind": { "const": "observation" },
+        "eventId": { "$ref": "#/$defs/id" },
+        "subject": { "$ref": "#/$defs/capabilitySubject" },
+        "source": { "$ref": "#/$defs/source" },
+        "observedAt": { "$ref": "#/$defs/timestamp" },
+        "receivedAt": { "$ref": "#/$defs/timestamp" },
+        "values": { "$ref": "#/$defs/values" }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "kind",
+        "eventId",
+        "subject",
+        "source",
+        "observedAt",
+        "receivedAt",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "const": "0.1.0" },
+        "kind": { "const": "availability" },
+        "eventId": { "$ref": "#/$defs/id" },
+        "subject": { "$ref": "#/$defs/availabilitySubject" },
+        "source": { "$ref": "#/$defs/source" },
+        "observedAt": { "$ref": "#/$defs/timestamp" },
+        "receivedAt": { "$ref": "#/$defs/timestamp" },
+        "status": {
+          "enum": ["online", "offline", "unavailable", "unknown"]
+        }
+      }
+    },
+    "desiredState": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "kind",
+        "eventId",
+        "commandId",
+        "subject",
+        "requestedAt",
+        "values",
+        "optimistic"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "const": "0.1.0" },
+        "kind": { "const": "desired-state" },
+        "eventId": { "$ref": "#/$defs/id" },
+        "commandId": { "$ref": "#/$defs/id" },
+        "subject": { "$ref": "#/$defs/capabilitySubject" },
+        "requestedAt": { "$ref": "#/$defs/timestamp" },
+        "expiresAt": { "$ref": "#/$defs/timestamp" },
+        "values": { "$ref": "#/$defs/values" },
+        "optimistic": { "type": "boolean" }
+      }
+    },
+    "commandAck": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "kind",
+        "eventId",
+        "commandId",
+        "subject",
+        "source",
+        "receivedAt",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": { "const": "0.1.0" },
+        "kind": { "const": "command-ack" },
+        "eventId": { "$ref": "#/$defs/id" },
+        "commandId": { "$ref": "#/$defs/id" },
+        "subject": { "$ref": "#/$defs/capabilitySubject" },
+        "source": { "$ref": "#/$defs/source" },
+        "receivedAt": { "$ref": "#/$defs/timestamp" },
+        "status": {
+          "enum": ["accepted", "rejected", "completed", "failed"]
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

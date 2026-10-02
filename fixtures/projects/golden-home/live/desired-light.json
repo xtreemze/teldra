@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "0.1.0",
+  "kind": "desired-state",
+  "eventId": "desired:living-room-floor-lamp:43",
+  "commandId": "command:living-room-floor-lamp:43",
+  "subject": {
+    "deviceId": "device:living-room-floor-lamp",
+    "capabilityId": "cap:living-room-floor-lamp-light"
+  },
+  "requestedAt": "2026-10-02T18:00:04Z",
+  "expiresAt": "2026-10-02T18:00:34Z",
+  "values": {
+    "power": { "kind": "boolean", "value": true },
+    "brightness": { "kind": "number", "value": 0.6, "unit": "ratio" }
+  },
+  "optimistic": true
+}
