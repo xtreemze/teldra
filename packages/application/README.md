@@ -11,3 +11,9 @@ It may depend on domain contracts, but it must remain independent of Babylon.js,
 Only canonical project and canonical IFC state are authoritative for project serialization. Derived caches are explicitly disposable; live, UI/session, draft, renderer, command-history, and connection state are prohibited from canonical serialization.
 
 SolidJS may own view/session and draft stores, but it consumes canonical and live state as read models rather than becoming their authority.
+
+## Canonical commands
+
+`CommandProcessor` is the framework-neutral reference mutation path for canonical project and IFC changes. Commands and transactions are JSON-safe data, transaction application is atomic, inverse commands drive undo/redo, and expected revisions reject stale editors before mutation.
+
+Presentation/session state and physical smart-home commands are rejected from canonical command history by authority classification.
