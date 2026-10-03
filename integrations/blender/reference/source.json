@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "0.1.0",
+  "canonicalId": "fixture:blender-reference",
+  "ifcGlobalId": "1234567890123456789012",
+  "nodeKey": "ifc:1234567890123456789012:body",
+  "geometry": {
+    "kind": "plane",
+    "sizeMetres": 2
+  },
+  "material": {
+    "baseColor": [0.18, 0.42, 0.75, 1],
+    "metallic": 0.25,
+    "roughness": 0.4
+  },
+  "bake": {
+    "width": 16,
+    "height": 16,
+    "samples": 8,
+    "marginPixels": 2
+  }
+}

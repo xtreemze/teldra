@@ -1,0 +1,60 @@
+name: Blender reference certification
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/blender-reference.yml"
+      - "integrations/blender/**"
+      - "fixtures/blender/**"
+      - "apps/studio/src/TwinViewport.stories.tsx"
+      - "apps/studio/public/fixtures/blender-reference.glb"
+      - "toolchain/manifest.json"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/blender-reference.yml"
+      - "integrations/blender/**"
+      - "fixtures/blender/**"
+      - "apps/studio/src/TwinViewport.stories.tsx"
+      - "apps/studio/public/fixtures/blender-reference.glb"
+      - "toolchain/manifest.json"
+
+permissions:
+  contents: read
+
+jobs:
+  reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download Blender 5.2.2 LTS
+        run: |
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/blender.tar.xz" \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz
+          curl --fail --location --retry 3 \
+            --output "$RUNNER_TEMP/blender.sha256" \
+            https://download.blender.org/release/Blender5.2/blender-5.2.2.sha256
+          grep "blender-5.2.2-linux-x64.tar.xz" "$RUNNER_TEMP/blender.sha256" \
+            | sed "s#blender-5.2.2-linux-x64.tar.xz#$RUNNER_TEMP/blender.tar.xz#" \
+            | sha256sum --check -
+
+      - name: Extract Blender
+        run: |
+          mkdir -p "$RUNNER_TEMP/blender"
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" \
+            -C "$RUNNER_TEMP/blender" --strip-components=1
+
+      - name: Generate and certify reference scene
+        run: |
+          "$RUNNER_TEMP/blender/blender" \
+            --background \
+            --factory-startup \
+            --python integrations/blender/reference/generate.py \
+            -- \
+            --source integrations/blender/reference/source.json \
+            --output "$RUNNER_TEMP/teldra-blender-reference" \
+            --emit-base64
