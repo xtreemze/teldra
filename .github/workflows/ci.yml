@@ -40,6 +40,9 @@ jobs:
       - name: Enforce release policy
         run: pnpm release:check
 
+      - name: Enforce toolchain and provenance policy
+        run: pnpm toolchain:check
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -63,8 +66,11 @@ jobs:
           python -m json.tool schemas/json/appearance.schema.json >/dev/null
           python -m json.tool schemas/json/lighting.schema.json >/dev/null
           python -m json.tool schemas/json/live.schema.json >/dev/null
+          python -m json.tool schemas/json/artifact-provenance.schema.json >/dev/null
           python -m json.tool quality/budgets.json >/dev/null
           python -m json.tool release/policy.json >/dev/null
+          python -m json.tool toolchain/manifest.json >/dev/null
+          python -m json.tool fixtures/provenance/web-export.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/twin.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/scene.manifest.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/appearance.manifest.json >/dev/null
