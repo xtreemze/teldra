@@ -1,10 +1,10 @@
 # ADR 0003: Portable .teldra project container
 
-Status: proposed
+Status: accepted
 
 ## Shape
 
-A released Teldra project should be movable as one file while keeping source truth separate from caches. The proposed `.teldra` format is a documented ZIP container:
+A released Teldra project is movable as one file while keeping source truth separate from caches. The `.teldra` format is a documented ZIP container:
 
 ```text
 /project.json
@@ -23,3 +23,5 @@ A released Teldra project should be movable as one file while keeping source tru
 Only `project.json`, `building.ifc`, `twin.json`, and authored assets are authoritative. `cache/` is disposable.
 
 Derived artifacts must record the hashes and toolchain versions that produced them so stale bakes and exports can be invalidated deterministically.
+
+Save, autosave, crash recovery, locking, backup, dirty-state, and corruption behavior are defined by ADR 0015. Host-local recovery data and filesystem/browser handles are never canonical project content.
