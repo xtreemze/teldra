@@ -169,10 +169,11 @@ def write_fixture() -> None:
 
 
 def check_fixture() -> None:
+    ifc_bytes, identity_bytes, project_bytes = build_fixture()
     expected = {
-        IFC_DESTINATION: build_fixture()[0],
-        IDENTITY_DESTINATION: build_fixture()[1],
-        PROJECT_DESTINATION: build_fixture()[2],
+        IFC_DESTINATION: ifc_bytes,
+        IDENTITY_DESTINATION: identity_bytes,
+        PROJECT_DESTINATION: project_bytes,
     }
     stale = [
         path.relative_to(REPOSITORY_ROOT).as_posix()
