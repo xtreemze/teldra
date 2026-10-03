@@ -53,8 +53,13 @@ jobs:
           "$RUNNER_TEMP/blender/blender" \
             --background \
             --factory-startup \
+            --python-exit-code 1 \
             --python integrations/blender/reference/generate.py \
             -- \
             --source integrations/blender/reference/source.json \
             --output "$RUNNER_TEMP/teldra-blender-reference" \
             --emit-base64
+          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference.glb"
+          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference-bake.png"
+          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference.scene.manifest.json"
+          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference.metadata.json"

@@ -123,7 +123,6 @@ def create_light() -> None:
 def bake_lightmap(obj, material, source: dict, destination: Path) -> None:
     bake_spec = source["bake"]
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE_NEXT"
     try:
         scene.render.engine = "CYCLES"
     except TypeError as error:
