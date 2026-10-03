@@ -180,3 +180,5 @@ function schemaIssues(
     message: error.message ?? "JSON Schema validation failed.",
   }));
 }
+
+export * from "./persistence.js";
