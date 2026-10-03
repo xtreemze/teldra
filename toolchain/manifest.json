@@ -24,8 +24,13 @@
   },
   "authoring": {
     "blender": {
-      "certification": "not-yet-certified",
-      "supportedVersions": [],
+      "certification": "reference-ci",
+      "supportedVersions": [
+        "5.2.2"
+      ],
+      "ci": "5.2.2",
+      "download": "https://download.blender.org/release/Blender5.2/blender-5.2.2-linux-x64.tar.xz",
+      "checksumVerification": "official-release-sha256",
       "artifactReuseRequiresExactVersion": true
     },
     "bonsai": {

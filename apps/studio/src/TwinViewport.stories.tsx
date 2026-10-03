@@ -1,11 +1,15 @@
 import { createSignal } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import blenderReferenceManifest from "./fixtures/blender-reference.scene.manifest.json";
 import {
   TwinViewport,
   type TwinViewportClientPoint,
 } from "./TwinViewport";
 
 const fixtureNodeKey = "ifc:fixture-wall:body";
+const blenderReferenceNodeKey =
+  blenderReferenceManifest.nodes[0]?.nodeKey ??
+  "ifc:1234567890123456789012:body";
 
 const manifest = {
   schemaVersion: "0.1.0",
@@ -51,7 +55,13 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-function IdentityPickingHarness() {
+interface IdentityPickingHarnessProps {
+  readonly manifest: unknown;
+  readonly glbUrl: string;
+  readonly nodeKey: string;
+}
+
+function IdentityPickingHarness(props: IdentityPickingHarnessProps) {
   const [projected, setProjected] =
     createSignal<TwinViewportClientPoint | null>(null);
   const [roundTripId, setRoundTripId] = createSignal<string>("pending");
@@ -59,10 +69,10 @@ function IdentityPickingHarness() {
   return (
     <>
       <TwinViewport
-        manifest={manifest}
-        glbUrl="/fixtures/twin-pick.glb"
+        manifest={props.manifest}
+        glbUrl={props.glbUrl}
         onReady={(handle) => {
-          const point = handle.projectNode(fixtureNodeKey);
+          const point = handle.projectNode(props.nodeKey);
           setProjected(point);
           if (point !== null) {
             setRoundTripId(
@@ -89,5 +99,25 @@ export const IdentityPicking: Story = {
     manifest,
     glbUrl: "/fixtures/twin-pick.glb",
   },
-  render: () => <IdentityPickingHarness />,
+  render: () => (
+    <IdentityPickingHarness
+      manifest={manifest}
+      glbUrl="/fixtures/twin-pick.glb"
+      nodeKey={fixtureNodeKey}
+    />
+  ),
+};
+
+export const BlenderReferenceParity: Story = {
+  args: {
+    manifest: blenderReferenceManifest,
+    glbUrl: "/fixtures/blender-reference.glb",
+  },
+  render: () => (
+    <IdentityPickingHarness
+      manifest={blenderReferenceManifest}
+      glbUrl="/fixtures/blender-reference.glb"
+      nodeKey={blenderReferenceNodeKey}
+    />
+  ),
 };

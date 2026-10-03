@@ -24,6 +24,7 @@ export async function checkToolchainPolicy(repoRoot = REPO_ROOT) {
     ifcProject,
     importProject,
     exportProject,
+    blenderWorkflow,
   ] = await Promise.all([
     readText("toolchain/manifest.json"),
     readText("package.json"),
@@ -35,6 +36,7 @@ export async function checkToolchainPolicy(repoRoot = REPO_ROOT) {
     readText("python/packages/teldra-ifc/pyproject.toml"),
     readText("python/packages/teldra-import-sh3d/pyproject.toml"),
     readText("python/packages/teldra-web-export/pyproject.toml"),
+    readText(".github/workflows/blender-reference.yml"),
   ]);
 
   const manifest = JSON.parse(manifestText);
@@ -96,6 +98,42 @@ export async function checkToolchainPolicy(repoRoot = REPO_ROOT) {
     }
     if (policy?.artifactReuseRequiresExactVersion !== true) {
       errors.push(`${tool} artifact reuse must require an exact producer version`);
+    }
+  }
+
+  const blender = manifest.authoring?.blender;
+  if (blender?.certification === "reference-ci") {
+    if (
+      typeof blender.ci !== "string" ||
+      !Array.isArray(blender.supportedVersions) ||
+      !blender.supportedVersions.includes(blender.ci)
+    ) {
+      errors.push(
+        "reference-CI Blender version must be included in supportedVersions",
+      );
+    }
+    if (
+      typeof blender.download !== "string" ||
+      !blender.download.includes(
+        `blender-${blender.ci}-linux-x64.tar.xz`,
+      )
+    ) {
+      errors.push("Blender download URL must match the reference-CI version");
+    }
+    if (blender.checksumVerification !== "official-release-sha256") {
+      errors.push(
+        "Blender reference CI must verify the official release SHA-256",
+      );
+    }
+    if (
+      !blenderWorkflow.includes(
+        `blender-${blender.ci}-linux-x64.tar.xz`,
+      ) ||
+      !blenderWorkflow.includes(`blender-${blender.ci}.sha256`)
+    ) {
+      errors.push(
+        "Blender workflow version must match toolchain/manifest.json",
+      );
     }
   }
 

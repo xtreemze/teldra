@@ -7,6 +7,7 @@ on:
       - "integrations/blender/**"
       - "fixtures/blender/**"
       - "apps/studio/src/TwinViewport.stories.tsx"
+      - "apps/studio/src/fixtures/blender-reference.scene.manifest.json"
       - "apps/studio/public/fixtures/blender-reference.glb"
       - "toolchain/manifest.json"
   push:
@@ -17,6 +18,7 @@ on:
       - "integrations/blender/**"
       - "fixtures/blender/**"
       - "apps/studio/src/TwinViewport.stories.tsx"
+      - "apps/studio/src/fixtures/blender-reference.scene.manifest.json"
       - "apps/studio/public/fixtures/blender-reference.glb"
       - "toolchain/manifest.json"
 
@@ -48,7 +50,7 @@ jobs:
           tar -xJf "$RUNNER_TEMP/blender.tar.xz" \
             -C "$RUNNER_TEMP/blender" --strip-components=1
 
-      - name: Generate and certify reference scene
+      - name: Regenerate Blender reference
         run: |
           "$RUNNER_TEMP/blender/blender" \
             --background \
@@ -56,10 +58,25 @@ jobs:
             --python-exit-code 1 \
             --python integrations/blender/reference/generate.py \
             -- \
-            --source integrations/blender/reference/source.json \
-            --output "$RUNNER_TEMP/teldra-blender-reference" \
-            --emit-base64
-          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference.glb"
-          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference-bake.png"
-          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference.scene.manifest.json"
-          test -s "$RUNNER_TEMP/teldra-blender-reference/blender-reference.metadata.json"
+            --source fixtures/blender/reference/source.json \
+            --output "$RUNNER_TEMP/teldra-blender-reference"
+
+      - name: Verify deterministic reference bytes
+        run: |
+          for artifact in \
+            blender-reference.glb \
+            blender-reference-bake.png \
+            blender-reference.scene.manifest.json \
+            blender-reference.metadata.json
+          do
+            cmp \
+              "$RUNNER_TEMP/teldra-blender-reference/$artifact" \
+              "fixtures/blender/reference/$artifact"
+          done
+
+          cmp \
+            fixtures/blender/reference/blender-reference.glb \
+            apps/studio/public/fixtures/blender-reference.glb
+          cmp \
+            fixtures/blender/reference/blender-reference.scene.manifest.json \
+            apps/studio/src/fixtures/blender-reference.scene.manifest.json

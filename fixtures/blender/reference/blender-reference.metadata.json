@@ -1,0 +1,53 @@
+{
+  "blenderBuildHash": "d13f752e3b9c",
+  "blenderVersion": "5.2.2 LTS",
+  "blenderVersionTuple": [
+    5,
+    2,
+    2
+  ],
+  "certification": {
+    "attributes": [
+      "NORMAL",
+      "POSITION",
+      "TEXCOORD_0",
+      "TEXCOORD_1"
+    ],
+    "materialIndex": 0,
+    "meshIndex": 0,
+    "nodeIndex": 0,
+    "pbrMetallicRoughness": {
+      "baseColorFactor": [
+        0.18000000715255737,
+        0.41999998688697815,
+        0.75,
+        1
+      ],
+      "metallicFactor": 0.25,
+      "roughnessFactor": 0.4000000059604645
+    }
+  },
+  "colorManagement": {
+    "bakeWorkingSpace": "linear-srgb",
+    "materialBaseColorTransfer": "srgb",
+    "materialDataTransfer": "linear"
+  },
+  "cyclesVersion": "5.2.2 LTS",
+  "hashes": {
+    "bakeSha256": "c0cc22a3415eba4bc44f7debd57917853c6eb39dc7b433fc3f94b4eb5614fb62",
+    "glbSha256": "92dd97107a12052a434ea7dcc3bcc52fcce044aea7b4f6b4939089f742a97a59",
+    "sceneManifestSha256": "ab3ac15e4e22511c035d87febd41d78caa492aa9c66f750cbdd8d922d2df26f5",
+    "sourceSha256": "4dc6a4da3ad9b32746bbbabcebd986f4aae5031d70863ee3ba5f968018fb8fb1"
+  },
+  "pipelineVersion": "0.1.0",
+  "runtimeDelivery": {
+    "bakedLightingTarget": "ktx2",
+    "geometry": "glb",
+    "referenceBakeIntermediate": "png"
+  },
+  "schemaVersion": "0.1.0",
+  "uvSets": {
+    "lightmap": 1,
+    "material": 0
+  }
+}

@@ -1,9 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-test("loads the GLB and resolves a picked render node to canonical identity", async ({
-  page,
-}) => {
-  await page.goto("/iframe.html?id=studio-twinviewport--identity-picking");
+async function certifyIdentityPicking(
+  page: Page,
+  storyId: string,
+  expectedCanonicalId: string,
+) {
+  await page.goto(`/iframe.html?id=${storyId}`);
 
   await expect(page.getByTestId("viewport-status")).toHaveText("ready");
   await expect(page.getByTestId("viewport-backend")).toHaveText(/webgpu|webgl/);
@@ -20,7 +22,7 @@ test("loads the GLB and resolves a picked render node to canonical identity", as
   await expect(projectedX).not.toHaveText("pending");
   await expect(projectedY).not.toHaveText("pending");
   await expect(page.getByTestId("projected-roundtrip-id")).toHaveText(
-    "wall:fixture",
+    expectedCanonicalId,
   );
 
   const clientX = Number(await projectedX.textContent());
@@ -32,5 +34,25 @@ test("loads the GLB and resolves a picked render node to canonical identity", as
   await page.mouse.click(clientX, clientY);
 
   await expect(selection).not.toHaveText("unattempted");
-  await expect(selection).toHaveText("wall:fixture");
+  await expect(selection).toHaveText(expectedCanonicalId);
+}
+
+test("loads the deterministic transport GLB and resolves canonical identity", async ({
+  page,
+}) => {
+  await certifyIdentityPicking(
+    page,
+    "studio-twinviewport--identity-picking",
+    "wall:fixture",
+  );
+});
+
+test("loads the Blender reference GLB without identity reinterpretation", async ({
+  page,
+}) => {
+  await certifyIdentityPicking(
+    page,
+    "studio-twinviewport--blender-reference-parity",
+    "fixture:blender-reference",
+  );
 });

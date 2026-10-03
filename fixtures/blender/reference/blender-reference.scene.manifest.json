@@ -1,0 +1,44 @@
+{
+  "coordinateSystem": {
+    "handedness": "right",
+    "unit": "metre",
+    "upAxis": "Z"
+  },
+  "nodes": [
+    {
+      "canonicalId": "fixture:blender-reference",
+      "ifcGlobalId": "1234567890123456789012",
+      "kind": "building",
+      "nodeKey": "ifc:1234567890123456789012:body",
+      "renderPart": "body"
+    }
+  ],
+  "scene": {
+    "assetPath": "blender-reference.glb",
+    "assetSha256": "92dd97107a12052a434ea7dcc3bcc52fcce044aea7b4f6b4939089f742a97a59",
+    "canonicalToScene": [
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -1.0,
+      0.0,
+      0.0,
+      1.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "format": "glb"
+  },
+  "schemaVersion": "0.1.0",
+  "source": {
+    "buildingPath": "source.json",
+    "buildingSha256": "4dc6a4da3ad9b32746bbbabcebd986f4aae5031d70863ee3ba5f968018fb8fb1"
+  }
+}

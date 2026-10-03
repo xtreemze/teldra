@@ -24,11 +24,11 @@ Current baseline:
 | Python | `>=3.12 <3.13`; CI 3.12 |
 | uv | exactly 0.12.19 |
 | IfcOpenShell | exactly 0.9.0 |
-| Blender | not yet certified |
+| Blender | 5.2.2 LTS; reference-CI certified |
 | Bonsai | not yet certified |
 | Browsers | release matrix in `quality/budgets.json` |
 
-Blender and Bonsai are deliberately not assigned invented versions before the integration exists. Their policy entry is still explicit: artifacts produced through either path are not reusable unless provenance records an exact producer version, and the integration PR that first supports them must update the certified matrix.
+Blender 5.2.2 LTS is certified by the executable reference pipeline in `integrations/blender/reference/`: CI verifies the official release checksum, performs a Cycles bake, exports GLB, validates UV/PBR/identity semantics, and then the browser suite loads that exact GLB in Babylon. Bonsai remains deliberately uncertified until a Bonsai-specific integration is exercised by CI. Artifact reuse through either authoring path still requires an exact producer version.
 
 Changing an incompatible producer/runtime baseline requires updating the compatibility epoch and invalidates derived artifacts whose recorded toolchain identity no longer matches.
 
@@ -91,7 +91,7 @@ Browser support remains owned by `quality/budgets.json` rather than duplicated i
 - root Node/pnpm declarations match the manifest;
 - Python and uv pins match;
 - every current IFC-producing Python package pins the declared IfcOpenShell version;
-- Blender/Bonsai certification state is internally consistent;
+- Blender/Bonsai certification state is internally consistent, and the Blender reference workflow matches the certified Blender version;
 - browser certification policy exists;
 - the provenance schema parses;
 - the golden provenance fixture records the current manifest hash.

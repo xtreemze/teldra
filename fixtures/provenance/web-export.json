@@ -6,7 +6,7 @@
     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   },
   "sourceCommit": "d49072a3775239e86d6d28e319017edb6dba6334",
-  "toolchainManifestSha256": "8b686e0965db2a8f6c95471552f2ad419a4dfff88a245ebb0952d6ba7602e01f",
+  "toolchainManifestSha256": "3292e2d8b0c3af6f72132ea6e894b79ab2d2e113d37866621346b17ef96d50d7",
   "producer": {
     "name": "teldra-web-export",
     "version": "0.0.0"

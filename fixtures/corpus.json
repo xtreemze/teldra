@@ -71,6 +71,27 @@
         "Desired state remains separate from observed state and carries command identity.",
         "Home Assistant identifiers remain adapter bindings rather than canonical capability values."
       ]
+    },
+    {
+      "id": "blender-reference-interchange",
+      "paths": [
+        "fixtures/blender/reference/source.json",
+        "fixtures/blender/reference/blender-reference.glb",
+        "fixtures/blender/reference/blender-reference-bake.png",
+        "fixtures/blender/reference/blender-reference.scene.manifest.json",
+        "fixtures/blender/reference/blender-reference.metadata.json"
+      ],
+      "generator": "integrations/blender/reference/generate.py",
+      "provenance": "Generated and byte-certified in CI with Blender 5.2.2 LTS from the synthetic source.json reference input. The GLB is additionally loaded and picked by Babylon through the Studio Storybook browser certification.",
+      "license": "repository-owned-test-fixture; distribution follows repository license policy",
+      "invariants": [
+        "GLB preserves canonical and IFC identity through extras.teldra.",
+        "The exported primitive contains both TEXCOORD_0 for material appearance and TEXCOORD_1 for baked lighting.",
+        "Principled BSDF metallic-roughness factors survive Blender to glTF without undocumented reinterpretation.",
+        "Cycles produces a deterministic tiny diffuse-light bake on UV1.",
+        "The PNG bake is a reference intermediate; portable baked-lighting delivery remains KTX2 per ADR 0009.",
+        "Babylon loads the exact Blender-generated GLB and round-trips picking to the canonical Teldra identity."
+      ]
     }
   ]
 }
