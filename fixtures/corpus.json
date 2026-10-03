@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "0.1.0",
+  "policy": {
+    "containsRealUserData": false,
+    "defaultLicense": "repository-owned-test-fixture; distribution follows repository license policy",
+    "largeBinaryPolicy": "Keep deterministic source/generator/hash metadata in Git. Commit large binaries or reference images only when a review explicitly approves their storage and licensing."
+  },
+  "fixtures": [
+    {
+      "id": "golden-home-sh3d-source",
+      "paths": [
+        "fixtures/sh3d/golden-home/Home.xml",
+        "fixtures/sh3d/golden-home/README.md"
+      ],
+      "provenance": "Authored specifically for Teldra from the public SH3D XML contract; no Sweet Home 3D project, asset, or implementation code was copied.",
+      "license": "repository-owned-test-fixture; distribution follows repository license policy",
+      "invariants": [
+        "SH3D geometric lengths are source centimetres and parse to explicit metres.",
+        "Source IDs survive semantic parsing and feed deterministic IFC identity generation.",
+        "Fixture covers level, room, walls, furniture, hosted opening, light, material metadata, and stored camera."
+      ]
+    },
+    {
+      "id": "golden-home-canonical-project",
+      "paths": [
+        "fixtures/projects/golden-home/project.json",
+        "fixtures/projects/golden-home/building.ifc",
+        "fixtures/projects/golden-home/twin.json",
+        "fixtures/projects/golden-home/identity-map.json"
+      ],
+      "generator": "tools/fixtures/generate_golden_home.py",
+      "provenance": "building.ifc, project.json, and identity-map.json are deterministically generated from the checked-in SH3D source with the pinned Python/IfcOpenShell toolchain. twin.json is authored Teldra canonical smart-home state.",
+      "license": "repository-owned-test-fixture; distribution follows repository license policy",
+      "invariants": [
+        "IFC is IFC4 with explicit SI metres/radians and canonical Z-up placement semantics.",
+        "IFC contains storey, space, walls, furniture, light fixture, hosted opening, and placements.",
+        "Living-room and floor-lamp IFC GlobalIds match the canonical twin and scene fixtures.",
+        "project.json hashes authoritative building.ifc and twin.json and the checked-in derived semantic manifests.",
+        "Regeneration is byte-for-byte deterministic under the pinned toolchain."
+      ]
+    },
+    {
+      "id": "golden-home-derived-semantics",
+      "paths": [
+        "fixtures/projects/golden-home/scene.manifest.json",
+        "fixtures/projects/golden-home/appearance.manifest.json",
+        "fixtures/projects/golden-home/lighting.manifest.json"
+      ],
+      "provenance": "Authored semantic contract fixtures. Referenced GLB/KTX2 payloads are intentionally not committed yet; sentinel asset hashes test interchange semantics rather than a real Cycles bake.",
+      "license": "repository-owned-test-fixture; distribution follows repository license policy",
+      "invariants": [
+        "Scene nodes map renderer-neutral node keys back to canonical and IFC identity.",
+        "Material appearance uses metallic-roughness PBR with UV0 material textures.",
+        "Baked lighting uses UV1, linear-sRGB additive radiance bases, and renderer-neutral reflection probes.",
+        "Derived manifests never become architectural or automation authority."
+      ]
+    },
+    {
+      "id": "golden-home-live-state",
+      "paths": [
+        "fixtures/projects/golden-home/live/light-observation.json",
+        "fixtures/projects/golden-home/live/opening-observation.json",
+        "fixtures/projects/golden-home/live/environment-observation.json",
+        "fixtures/projects/golden-home/live/media-observation.json",
+        "fixtures/projects/golden-home/live/desired-light.json"
+      ],
+      "provenance": "Synthetic platform-neutral live-state envelopes authored for Teldra tests; contains no credentials or real home telemetry.",
+      "license": "repository-owned-test-fixture; distribution follows repository license policy",
+      "invariants": [
+        "Observed physical state remains separate from persistent twin configuration.",
+        "Desired state remains separate from observed state and carries command identity.",
+        "Home Assistant identifiers remain adapter bindings rather than canonical capability values."
+      ]
+    }
+  ]
+}

@@ -1,10 +1,27 @@
 # Golden home fixture
 
-This is the smallest shared Teldra smart-home fixture.
+This is the smallest shared Teldra smart-home project fixture.
+
+Canonical/project files:
+
+- `project.json` — portable project manifest with actual SHA-256 hashes for checked-in project artifacts;
+- `building.ifc` — deterministic IFC4 generated from the SH3D source fixture;
+- `twin.json` — canonical smart-home devices/capabilities/bindings;
+- `identity-map.json` — source SH3D key → canonical Teldra ID → IFC GlobalId bridge.
+
+Run:
+
+```bash
+cd python
+uv run python ../tools/fixtures/generate_golden_home.py --check
+```
+
+to prove the generated files still match the checked-in source/toolchain.
 
 It currently proves:
 
 - canonical building references use IFC GlobalIds;
+- the committed IFC covers storey, space, walls, furniture, light fixture, hosted opening, and placements;
 - smart-home device identity remains separate from building identity;
 - Home Assistant identity is an external binding;
 - a light capability can be traced from fixture → device → adapter binding;
@@ -17,7 +34,7 @@ It currently proves:
 - live fixtures cover light, opening, environmental sensor, and media capability values;
 - desired light state is represented separately from observed physical state.
 
-The hashes in the appearance/lighting manifests are deliberate deterministic fixture values. The referenced KTX2 files are not committed because this fixture currently certifies the interchange contract, not a real Cycles bake. Real reference assets will be introduced with the bake pipeline and must record actual hashes/toolchain provenance.
+The asset hashes inside the appearance/lighting semantic fixtures are deliberate deterministic sentinel values. Referenced GLB/KTX2 payloads are not committed because these fixtures currently certify interchange contracts, not a real Cycles bake. Real reference assets will be introduced with the bake pipeline and must record actual hashes/toolchain provenance.
 
 The files under `live/` are platform-neutral envelope examples. The light observation intentionally records `adapter: "home-assistant"`, but its values already use Teldra capability semantics; the external platform entity ID remains in the persistent binding rather than in live values.
 

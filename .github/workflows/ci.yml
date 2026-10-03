@@ -71,6 +71,9 @@ jobs:
           python -m json.tool release/policy.json >/dev/null
           python -m json.tool toolchain/manifest.json >/dev/null
           python -m json.tool fixtures/provenance/web-export.json >/dev/null
+          python -m json.tool fixtures/corpus.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/project.json >/dev/null
+          python -m json.tool fixtures/projects/golden-home/identity-map.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/twin.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/scene.manifest.json >/dev/null
           python -m json.tool fixtures/projects/golden-home/appearance.manifest.json >/dev/null
@@ -99,6 +102,9 @@ jobs:
 
       - name: Resolve workspace
         run: uv sync --group dev
+
+      - name: Check deterministic golden fixture
+        run: uv run python ../tools/fixtures/generate_golden_home.py --check
 
       - name: Lint
         run: uv run ruff check .

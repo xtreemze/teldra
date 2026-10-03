@@ -1,0 +1,52 @@
+{
+  "entries": [
+    {
+      "canonicalId": "opening:golden-home:door0",
+      "ifcGlobalId": "3HkBcD7CPLZQi4OkmBgfoD",
+      "sourceKey": "doorOrWindow:door0"
+    },
+    {
+      "canonicalId": "storey:ground-floor",
+      "ifcGlobalId": "3alYBHMR1G5AaThtWNzo_l",
+      "sourceKey": "level:level0"
+    },
+    {
+      "canonicalId": "fixture:living-room-floor-lamp",
+      "ifcGlobalId": "0ufYQjmwP0Ah$QRRxVbqR3",
+      "sourceKey": "light:light0"
+    },
+    {
+      "canonicalId": "furniture:golden-home:chair0",
+      "ifcGlobalId": "16W6mYG0DO8hR8U$bz6FSv",
+      "sourceKey": "pieceOfFurniture:chair0"
+    },
+    {
+      "canonicalId": "space:living-room",
+      "ifcGlobalId": "3ZYNKvi3P3FvKPBGP9UP7n",
+      "sourceKey": "room:room0"
+    },
+    {
+      "canonicalId": "wall:golden-home:wall0",
+      "ifcGlobalId": "1G3q5a3qrLx9E$4vW3RhiT",
+      "sourceKey": "wall:wall0"
+    },
+    {
+      "canonicalId": "wall:golden-home:wall1",
+      "ifcGlobalId": "3fKtdOSSbHj8Eku_ezDpte",
+      "sourceKey": "wall:wall1"
+    },
+    {
+      "canonicalId": "wall:golden-home:wall2",
+      "ifcGlobalId": "0UvRJz38fTBRsJt0WI2Y4_",
+      "sourceKey": "wall:wall2"
+    },
+    {
+      "canonicalId": "wall:golden-home:wall3",
+      "ifcGlobalId": "23V$SZvT1GEwY89MqjdR2N",
+      "sourceKey": "wall:wall3"
+    }
+  ],
+  "ifc": "building.ifc",
+  "schemaVersion": "0.1.0",
+  "source": "fixtures/sh3d/golden-home/Home.xml"
+}

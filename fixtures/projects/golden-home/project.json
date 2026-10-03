@@ -1,0 +1,25 @@
+{
+  "building": {
+    "path": "building.ifc",
+    "sha256": "1b4d49d32f3739add07ba32e4ccb9fdd93ea83a7d7570845c53e158cb3c9c881"
+  },
+  "derived": [
+    {
+      "path": "scene.manifest.json",
+      "sha256": "35d5a3e405b68683d2b9f52e4ef47c68b16d26a4826377a20e58c3e1525a7942"
+    },
+    {
+      "path": "appearance.manifest.json",
+      "sha256": "0a07a5137a800e6fea2dd11954040ecbf86031c7fa4a84ac8619533ffd71d09b"
+    },
+    {
+      "path": "lighting.manifest.json",
+      "sha256": "728536a05d4415c896cc3049e810d5c1fb6be986c8a7365ecf3658faab9ce645"
+    }
+  ],
+  "formatVersion": "0.1.0",
+  "twin": {
+    "path": "twin.json",
+    "sha256": "4333d1c7164607374843c82f709343e0da7660701218bea61de0a8601b4f28db"
+  }
+}
