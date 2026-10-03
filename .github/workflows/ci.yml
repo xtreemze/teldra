@@ -100,6 +100,9 @@ jobs:
       - name: Resolve workspace
         run: uv sync --group dev
 
+      - name: Emit deterministic golden fixture
+        run: uv run python ../tools/fixtures/generate_golden_home.py --emit-base64
+
       - name: Lint
         run: uv run ruff check .
 
