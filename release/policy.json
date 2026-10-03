@@ -10,6 +10,7 @@
       "pnpm-lock.yaml",
       "python/uv.lock"
     ],
+    "toolchainManifest": "toolchain/manifest.json",
     "releaseRequiresCleanGeneratedSchemas": true,
     "releaseRequiresPinnedToolchainManifest": true,
     "releaseRequiresSourceCommit": true

@@ -1,0 +1,52 @@
+{
+  "schemaVersion": "0.1.0",
+  "compatibilityEpoch": "2026-10",
+  "javascript": {
+    "node": {
+      "supported": ">=24 <25",
+      "ci": "24"
+    },
+    "pnpm": {
+      "exact": "12.8.1"
+    }
+  },
+  "python": {
+    "python": {
+      "supported": ">=3.12 <3.13",
+      "ci": "3.12"
+    },
+    "uv": {
+      "exact": "0.12.19"
+    },
+    "ifcOpenShell": {
+      "exact": "0.9.0"
+    }
+  },
+  "authoring": {
+    "blender": {
+      "certification": "not-yet-certified",
+      "supportedVersions": [],
+      "artifactReuseRequiresExactVersion": true
+    },
+    "bonsai": {
+      "certification": "not-yet-certified",
+      "supportedVersions": [],
+      "artifactReuseRequiresExactVersion": true
+    }
+  },
+  "browsers": {
+    "policySource": "quality/budgets.json",
+    "releaseCertificationRequired": true
+  },
+  "artifactProvenance": {
+    "schemaPath": "schemas/json/artifact-provenance.schema.json",
+    "cacheCompatibilityFields": [
+      "toolchainManifestSha256",
+      "producer.name",
+      "producer.version",
+      "components",
+      "settingsSha256",
+      "inputs"
+    ]
+  }
+}

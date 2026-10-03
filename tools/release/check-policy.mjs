@@ -28,6 +28,13 @@ for (const required of ["pnpm-lock.yaml", "python/uv.lock"]) {
   }
 }
 
+if (
+  policy.reproducibility?.toolchainManifest !== "toolchain/manifest.json" ||
+  policy.reproducibility?.releaseRequiresPinnedToolchainManifest !== true
+) {
+  fail("reproducibility must require toolchain/manifest.json");
+}
+
 const archive = policy.imports?.archive;
 for (const [name, value] of Object.entries({
   maxEntries: archive?.maxEntries,
@@ -105,7 +112,10 @@ if (releaseMode) {
   const root = new URL("../../", import.meta.url);
   const missing = [];
 
-  for (const path of lockfiles) {
+  for (const path of [
+    ...lockfiles,
+    policy.reproducibility.toolchainManifest,
+  ]) {
     try {
       await access(new URL(path, root));
     } catch {
@@ -115,7 +125,7 @@ if (releaseMode) {
 
   if (missing.length > 0) {
     throw new Error(
-      `Release readiness failed: missing reproducibility lockfiles: ${missing.join(", ")}`,
+      `Release readiness failed: missing reproducibility files: ${missing.join(", ")}`,
     );
   }
 

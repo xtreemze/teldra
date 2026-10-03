@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./appearance": "./json/appearance.schema.json",
+    "./artifact-provenance": "./json/artifact-provenance.schema.json",
     "./lighting": "./json/lighting.schema.json",
     "./live": "./json/live.schema.json",
     "./project": "./json/project.schema.json",

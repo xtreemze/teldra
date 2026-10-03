@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "0.1.0",
+  "artifact": {
+    "kind": "glb",
+    "path": "cache/scene.glb",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "sourceCommit": "d49072a3775239e86d6d28e319017edb6dba6334",
+  "toolchainManifestSha256": "8b686e0965db2a8f6c95471552f2ad419a4dfff88a245ebb0952d6ba7602e01f",
+  "producer": {
+    "name": "teldra-web-export",
+    "version": "0.0.0"
+  },
+  "components": {
+    "python": "3.12",
+    "uv": "0.12.19",
+    "ifcopenshell": "0.9.0"
+  },
+  "settingsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "inputs": [
+    {
+      "path": "building.ifc",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ]
+}
