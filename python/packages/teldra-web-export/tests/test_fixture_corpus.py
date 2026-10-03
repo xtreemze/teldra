@@ -79,20 +79,12 @@ def test_golden_twin_and_scene_resolve_through_identity_map() -> None:
     twin = _json(PROJECT_DIR / "twin.json")
     scene = _json(PROJECT_DIR / "scene.manifest.json")
 
-    canonical_to_ifc = {
-        entry["canonicalId"]: entry["ifcGlobalId"]
-        for entry in identity["entries"]
-    }
+    canonical_to_ifc = {entry["canonicalId"]: entry["ifcGlobalId"] for entry in identity["entries"]}
 
-    twin_refs = {
-        ref["id"]: ref["ifcGlobalId"]
-        for ref in twin["building"]["refs"]
-    }
+    twin_refs = {ref["id"]: ref["ifcGlobalId"] for ref in twin["building"]["refs"]}
     assert twin_refs == {
         "space:living-room": canonical_to_ifc["space:living-room"],
-        "fixture:living-room-floor-lamp": canonical_to_ifc[
-            "fixture:living-room-floor-lamp"
-        ],
+        "fixture:living-room-floor-lamp": canonical_to_ifc["fixture:living-room-floor-lamp"],
     }
 
     scene_building = {
