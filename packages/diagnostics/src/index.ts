@@ -130,7 +130,7 @@ const validateBundleStructure: ValidateFunction<SupportBundle> =
   ajv.compile<SupportBundle>(supportBundleSchema);
 
 const SECRET_FIELD_NAME =
-  /(?:^|[-_.])(authorization|access[-_.]?token|refresh[-_.]?token|password|passwd|secret|private[-_.]?key|cookie|api[-_.]?key)(?:$|[-_.])/i;
+  /authorization|token|password|passwd|secret|private[-_.]?key|cookie|api[-_.]?key/i;
 
 export function validateDiagnosticEvent(value: unknown): ValidationResult {
   if (!validateEventStructure(value)) {

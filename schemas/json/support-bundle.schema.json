@@ -70,7 +70,7 @@
     "events": {
       "type": "array",
       "items": {
-        "$ref": "diagnostic-event.schema.json"
+        "$ref": "https://teldra.dev/schema/diagnostic-event/0.1.0"
       }
     }
   }
