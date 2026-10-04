@@ -190,7 +190,7 @@ export async function checkRepository(repoRoot = REPO_ROOT) {
 async function discoverProjects(repoRoot) {
   const packageDirs = [];
 
-  for (const parent of ["packages", "apps"]) {
+  for (const parent of ["packages", "apps", "integrations"]) {
     const parentDir = path.join(repoRoot, parent);
 
     let entries = [];
