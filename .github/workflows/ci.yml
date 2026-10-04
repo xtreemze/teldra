@@ -67,6 +67,8 @@ jobs:
           python -m json.tool schemas/json/lighting.schema.json >/dev/null
           python -m json.tool schemas/json/live.schema.json >/dev/null
           python -m json.tool schemas/json/artifact-provenance.schema.json >/dev/null
+          python -m json.tool schemas/json/diagnostic-event.schema.json >/dev/null
+          python -m json.tool schemas/json/support-bundle.schema.json >/dev/null
           python -m json.tool quality/budgets.json >/dev/null
           python -m json.tool release/policy.json >/dev/null
           python -m json.tool toolchain/manifest.json >/dev/null

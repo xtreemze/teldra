@@ -293,6 +293,25 @@ describe("canonical command processor", () => {
     });
   });
 
+  it("preserves correlation IDs across execute, undo, and redo", () => {
+    const processor = new CommandProcessor(initialState, resolve);
+
+    const transaction = {
+      ...canonicalTransaction(),
+      correlationId: "correlation:author-home",
+    };
+
+    expect(processor.execute(transaction).correlationId).toBe(
+      "correlation:author-home",
+    );
+    expect(processor.undo()?.correlationId).toBe(
+      "correlation:author-home",
+    );
+    expect(processor.redo()?.correlationId).toBe(
+      "correlation:author-home",
+    );
+  });
+
   it("undoes and redoes the complete transaction deterministically", () => {
     const processor = new CommandProcessor(initialState, resolve);
 

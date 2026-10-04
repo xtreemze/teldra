@@ -6,10 +6,12 @@
   "exports": {
     "./appearance": "./json/appearance.schema.json",
     "./artifact-provenance": "./json/artifact-provenance.schema.json",
+    "./diagnostic-event": "./json/diagnostic-event.schema.json",
     "./lighting": "./json/lighting.schema.json",
     "./live": "./json/live.schema.json",
     "./project": "./json/project.schema.json",
     "./scene": "./json/scene.schema.json",
+    "./support-bundle": "./json/support-bundle.schema.json",
     "./twin": "./json/twin.schema.json",
     "./types/appearance": "./generated/appearance.ts",
     "./types/lighting": "./generated/lighting.ts",
@@ -19,6 +21,8 @@
     "./types/twin": "./generated/twin.ts"
   },
   "nx": {
-    "tags": ["layer:schema"]
+    "tags": [
+      "layer:schema"
+    ]
   }
 }

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/diagnostic-event/0.1.0",
+  "title": "Teldra Diagnostic Event",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "timestamp",
+    "level",
+    "subsystem",
+    "code",
+    "correlationId",
+    "fields"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "0.1.0" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "level": { "enum": ["debug", "info", "warn", "error"] },
+    "subsystem": {
+      "enum": [
+        "application",
+        "project-format",
+        "ifc",
+        "sh3d-import",
+        "projection",
+        "scene-export",
+        "babylon",
+        "deck",
+        "blender",
+        "bake",
+        "home-assistant",
+        "live-state",
+        "persistence",
+        "security",
+        "unknown"
+      ]
+    },
+    "code": { "type": "string", "minLength": 1 },
+    "correlationId": { "type": "string", "minLength": 1 },
+    "operationId": { "type": "string", "minLength": 1 },
+    "userMessage": { "type": "string", "minLength": 1 },
+    "detail": { "type": "string", "minLength": 1 },
+    "fields": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/field" }
+    }
+  },
+  "$defs": {
+    "jsonValue": {
+      "oneOf": [
+        { "type": "null" },
+        { "type": "boolean" },
+        { "type": "number" },
+        { "type": "string" },
+        {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jsonValue" }
+        },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/jsonValue" }
+        }
+      ]
+    },
+    "field": {
+      "type": "object",
+      "required": ["sensitivity", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "sensitivity": {
+          "enum": ["public", "project-private", "secret"]
+        },
+        "value": { "$ref": "#/$defs/jsonValue" }
+      }
+    }
+  }
+}
