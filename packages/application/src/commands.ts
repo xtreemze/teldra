@@ -18,6 +18,7 @@ export interface CanonicalCommand<
   kind: Kind;
   authority: AuthoritativeProjectStateKind;
   payload: Payload;
+  correlationId?: string;
 }
 
 export interface CommandTransaction<
@@ -26,6 +27,7 @@ export interface CommandTransaction<
   id: string;
   commands: readonly Command[];
   expectedRevision?: number;
+  correlationId?: string;
 }
 
 export interface CommandApplication<
@@ -65,6 +67,7 @@ export interface CommandCommit<
 > {
   direction: CommandCommitDirection;
   transactionId: string;
+  correlationId?: string;
   revisionBefore: number;
   revisionAfter: number;
   state: Readonly<State>;
@@ -258,10 +261,16 @@ export class CommandProcessor<
     const forward: CommandTransaction<Command> = {
       id: transaction.id,
       commands: [...transaction.commands],
+      ...(transaction.correlationId === undefined
+        ? {}
+        : { correlationId: transaction.correlationId }),
     };
     const inverse: CommandTransaction<Command> = {
       id: `undo:${transaction.id}`,
       commands: [...applied.inverseCommands],
+      ...(transaction.correlationId === undefined
+        ? {}
+        : { correlationId: transaction.correlationId }),
     };
 
     const revisionBefore = this.#revision;
@@ -274,6 +283,7 @@ export class CommandProcessor<
     return this.#commit(
       "execute",
       transaction.id,
+      transaction.correlationId,
       revisionBefore,
       forward.commands,
     );
@@ -301,6 +311,7 @@ export class CommandProcessor<
     return this.#commit(
       "undo",
       entry.forward.id,
+      entry.forward.correlationId,
       revisionBefore,
       entry.inverse.commands,
     );
@@ -328,6 +339,7 @@ export class CommandProcessor<
     return this.#commit(
       "redo",
       entry.forward.id,
+      entry.forward.correlationId,
       revisionBefore,
       entry.forward.commands,
     );
@@ -348,12 +360,14 @@ export class CommandProcessor<
   #commit(
     direction: CommandCommitDirection,
     transactionId: string,
+    correlationId: string | undefined,
     revisionBefore: number,
     commands: readonly Command[],
   ): CommandCommit<State, Command> {
     return {
       direction,
       transactionId,
+      ...(correlationId === undefined ? {} : { correlationId }),
       revisionBefore,
       revisionAfter: this.#revision,
       state: this.#state,
@@ -376,6 +390,15 @@ function assertTransactionContract<Command extends CanonicalCommand>(
   }
 
   if (
+    transaction.correlationId !== undefined &&
+    transaction.correlationId.trim().length === 0
+  ) {
+    throw new CommandContractError(
+      `Transaction "${transaction.id}" correlationId must not be empty.`,
+    );
+  }
+
+  if (
     transaction.expectedRevision !== undefined &&
     (!Number.isInteger(transaction.expectedRevision) ||
       transaction.expectedRevision < 0)
@@ -389,6 +412,15 @@ function assertTransactionContract<Command extends CanonicalCommand>(
 function assertCommandContract(command: CanonicalCommand): void {
   if (command.id.trim().length === 0) {
     throw new CommandContractError("Command id must not be empty.");
+  }
+
+  if (
+    command.correlationId !== undefined &&
+    command.correlationId.trim().length === 0
+  ) {
+    throw new CommandContractError(
+      `Command "${command.id}" correlationId must not be empty.`,
+    );
   }
 
   if (command.kind.trim().length === 0) {

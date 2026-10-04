@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/support-bundle/0.1.0",
+  "title": "Teldra Support Bundle",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "createdAt",
+    "application",
+    "environment",
+    "project",
+    "adapters",
+    "events"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "0.1.0" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "application": {
+      "type": "object",
+      "required": ["version", "sourceCommit", "toolchainManifestSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "version": { "type": "string", "minLength": 1 },
+        "sourceCommit": { "type": "string", "minLength": 1 },
+        "toolchainManifestSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["runtime", "renderBackend"],
+      "additionalProperties": false,
+      "properties": {
+        "runtime": { "type": "string", "minLength": 1 },
+        "browser": { "type": "string", "minLength": 1 },
+        "os": { "type": "string", "minLength": 1 },
+        "renderBackend": { "type": "string", "minLength": 1 }
+      }
+    },
+    "project": {
+      "type": "object",
+      "required": ["fingerprint"],
+      "additionalProperties": false,
+      "properties": {
+        "fingerprint": { "type": "string", "minLength": 1 },
+        "formatVersion": { "type": "string", "minLength": 1 }
+      }
+    },
+    "adapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "status"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": { "type": "string", "minLength": 1 },
+          "status": {
+            "enum": ["connected", "disconnected", "degraded", "unavailable"]
+          },
+          "capabilities": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "https://teldra.dev/schema/diagnostic-event/0.1.0"
+      }
+    }
+  }
+}
