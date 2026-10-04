@@ -17,7 +17,9 @@
     "@teldra/project-format": "workspace:*",
     "@teldra/runtime-babylon": "workspace:*",
     "@teldra/ui-core": "workspace:*",
-    "solid-js": "1.9.15"
+    "solid-js": "1.9.15",
+    "@teldra/home-assistant": "workspace:*",
+    "@teldra/live-state": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

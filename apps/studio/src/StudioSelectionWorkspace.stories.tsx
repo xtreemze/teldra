@@ -2,6 +2,7 @@ import { createSignal, onMount, Show } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
 import { canonicalTwinFingerprint } from "@teldra/application";
+import { HomeAssistantReadAdapter } from "@teldra/home-assistant";
 import {
   assertTwinIntegrity,
   type TwinProject,
@@ -11,6 +12,7 @@ import {
   type ProjectStorageAdapter,
   type StoredProject,
 } from "@teldra/project-format";
+import { StudioLiveStateController } from "./StudioLiveStateController";
 import { StudioProjectController } from "./StudioProjectController";
 import {
   StudioSelectionWorkspace,
@@ -154,6 +156,32 @@ function GoldenHomeSelectionHarness() {
     createSignal<StudioProjectController | null>(null);
   const [projected, setProjected] =
     createSignal<TwinViewportClientPoint | null>(null);
+  const liveState = new StudioLiveStateController();
+  const homeAssistant = new HomeAssistantReadAdapter(fixture, {
+    onEnvelope: (envelope) => liveState.apply(envelope),
+    now: () => "2026-10-04T12:00:00Z",
+  });
+
+  const injectOnline = () => {
+    homeAssistant.ingestState({
+      entity_id: "light.living_room_floor_lamp",
+      state: "on",
+      attributes: {
+        brightness: 128,
+        rgb_color: [255, 128, 0],
+      },
+      last_changed: "2026-10-04T11:59:59Z",
+    });
+  };
+
+  const injectUnavailable = () => {
+    homeAssistant.ingestState({
+      entity_id: "light.living_room_floor_lamp",
+      state: "unavailable",
+      attributes: {},
+      last_changed: "2026-10-04T12:01:00Z",
+    });
+  };
 
   onMount(() => {
     void (async () => {
@@ -181,6 +209,7 @@ function GoldenHomeSelectionHarness() {
           opened.session,
         ),
       );
+      injectOnline();
     })();
   });
 
@@ -195,12 +224,25 @@ function GoldenHomeSelectionHarness() {
             controller={ready()}
             manifest={manifest}
             glbUrl="/fixtures/twin-pick.glb"
+            liveState={liveState}
             onViewportReady={(handle) => {
               setProjected(handle.projectNode(fixtureNodeKey));
             }}
           />
         )}
       </Show>
+      <aside aria-label="Story fixture controls">
+        <button type="button" data-testid="inject-live-online" onClick={injectOnline}>
+          Inject live online
+        </button>
+        <button
+          type="button"
+          data-testid="inject-live-unavailable"
+          onClick={injectUnavailable}
+        >
+          Inject live unavailable
+        </button>
+      </aside>
       <output hidden aria-label="Workspace fixture pick position">
         <span data-testid="workspace-projected-x">
           {projected()?.clientX ?? "pending"}

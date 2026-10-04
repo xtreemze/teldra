@@ -38,6 +38,23 @@ test("shares canonical selection between viewport and device inspector without d
     "device:living-room-floor-lamp",
   );
   await expect(page.getByTestId("project-dirty-state")).toHaveText("Saved");
+  await expect(
+    page.getByTestId("live-availability-capability:living-room-floor-lamp:light"),
+  ).toHaveText("online");
+  await expect(page.getByTestId("live-value-power")).toHaveText("on");
+  await expect(page.getByTestId("live-value-brightness")).toHaveText(
+    `${128 / 255} ratio`,
+  );
+  await expect(page.getByTestId("live-value-color")).toHaveText(
+    `1, ${128 / 255}, 0`,
+  );
+
+  await page.getByTestId("inject-live-unavailable").click();
+  await expect(
+    page.getByTestId("live-availability-capability:living-room-floor-lamp:light"),
+  ).toHaveText("unavailable");
+  await expect(page.getByTestId("live-value-power")).toHaveText("on");
+  await expect(page.getByTestId("project-dirty-state")).toHaveText("Saved");
 
   const input = page.getByRole("textbox", { name: "Device name" });
   await input.fill("Reading lamp");
@@ -52,6 +69,10 @@ test("shares canonical selection between viewport and device inspector without d
   await expect(page.getByTestId("device-canonical-id")).toHaveText(
     "device:living-room-floor-lamp",
   );
+  await expect(
+    page.getByTestId("live-availability-capability:living-room-floor-lamp:light"),
+  ).toHaveText("unavailable");
+  await expect(page.getByTestId("live-value-power")).toHaveText("on");
   await expect(page.getByTestId("project-dirty-state")).toHaveText(
     "Unsaved changes",
   );
