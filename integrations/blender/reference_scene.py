@@ -190,10 +190,13 @@ def main() -> None:
     if isinstance(build_hash, bytes):
         build_hash = build_hash.decode("utf8", errors="replace")
 
+    numeric_version = ".".join(str(part) for part in bpy.app.version)
+
     metadata = {
         "schemaVersion": "0.1.0",
-        "blenderVersion": bpy.app.version_string,
-        "cyclesVersion": bpy.app.version_string,
+        "blenderVersion": numeric_version,
+        "blenderDisplayVersion": bpy.app.version_string,
+        "cyclesVersion": numeric_version,
         "buildHash": str(build_hash),
         "nodeKey": NODE_KEY,
         "canonicalId": CANONICAL_ID,
