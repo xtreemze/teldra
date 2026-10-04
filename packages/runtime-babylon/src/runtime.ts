@@ -212,7 +212,9 @@ export async function createBabylonTwinRuntime(
     manifest,
 
     async load(glbUrl: string): Promise<void> {
-      const container = await LoadAssetContainerAsync(glbUrl, scene, {\n        pluginExtension: "glb",\n      });
+      const container = await LoadAssetContainerAsync(glbUrl, scene, {
+        pluginExtension: "glb",
+      });
       container.addAllToScene();
 
       const renderMeshes = container.meshes.filter(
