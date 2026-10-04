@@ -16,6 +16,21 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
 
   const refresh = () => setVersion((value) => value + 1);
 
+  const dirty = () => {
+    version();
+    return dirty();
+  };
+
+  const history = () => {
+    version();
+    return props.controller.history;
+  };
+
+  const revision = () => {
+    version();
+    return revision();
+  };
+
   const device = () => {
     version();
     return props.controller.twin.devices.find(
@@ -109,11 +124,11 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
         </div>
         <output
           class="teldra-project-device-editor__dirty"
-          data-dirty={props.controller.dirty}
+          data-dirty={dirty()}
           data-testid="project-dirty-state"
           aria-live="polite"
         >
-          {props.controller.dirty ? "Unsaved changes" : "Saved"}
+          {dirty() ? "Unsaved changes" : "Saved"}
         </output>
       </header>
 
@@ -135,21 +150,21 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
         <button
           type="button"
           onClick={undo}
-          disabled={!props.controller.history.canUndo}
+          disabled={!history().canUndo}
         >
           Undo
         </button>
         <button
           type="button"
           onClick={redo}
-          disabled={!props.controller.history.canRedo}
+          disabled={!history().canRedo}
         >
           Redo
         </button>
         <button
           type="button"
           onClick={() => void save()}
-          disabled={!props.controller.dirty || saveState() === "saving"}
+          disabled={!dirty() || saveState() === "saving"}
         >
           {saveState() === "saving" ? "Saving…" : "Save project"}
         </button>
@@ -158,7 +173,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
       <dl class="teldra-project-device-editor__status">
         <div>
           <dt>Revision</dt>
-          <dd data-testid="project-revision">{props.controller.revision}</dd>
+          <dd data-testid="project-revision">{revision()}</dd>
         </div>
         <div>
           <dt>Device name</dt>
