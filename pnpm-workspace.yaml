@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+  - "integrations/*"
   - "schemas"
 
 allowBuilds:
