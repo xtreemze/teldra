@@ -82,6 +82,40 @@ const fixture = goldenTwin as TwinProject;
 const deviceId = "device:living-room-floor-lamp";
 
 describe("StudioProjectController", () => {
+  it("exposes synchronous view state without self-referential UI state", async () => {
+    const storage = new MemoryStorage({
+      revision: 2,
+      fingerprint: canonicalTwinFingerprint(fixture),
+      canonical: fixture,
+    });
+
+    const opened = await openProjectPersistence(
+      storage,
+      assertTwinIntegrity,
+      "golden-home",
+      "test:view-state",
+    );
+
+    expect(opened.primary).not.toBeNull();
+    if (opened.primary === null) return;
+
+    const controller = new StudioProjectController(
+      opened.primary.canonical,
+      opened.session,
+    );
+
+    expect(controller.dirty).toBe(false);
+    expect(controller.revision).toBe(2);
+    expect(controller.history.canUndo).toBe(false);
+
+    controller.renameDevice(deviceId, "Reading lamp");
+
+    expect(controller.dirty).toBe(true);
+    expect(controller.revision).toBe(3);
+    expect(controller.history.canUndo).toBe(true);
+  });
+
+
   it("drives dirty state, undo/redo, and persistence without SolidJS authority", async () => {
     const storage = new MemoryStorage({
       revision: 4,

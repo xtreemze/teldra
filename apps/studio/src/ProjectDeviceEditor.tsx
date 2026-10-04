@@ -18,7 +18,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
 
   const dirty = () => {
     version();
-    return dirty();
+    return props.controller.dirty;
   };
 
   const history = () => {
@@ -28,7 +28,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
 
   const revision = () => {
     version();
-    return revision();
+    return props.controller.revision;
   };
 
   const device = () => {
