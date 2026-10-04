@@ -87,3 +87,44 @@ test("shares canonical selection between viewport and device inspector without d
 
   expect(accessibility.violations).toEqual([]);
 });
+
+
+test("dispatches authorized light power only through the semantic Studio control without dirtying canonical state", async ({
+  page,
+}) => {
+  await page.goto(
+    "/iframe.html?id=studio-selectionworkspace--authorized-light-control&viewMode=story",
+  );
+
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText(
+    "device:living-room-floor-lamp",
+  );
+  await expect(
+    page.getByTestId("live-availability-capability:living-room-floor-lamp:light"),
+  ).toHaveText("online");
+
+  const power = page.getByRole("button", { name: "Power" });
+  await expect(power).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("project-dirty-state")).toHaveText("Saved");
+
+  await power.click();
+
+  await expect(power).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByTestId("project-dirty-state")).toHaveText("Saved");
+
+  const serviceCall = page.getByTestId("story-last-service-call");
+  await expect(serviceCall).toContainText('"type":"call_service"');
+  await expect(serviceCall).toContainText('"domain":"light"');
+  await expect(serviceCall).toContainText('"service":"turn_off"');
+  await expect(serviceCall).toContainText(
+    '"entity_id":"light.living_room_floor_lamp"',
+  );
+
+  const accessibility = await new AxeBuilder({ page })
+    .include("#storybook-root")
+    .disableRules(["landmark-one-main", "page-has-heading-one"])
+    .analyze();
+
+  expect(accessibility.violations).toEqual([]);
+});
