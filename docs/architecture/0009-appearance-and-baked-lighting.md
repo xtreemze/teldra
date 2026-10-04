@@ -140,7 +140,16 @@ CI verifies that:
 
 The existing Babylon certification proves that the GLB/scene-manifest identity path resolves canonical objects correctly.
 
-A real Blender/Cycles bake-to-GLB visual parity fixture is still required before Blender/Cycles is certified as a production appearance/lighting producer. Until that fixture exists, `blenderCyclesVisualParity` remains `pending` in the machine-readable policy; CI fails if code claims otherwise.
+Blender 4.5.14 LTS is the first certified offline reference producer. The dedicated certification workflow downloads the exact official Linux x64 artifact, verifies it against Blender's versioned upstream SHA-256 manifest, and requires build hash `62c1db4208e8`. It then:
+
+- runs a deterministic headless CPU Cycles reference render;
+- exports GLB with UV0, UV1, metallic-roughness material semantics, and nested `extras.teldra` identity;
+- loads that generated GLB through the real Studio `TwinViewport` and Babylon runtime in Chromium;
+- proves project-to-screen-to-pick canonical identity round-trips;
+- captures the Babylon canvas and compares luminance, contrast, and blue-material bias against versioned tolerances;
+- compares the Babylon and Cycles reference metrics using an explicitly bounded cross-renderer tolerance rather than requiring pixel identity between different renderers.
+
+The certified producer, observed metrics, and tolerances live in `integrations/blender/reference-toolchain.json`. Any Blender/Cycles version, build hash, material/UV behavior, Babylon identity behavior, or visual metric outside those bounds fails certification and requires an explicit baseline review.
 
 ## Identity
 

@@ -118,7 +118,15 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("babylon_png")
     parser.add_argument("cycles_metadata")
+    parser.add_argument(
+        "--toolchain",
+        default="integrations/blender/reference-toolchain.json",
+    )
     args = parser.parse_args()
+
+    toolchain = json.loads(Path(args.toolchain).read_text(encoding="utf8"))
+    if toolchain["status"] != "certified":
+        raise AssertionError("browser parity requires a certified Blender reference toolchain")
 
     width, height, pixels = decode_png_rgb(Path(args.babylon_png))
     if width < 500 or height < 300:
@@ -141,29 +149,44 @@ def main() -> None:
     browser_mean = mean(luminance)
     browser_contrast = max(luminance) - min(luminance)
 
-    if not 0.02 < browser_mean < 0.95:
+    browser_certification = toolchain["certification"]["babylon"]
+    expected_browser_mean = float(browser_certification["meanLuminance"])
+    browser_mean_tolerance = float(browser_certification["meanTolerance"])
+    expected_browser_contrast = float(browser_certification["contrast"])
+    browser_contrast_tolerance = float(browser_certification["contrastTolerance"])
+    minimum_blue_to_red = float(browser_certification["minimumBlueToRedRatio"])
+
+    if abs(browser_mean - expected_browser_mean) > browser_mean_tolerance:
         raise AssertionError(
-            f"Babylon mean luminance is implausible: {browser_mean}"
+            "Babylon mean luminance drifted beyond certification tolerance: "
+            f"{browser_mean} vs {expected_browser_mean} "
+            f"(tolerance {browser_mean_tolerance})"
         )
-    if browser_contrast <= 0.08:
+    if abs(browser_contrast - expected_browser_contrast) > browser_contrast_tolerance:
         raise AssertionError(
-            f"Babylon render has insufficient contrast: {browser_contrast}"
+            "Babylon contrast drifted beyond certification tolerance: "
+            f"{browser_contrast} vs {expected_browser_contrast} "
+            f"(tolerance {browser_contrast_tolerance})"
         )
-    if blue_mean <= red_mean * 1.05:
+    if blue_mean <= red_mean * minimum_blue_to_red:
         raise AssertionError(
-            "Babylon render lost the blue-biased reference material"
+            "Babylon render lost the certified blue-biased reference material"
         )
 
     cycles = json.loads(Path(args.cycles_metadata).read_text(encoding="utf8"))
     cycles_mean = float(cycles["metrics"]["meanLuminance"])
     cycles_contrast = float(cycles["metrics"]["contrast"])
 
-    if abs(browser_mean - cycles_mean) > 0.45:
+    cross_certification = toolchain["certification"]["crossRenderer"]
+    maximum_mean_delta = float(cross_certification["maximumMeanLuminanceDelta"])
+    maximum_contrast_delta = float(cross_certification["maximumContrastDelta"])
+
+    if abs(browser_mean - cycles_mean) > maximum_mean_delta:
         raise AssertionError(
             "Babylon/Cycles mean luminance diverged beyond certification tolerance: "
             f"{browser_mean} vs {cycles_mean}"
         )
-    if abs(browser_contrast - cycles_contrast) > 0.55:
+    if abs(browser_contrast - cycles_contrast) > maximum_contrast_delta:
         raise AssertionError(
             "Babylon/Cycles contrast diverged beyond certification tolerance: "
             f"{browser_contrast} vs {cycles_contrast}"

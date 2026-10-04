@@ -53,6 +53,10 @@ def verify_metadata(output_dir: Path, toolchain: dict[str, Any]) -> dict[str, An
         raise AssertionError(
             f"Cycles version mismatch: {metadata['cyclesVersion']} != {toolchain['cyclesVersion']}"
         )
+    if metadata["buildHash"] != toolchain["buildHash"]:
+        raise AssertionError(
+            f"Blender build hash mismatch: {metadata['buildHash']} != {toolchain['buildHash']}"
+        )
     if metadata["nodeKey"] != EXPECTED_NODE_KEY:
         raise AssertionError("reference nodeKey changed")
     if metadata["canonicalId"] != EXPECTED_CANONICAL_ID:
@@ -72,10 +76,22 @@ def verify_metadata(output_dir: Path, toolchain: dict[str, Any]) -> dict[str, An
 
     mean = float(metrics["meanLuminance"])
     contrast = float(metrics["contrast"])
-    if not 0.01 < mean < 2.0:
-        raise AssertionError(f"implausible reference mean luminance: {mean}")
-    if contrast <= 0.05:
-        raise AssertionError(f"reference render has insufficient contrast: {contrast}")
+    certification = toolchain["certification"]["cycles"]
+    expected_mean = float(certification["meanLuminance"])
+    mean_tolerance = float(certification["meanTolerance"])
+    expected_contrast = float(certification["contrast"])
+    contrast_tolerance = float(certification["contrastTolerance"])
+
+    if abs(mean - expected_mean) > mean_tolerance:
+        raise AssertionError(
+            f"Cycles mean luminance drifted: {mean} vs {expected_mean} "
+            f"(tolerance {mean_tolerance})"
+        )
+    if abs(contrast - expected_contrast) > contrast_tolerance:
+        raise AssertionError(
+            f"Cycles contrast drifted: {contrast} vs {expected_contrast} "
+            f"(tolerance {contrast_tolerance})"
+        )
 
     render_path = output_dir / metrics["renderPath"]
     if not render_path.is_file() or render_path.stat().st_size == 0:
@@ -151,10 +167,8 @@ def main() -> None:
     output_dir = Path(args.output_dir)
     toolchain = json.loads(Path(args.toolchain).read_text(encoding="utf8"))
 
-    if toolchain["status"] != "candidate":
-        raise AssertionError(
-            "reference toolchain must remain candidate until parity is certified"
-        )
+    if toolchain["status"] != "certified":
+        raise AssertionError("reference toolchain must be certified")
 
     metadata = verify_metadata(output_dir, toolchain)
     verify_glb(output_dir, metadata)

@@ -59,8 +59,18 @@ test("compression never becomes identity authority", async () => {
   );
 });
 
-test("real Blender/Cycles visual parity remains explicitly uncertified", async () => {
-  const policy = await readJson("quality/asset-interchange.json");
+test("Blender/Cycles to Babylon reference parity is pinned to the certified producer", async () => {
+  const [policy, producer] = await Promise.all([
+    readJson("quality/asset-interchange.json"),
+    readJson("integrations/blender/reference-toolchain.json"),
+  ]);
 
-  assert.equal(policy.certification.blenderCyclesVisualParity, "pending");
+  assert.equal(policy.certification.blenderCyclesVisualParity.status, "certified");
+  assert.equal(
+    policy.certification.blenderCyclesVisualParity.blenderVersion,
+    producer.blenderVersion,
+  );
+  assert.equal(producer.status, "certified");
+  assert.equal(producer.blenderVersion, "4.5.14");
+  assert.equal(producer.buildHash, "62c1db4208e8");
 });

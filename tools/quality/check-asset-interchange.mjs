@@ -11,12 +11,14 @@ const [
   appearance,
   lighting,
   twin,
+  blenderReference,
 ] = await Promise.all([
   readJson("quality/asset-interchange.json"),
   readJson("fixtures/projects/golden-home/scene.manifest.json"),
   readJson("fixtures/projects/golden-home/appearance.manifest.json"),
   readJson("fixtures/projects/golden-home/lighting.manifest.json"),
   readJson("fixtures/projects/golden-home/twin.json"),
+  readJson("integrations/blender/reference-toolchain.json"),
 ]);
 
 const fail = (message) => {
@@ -197,10 +199,27 @@ if (policy.certification?.contractFixture !== "fixtures/projects/golden-home") {
 if (policy.certification?.babylonIdentityPathCertified !== true) {
   fail("Babylon identity path certification must remain explicit");
 }
-if (policy.certification?.blenderCyclesVisualParity !== "pending") {
-  fail(
-    "Blender/Cycles parity must remain pending until a real bake/export fixture is certified",
-  );
+const blenderCertification = policy.certification?.blenderCyclesVisualParity;
+if (blenderCertification?.status !== "certified") {
+  fail("Blender/Cycles to Babylon visual parity must remain certified");
+}
+if (
+  blenderCertification.blenderVersion !== blenderReference.blenderVersion ||
+  blenderReference.status !== "certified"
+) {
+  fail("asset policy Blender certification must match the certified reference producer");
+}
+if (
+  blenderCertification.referenceToolchain !==
+  "integrations/blender/reference-toolchain.json"
+) {
+  fail("asset policy must point to the certified Blender reference toolchain");
+}
+if (
+  blenderCertification.identityRoundTripRequired !== true ||
+  blenderCertification.visualMetricRequired !== true
+) {
+  fail("Blender/Babylon certification must require identity and visual metrics");
 }
 
 console.log(

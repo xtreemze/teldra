@@ -66,6 +66,14 @@
   "certification": {
     "contractFixture": "fixtures/projects/golden-home",
     "babylonIdentityPathCertified": true,
-    "blenderCyclesVisualParity": "pending"
+    "blenderCyclesVisualParity": {
+      "status": "certified",
+      "blenderVersion": "4.5.14",
+      "referenceToolchain": "integrations/blender/reference-toolchain.json",
+      "babylonRuntime": "@teldra/runtime-babylon",
+      "browser": "chromium",
+      "identityRoundTripRequired": true,
+      "visualMetricRequired": true
+    }
   }
 }
