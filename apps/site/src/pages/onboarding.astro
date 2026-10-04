@@ -2,125 +2,122 @@
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 const base = import.meta.env.BASE_URL;
-const steps = [
-  ["01", "Understand authority", "IFC owns architecture. The Teldra twin format owns devices, capabilities, external bindings, and runtime semantics."],
-  ["02", "Choose an entry path", "Bring an IFC model, use the planned semantic Sweet Home 3D import path, or work from the repository's deterministic fixtures."],
-  ["03", "Run the workspace", "Install with pnpm, then execute schema, type, architecture, quality, and test checks before changing a boundary."],
-  ["04", "Project, don't duplicate", "Renderers consume projections. Babylon.js, deck.gl, Blender, and Home Assistant integrations stay outside canonical domain contracts."],
+
+const journey = [
+  ["01", "Bring in your home", "Open an IFC building model or migrate a Sweet Home 3D project. Teldra keeps architectural meaning—rooms, walls, openings, fixtures, placement—rather than reducing the home to a picture or mesh."],
+  ["02", "Recognize the things that live there", "Devices and capabilities receive stable Teldra identities. Home Assistant entity IDs or future platform IDs remain external bindings, so changing automation software does not redefine what the device is."],
+  ["03", "Enter the spatial twin", "Navigate the home visually. Selecting a wall, fixture, or device resolves back to the same canonical identity used by the project instead of creating a renderer-only copy."],
+  ["04", "Inspect and change authored information", "The Studio already has a first canonical editing slice for device data with undo, redo, dirty-state tracking, and safe save semantics."],
+  ["05", "Add live context", "The first read-only Home Assistant adapter now brings normalized observations into Teldra without making Home Assistant the twin itself."],
+  ["06", "Use the same home in different ways", "Interactive 3D, analytical overlays, diagnostics, offline Blender/Cycles rendering, and future automation can all project from the same identity-preserving model."],
+];
+
+const whatYouSee = [
+  ["Space", "Rooms and architectural elements retain IFC identity and real placement."],
+  ["Things", "Lights, sensors, media, openings, climate, and future device classes belong to the twin rather than a renderer."],
+  ["State", "Observed values, desired values, availability, and acknowledgements are modeled separately."],
+  ["Context", "Selection, camera position, filters, and visual emphasis help you navigate but do not rewrite the home."],
+];
+
+const status = [
+  ["Available foundation", "IFC identity, semantic SH3D import, stable schemas, Babylon rendering/picking, Studio device editing, project save/recovery, deterministic fixtures, Blender/Cycles interchange, and read-only Home Assistant live state."],
+  ["Being connected now", "Shared Studio selection across the viewport and device inspector."],
+  ["Designed for later", "Physical control, richer analytical overlays, broader automation adapters, deeper historical/maintenance context, and more complete end-user authoring."],
 ];
 ---
 
 <BaseLayout
-  title="Onboarding — Teldra"
-  description="Get oriented with Teldra's BIM-backed digital-twin architecture and repository workflow."
+  title="Using Teldra — user onboarding"
+  description="A user-oriented walkthrough of how Teldra turns a home model and smart-home devices into one spatial digital twin."
 >
   <section class="guide-hero section-shell compact">
     <a class="back-link" href={base}>← Teldra home</a>
-    <p class="eyebrow">ONBOARDING</p>
-    <h1>Build on the twin without breaking its authority model.</h1>
+    <p class="eyebrow">USER ONBOARDING</p>
+    <h1>Start with your home. End with a twin you can inhabit.</h1>
     <p class="hero-lede">
-      Teldra is early-stage infrastructure. This guide gets contributors and evaluators to
-      the right mental model first, then to a working local repository.
+      This guide is about the experience, not the development stack. It shows how Teldra is intended
+      to move from an architectural model to a spatial view of rooms, devices, live context, and authored information.
     </p>
   </section>
 
-  <section class="section-shell guide-grid">
-    <aside class="guide-index" aria-label="Onboarding sections">
-      <strong>Start here</strong>
-      <a href="#mental-model">Mental model</a>
-      <a href="#entry-paths">Entry paths</a>
-      <a href="#local">Local setup</a>
-      <a href="#first-change">First change</a>
-    </aside>
-
-    <div class="guide-content">
-      <section id="mental-model" class="guide-section">
-        <p class="eyebrow">01 · MENTAL MODEL</p>
-        <h2>Know what is allowed to be authoritative.</h2>
-        <div class="step-stack">
-          {steps.map(([number, title, copy]) => (
-            <article class="guide-step">
-              <span>{number}</span>
-              <div>
-                <h3>{title}</h3>
-                <p>{copy}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="entry-paths" class="guide-section">
-        <p class="eyebrow">02 · ENTRY PATHS</p>
-        <h2>Enter through semantics, not meshes.</h2>
-        <div class="choice-grid">
-          <article>
-            <span class="choice-label">IFC</span>
-            <h3>Existing BIM model</h3>
-            <p>Use IFC as architectural source truth and preserve GlobalIds when updating the same architectural elements.</p>
-          </article>
-          <article>
-            <span class="choice-label">SH3D</span>
-            <h3>Sweet Home 3D migration</h3>
-            <p>The project direction is semantic SH3D → IFC conversion rather than importing OBJ geometry as canonical architecture.</p>
-          </article>
-          <article>
-            <span class="choice-label">FIXTURE</span>
-            <h3>Repository exploration</h3>
-            <p>Use the deterministic golden-home fixtures to understand project, twin, scene, appearance, lighting, and live-state contracts.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="local" class="guide-section">
-        <p class="eyebrow">03 · LOCAL SETUP</p>
-        <h2>Run the repository contract checks.</h2>
-        <div class="terminal" role="region" aria-label="Local setup commands">
-          <div class="terminal-bar"><span></span><span></span><span></span><code>shell</code></div>
-          <pre><code>git clone https://github.com/xtreemze/teldra.git
-cd teldra
-corepack enable
-pnpm install
-pnpm typecheck
-pnpm test
-pnpm ci</code></pre>
-        </div>
-        <p class="note">
-          Current repository requirements are Node.js 24+ and pnpm 12.8.1.
-        </p>
-      </section>
-
-      <section id="first-change" class="guide-section">
-        <p class="eyebrow">04 · FIRST CHANGE</p>
-        <h2>Follow dependency direction.</h2>
-        <div class="dependency-strip">
-          <span>schemas</span><b>→</b><span>domain</span><b>→</b><span>application</span><b>→</b><span>projection</span><b>→</b><span>adapters / renderers</span><b>→</b><span>apps</span>
-        </div>
-        <div class="do-dont">
-          <article>
-            <h3>Do</h3>
-            <ul>
-              <li>Express deterministic behavior as a test first.</li>
-              <li>Keep canonical IDs stable across projections.</li>
-              <li>Make coordinate and unit conversions explicit.</li>
-              <li>Add browser coverage when behavior crosses renderer boundaries.</li>
-            </ul>
-          </article>
-          <article>
-            <h3>Avoid</h3>
-            <ul>
-              <li>Putting renderer objects into domain contracts.</li>
-              <li>Using Home Assistant entity IDs as canonical identity.</li>
-              <li>Letting camera, drag, filter, or layout state rewrite canonical placement.</li>
-              <li>Treating GLB, Blend files, or baked assets as source truth.</li>
-            </ul>
-          </article>
-        </div>
-        <div class="guide-actions">
-          <a class="button primary" href="https://github.com/xtreemze/teldra/blob/main/AGENTS.md">Read contributor contract</a>
-          <a class="button secondary" href="https://github.com/xtreemze/teldra/tree/main/docs/architecture">Open architecture docs</a>
-        </div>
-      </section>
+  <section class="section-shell user-journey">
+    <div class="journey-intro">
+      <p class="eyebrow">THE JOURNEY</p>
+      <h2>Six steps, one persistent model.</h2>
     </div>
+
+    <ol class="journey-steps">
+      {journey.map(([number, title, copy]) => (
+        <li>
+          <span class="journey-number">{number}</span>
+          <div>
+            <h3>{title}</h3>
+            <p>{copy}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  </section>
+
+  <section class="onboarding-model">
+    <div class="section-shell">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">WHAT YOU ARE LOOKING AT</p>
+          <h2>The twin separates the home from the view.</h2>
+        </div>
+        <p>
+          This separation is what lets Teldra show the same home as a 3D scene, an analytical view,
+          an editor, a diagnostic surface, or a rendered image without changing what the home means.
+        </p>
+      </div>
+      <div class="model-grid">
+        {whatYouSee.map(([title, copy]) => (
+          <article>
+            <h3>{title}</h3>
+            <p>{copy}</p>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section-shell status-section">
+    <p class="eyebrow">WHAT EXISTS TODAY</p>
+    <h2>Current, in progress, and intended are kept separate.</h2>
+    <div class="status-grid">
+      {status.map(([title, copy], index) => (
+        <article>
+          <span>0{index + 1}</span>
+          <h3>{title}</h3>
+          <p>{copy}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="section-shell experience-example">
+    <div>
+      <p class="eyebrow">EXAMPLE</p>
+      <h2>You select a floor lamp.</h2>
+      <p>
+        The visible object resolves to a canonical device. That device can retain its room and building
+        relationship, its external Home Assistant binding, its authored name and capabilities, and—once the
+        live adapter is connected—its latest observation. Editing its name should not change its identity;
+        changing the camera should not change its placement; changing automation platforms should not erase what it is.
+      </p>
+    </div>
+    <div class="example-flow" aria-label="Floor lamp identity flow">
+      <span>Living room</span><b>→</b><span>Floor lamp</span><b>→</b><span>Teldra identity</span><b>→</b><span>HA binding</span><b>→</b><span>Live observation</span>
+    </div>
+  </section>
+
+  <section class="section-shell onboarding-cta">
+    <div>
+      <p class="eyebrow">NEXT</p>
+      <h2>Explore the capabilities and project history.</h2>
+      <p>The landing page shows the broader workflow, conventional and unconventional uses, the system graph, and the development timeline.</p>
+    </div>
+    <a class="button primary" href={`${base}#capabilities`}>Explore the project</a>
   </section>
 </BaseLayout>

@@ -1,0 +1,56 @@
+---
+const relationships = [
+  ["Home model", "IFC", "becomes semantic building truth"],
+  ["IFC", "Twin", "anchors rooms, fixtures, and devices"],
+  ["Twin", "Studio", "drives user editing and inspection"],
+  ["Twin", "Babylon", "projects an interactive spatial view"],
+  ["Twin", "deck.gl", "projects analytical overlays"],
+  ["IFC", "Blender", "feeds offline rendering and baked lighting"],
+  ["Home Assistant", "Live state", "supplies external observations"],
+  ["Live state", "Twin", "updates runtime context without replacing identity"],
+];
+---
+
+<figure class="capability-graph" aria-labelledby="capability-graph-title capability-graph-desc">
+  <figcaption>
+    <p class="eyebrow">SYSTEM GRAPH</p>
+    <h2 id="capability-graph-title">One home, several views of the same identity.</h2>
+    <p id="capability-graph-desc">
+      Teldra keeps the building, smart-home identity, live observations, and visualizations connected
+      without turning any renderer or automation platform into the source of truth.
+    </p>
+  </figcaption>
+
+  <div class="graph-canvas" role="img" aria-label="Relationship graph connecting the home model, IFC, Teldra twin, Studio, Babylon, deck.gl, Blender, Home Assistant, and live state.">
+    <svg viewBox="0 0 960 560" aria-hidden="true">
+      <g class="graph-edges">
+        <path d="M118 280 C180 280 190 150 280 150" />
+        <path d="M360 150 C430 150 425 280 490 280" />
+        <path d="M570 280 C650 280 645 120 760 120" />
+        <path d="M570 280 C650 280 655 230 760 230" />
+        <path d="M570 280 C650 280 655 340 760 340" />
+        <path d="M360 150 C500 70 650 445 760 445" />
+        <path d="M115 450 C205 450 210 365 300 365" />
+        <path d="M380 365 C435 365 440 300 490 285" />
+      </g>
+      <g class="graph-nodes">
+        <g transform="translate(42 245)"><rect width="152" height="70" rx="14"/><text x="76" y="42">Home model</text></g>
+        <g transform="translate(280 115)"><rect width="82" height="70" rx="14"/><text x="41" y="42">IFC</text></g>
+        <g class="core" transform="translate(485 245)"><rect width="104" height="76" rx="16"/><text x="52" y="45">Twin</text></g>
+        <g transform="translate(756 85)"><rect width="142" height="70" rx="14"/><text x="71" y="42">Studio</text></g>
+        <g transform="translate(756 195)"><rect width="142" height="70" rx="14"/><text x="71" y="42">Babylon</text></g>
+        <g transform="translate(756 305)"><rect width="142" height="70" rx="14"/><text x="71" y="42">deck.gl</text></g>
+        <g transform="translate(756 410)"><rect width="142" height="70" rx="14"/><text x="71" y="42">Blender</text></g>
+        <g transform="translate(36 415)"><rect width="164" height="70" rx="14"/><text x="82" y="42">Home Assistant</text></g>
+        <g transform="translate(296 330)"><rect width="118" height="70" rx="14"/><text x="59" y="42">Live state</text></g>
+      </g>
+    </svg>
+  </div>
+
+  <details class="graph-details">
+    <summary>Read the relationships</summary>
+    <ul>
+      {relationships.map(([from, to, relation]) => <li><strong>{from} → {to}:</strong> {relation}.</li>)}
+    </ul>
+  </details>
+</figure>

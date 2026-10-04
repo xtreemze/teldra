@@ -1,54 +1,77 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import CapabilityGraph from "../components/CapabilityGraph.astro";
+import ProjectTimeline from "../components/ProjectTimeline.astro";
 
 const base = import.meta.env.BASE_URL;
 
-const layers = [
-  ["IFC", "Architectural truth", "Geometry, spaces, openings, storeys, and stable building identity."],
-  ["Twin", "Smart-home truth", "Devices, capabilities, bindings, observations, and runtime semantics."],
-  ["Projection", "Renderer-neutral", "One stable representation feeds physical, analytical, and authoring views."],
+const workflow = [
+  ["01", "Model the home", "Start from an IFC model or migrate a Sweet Home 3D project into semantic building data."],
+  ["02", "Attach the smart home", "Give devices and capabilities stable Teldra identities while external platform IDs remain bindings."],
+  ["03", "Explore spatially", "Open the home as an interactive scene and select real building or device identity rather than disconnected dashboard cards."],
+  ["04", "Observe and edit", "Inspect live context, edit canonical device information, undo or redo changes, and save the project safely."],
+  ["05", "Project the same twin", "Use the same identity for interactive 3D, analytical overlays, offline rendering, diagnostics, and future automation."],
 ];
 
-const principles = [
-  ["Canonical first", "IFC and the versioned Teldra twin format remain authoritative. Renderers never become the database."],
-  ["One identity space", "Building references, devices, capabilities, and bindings resolve through stable Teldra identity."],
-  ["Derived by design", "GLB, baked lighting, cameras, GPU resources, and visualization state are outputs—not source truth."],
-  ["Adapter boundaries", "Home Assistant is the first automation adapter, while Babylon.js, deck.gl, and Blender remain replaceable execution layers."],
+const conventional = [
+  ["3D smart-home control surface", "Navigate rooms and devices spatially instead of hunting through a flat entity list.", "current / expanding"],
+  ["BIM-backed home record", "Keep rooms, walls, openings, fixtures, and stable architectural identity in IFC.", "current"],
+  ["Sweet Home 3D migration", "Carry Home.xml semantics into IFC rather than freezing the project as an OBJ mesh.", "current"],
+  ["Device inspection and editing", "Select canonical devices, edit their authored data, undo/redo, and save through application-owned commands.", "current"],
+  ["Home Assistant connection", "Bring read-only live observations into the twin while Home Assistant remains an external adapter.", "current"],
+  ["High-quality visualization", "Move reproducibly between IFC-derived web scenes and Blender/Cycles asset production.", "current"],
+];
+
+const unconventional = [
+  ["A spatial debugging tool", "Trace a device from room → canonical identity → external binding → live observation → renderer instance.", "enabled by current architecture"],
+  ["A home provenance ledger", "Know which source, toolchain, and transformation produced a scene, lightmap, or derived artifact.", "current foundation"],
+  ["A simulation sandbox", "Preview desired state or alternative layouts without confusing simulation with commands sent to physical equipment.", "ambition"],
+  ["An accessibility map", "Project reachability, interaction zones, device placement, or assisted-living context over the same home geometry.", "ambition"],
+  ["A maintenance and incident model", "Attach diagnostics, failures, support evidence, and future maintenance history to stable spatial identity.", "ambition"],
+  ["A local spatial operating layer", "Let automation, visualization, analysis, and authoring share one understandable model of the inhabited environment.", "long-term ambition"],
+];
+
+const ambitions = [
+  ["Inhabited, not merely rendered", "The end state is a living model where geometry, devices, observations, history, and user intent meet in one spatial experience."],
+  ["Platform without platform lock-in", "Home Assistant is first, but runtime semantics are deliberately broader than any one automation ecosystem."],
+  ["From room to evidence", "Selection should be able to explain what something is, where it came from, what it is doing, and which representations derive from it."],
+  ["Safe physical agency", "Future control should make authorization, user intent, acknowledgements, failures, and uncertain outcomes explicit."],
 ];
 ---
 
 <BaseLayout
-  title="Teldra — a BIM-backed smart-home digital twin"
-  description="Teldra combines IFC building semantics with smart-home state, interactive 3D, analytical overlays, and high-quality offline rendering."
+  title="Teldra — the spatial model for an inhabited home"
+  description="Teldra turns architectural models and smart-home state into one explorable, identity-preserving digital twin."
 >
   <section class="hero section-shell">
     <div class="hero-copy">
-      <p class="eyebrow">BUILDING TRUTH · LIVE STATE · SPATIAL COMPUTING</p>
-      <h1>Your home, modeled as a system—not a dashboard.</h1>
+      <p class="eyebrow">MODEL · CONNECT · INHABIT · UNDERSTAND</p>
+      <h1>Your home as a place, not a list of devices.</h1>
       <p class="hero-lede">
-        Teldra combines BIM semantics, smart-home state, interactive 3D, analytical
-        visualization, and offline rendering without letting any one renderer own the model.
+        Teldra connects the architectural model of a home with its smart devices, live observations,
+        interactive 3D, analysis, and high-quality rendering. The result is one spatial twin that can
+        be explored by people without losing the identity behind each room, object, or device.
       </p>
       <div class="hero-actions">
-        <a class="button primary" href={`${base}onboarding/`}>Start onboarding</a>
-        <a class="button secondary" href="https://github.com/xtreemze/teldra">View repository</a>
+        <a class="button primary" href={`${base}onboarding/`}>See how it works</a>
+        <a class="button secondary" href="#capabilities">Explore capabilities</a>
       </div>
       <div class="hero-meta" aria-label="Project characteristics">
-        <span>IFC authoritative</span>
-        <span>Renderer-neutral</span>
-        <span>HA adapter boundary defined</span>
+        <span>IFC-backed building model</span>
+        <span>Stable device identity</span>
+        <span>Interactive spatial twin</span>
       </div>
     </div>
 
-    <div class="twin-window" aria-label="Diagram showing Teldra's twin architecture">
+    <div class="twin-window" aria-label="Illustration of an inhabited Teldra home">
       <div class="window-bar">
         <span></span><span></span><span></span>
-        <code>teldra / twin</code>
+        <code>home / living room</code>
       </div>
       <div class="scene">
         <div class="room-grid" aria-hidden="true"></div>
         <div class="room-card room-card-a">
-          <small>SPACE</small>
+          <small>ROOM</small>
           <strong>Living room</strong>
           <span>21.4 °C · occupied</span>
         </div>
@@ -64,64 +87,101 @@ const principles = [
         <div class="scene-node node-c" aria-hidden="true"></div>
       </div>
       <div class="window-footer">
-        <span>IFC GlobalId</span>
-        <span>Teldra ID</span>
-        <span>HA binding</span>
+        <span>building</span>
+        <span>device</span>
+        <span>live context</span>
       </div>
     </div>
   </section>
 
-  <section class="manifesto">
-    <div class="section-shell compact">
-      <p class="eyebrow">THE MODEL</p>
-      <h2>Two sources of truth. One explorable twin.</h2>
-      <p class="section-intro">
-        The building and the smart-home system evolve at different rates. Teldra keeps both
-        canonical, then projects them into the views that people and tools need.
-      </p>
-    </div>
-  </section>
-
-  <section id="architecture" class="section-shell architecture">
-    <div class="layer-grid">
-      {layers.map(([name, label, copy], index) => (
-        <article class="layer-card">
-          <span class="step-index">0{index + 1}</span>
-          <p class="eyebrow">{label}</p>
-          <h3>{name}</h3>
-          <p>{copy}</p>
-        </article>
-      ))}
-    </div>
-    <div class="flow" aria-label="Teldra renderer flow">
-      <div class="flow-source">building.ifc</div>
-      <span>+</span>
-      <div class="flow-source">twin.json</div>
-      <span>→</span>
-      <div class="flow-core">TwinProjection</div>
-      <span>→</span>
-      <div class="flow-targets">
-        <span>Babylon</span><span>deck.gl</span><span>Blender</span>
-      </div>
-    </div>
-  </section>
-
-  <section id="principles" class="principles">
+  <section id="workflow" class="manifesto">
     <div class="section-shell">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">DESIGN PRINCIPLES</p>
-          <h2>Built to stay understandable as the twin grows.</h2>
+          <p class="eyebrow">THE WORKFLOW</p>
+          <h2>From a floor plan to an inhabited twin.</h2>
         </div>
         <p>
-          The architecture keeps identity, spatial semantics, mutation, rendering, and
-          automation integration explicit and testable.
+          Teldra is designed as a continuous workflow. You do not rebuild the home for every tool;
+          each view derives from the same architectural and smart-home identity.
         </p>
       </div>
-      <div class="principle-grid">
-        {principles.map(([title, copy]) => (
+      <ol class="workflow-grid">
+        {workflow.map(([number, title, copy]) => (
+          <li>
+            <span>{number}</span>
+            <h3>{title}</h3>
+            <p>{copy}</p>
+          </li>
+        ))}
+      </ol>
+      <div class="workflow-line" aria-label="Teldra user workflow">
+        <span>Home model</span><b>→</b><span>Semantic import</span><b>→</b><span>Twin identity</span><b>→</b><span>Spatial experience</span><b>→</b><span>Live context</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="capabilities" class="section-shell capabilities-section">
+    <p class="eyebrow">CAPABILITIES</p>
+    <h2>Useful in familiar ways—and in ways a normal smart-home dashboard cannot be.</h2>
+
+    <div class="capability-columns">
+      <div>
+        <div class="capability-heading">
+          <span>Conventional</span>
+          <p>What people already expect from home design, visualization, and smart-home tools.</p>
+        </div>
+        <div class="capability-list">
+          {conventional.map(([title, copy, status]) => (
+            <article>
+              <div><h3>{title}</h3><span class="status-chip">{status}</span></div>
+              <p>{copy}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div class="capability-heading">
+          <span>Unconventional</span>
+          <p>What becomes possible when spatial identity remains intact across systems.</p>
+        </div>
+        <div class="capability-list">
+          {unconventional.map(([title, copy, status]) => (
+            <article>
+              <div><h3>{title}</h3><span class="status-chip">{status}</span></div>
+              <p>{copy}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="graph-section">
+    <div class="section-shell">
+      <CapabilityGraph />
+    </div>
+  </section>
+
+  <ProjectTimeline />
+
+  <section id="ambition" class="ambition-section">
+    <div class="section-shell">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">AMBITION</p>
+          <h2>A spatial operating layer for the home.</h2>
+        </div>
+        <p>
+          These are project ambitions, not claims that every capability is finished today. The architecture
+          is being built so these directions can emerge without replacing the home model each time.
+        </p>
+      </div>
+      <div class="ambition-grid">
+        {ambitions.map(([title, copy], index) => (
           <article>
-            <div class="principle-dot" aria-hidden="true"></div>
+            <span>0{index + 1}</span>
             <h3>{title}</h3>
             <p>{copy}</p>
           </article>
@@ -132,13 +192,13 @@ const principles = [
 
   <section class="section-shell onboarding-cta">
     <div>
-      <p class="eyebrow">ONBOARDING</p>
-      <h2>Start from the model you already have.</h2>
+      <p class="eyebrow">USER ONBOARDING</p>
+      <h2>See what using Teldra would actually feel like.</h2>
       <p>
-        Learn Teldra's authority model, choose an IFC or Sweet Home 3D entry path, and run
-        the repository locally without crossing domain boundaries.
+        Follow the user journey from bringing in a home model, to connecting devices, exploring rooms,
+        understanding live context, and working with the twin.
       </p>
     </div>
-    <a class="button primary" href={`${base}onboarding/`}>Open the guide</a>
+    <a class="button primary" href={`${base}onboarding/`}>Walk through Teldra</a>
   </section>
 </BaseLayout>
