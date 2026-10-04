@@ -21,7 +21,8 @@
     "@teldra/ui-core": "workspace:*",
     "solid-js": "1.9.15",
     "@teldra/home-assistant": "workspace:*",
-    "@teldra/live-state": "workspace:*"
+    "@teldra/live-state": "workspace:*",
+    "@teldra/scene-manifest": "workspace:*"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

@@ -4,10 +4,15 @@ import {
   openProjectPersistence,
   openTeldraArchive,
   replaceTeldraTwin,
+  sha256Bytes,
   type OpenTeldraArchive,
   type ProjectStorageAdapter,
   type StoredProject,
 } from "@teldra/project-format";
+import {
+  parseSceneManifest,
+  type TeldraSceneManifest,
+} from "@teldra/scene-manifest";
 import { StudioProjectController } from "./StudioProjectController";
 
 export interface BrowserWritableFile {
@@ -58,11 +63,27 @@ interface StagedWrite {
   readonly archive: OpenTeldraArchive;
 }
 
+export interface BrowserAssetUrlFactory {
+  create(bytes: Uint8Array, mediaType: string): string;
+  revoke(url: string): void;
+}
+
+export interface BrowserStudioScene {
+  readonly manifest: TeldraSceneManifest;
+  readonly glbUrl: string;
+}
+
 export interface BrowserStudioProject {
   readonly fileName: string;
   readonly projectKey: string;
   readonly controller: StudioProjectController;
+  readonly scene?: BrowserStudioScene;
   close(): Promise<void>;
+}
+
+interface BrowserStudioSceneResource {
+  readonly scene: BrowserStudioScene;
+  dispose(): void;
 }
 
 const inProcessLocks = new Map<string, string>();
@@ -508,6 +529,7 @@ export async function openBrowserTeldraProject(
   handle: BrowserTeldraFileHandle,
   ownerId: string,
   recoveryStore?: BrowserRecoveryStore,
+  assetUrlFactory: BrowserAssetUrlFactory = defaultAssetUrlFactory(),
 ): Promise<BrowserStudioProject> {
   const storage = await BrowserTeldraFileStorage.open(handle, recoveryStore);
   const opened = await openProjectPersistence(
@@ -522,17 +544,33 @@ export async function openBrowserTeldraProject(
     throw new Error(`Project "${handle.name}" contains no canonical twin.`);
   }
 
-  const controller = new StudioProjectController(
-    opened.primary.canonical,
-    opened.session,
-  );
+  try {
+    const sceneResource = await resolveBrowserStudioScene(
+      storage.archive,
+      assetUrlFactory,
+    );
+    const controller = new StudioProjectController(
+      opened.primary.canonical,
+      opened.session,
+    );
 
-  return {
-    fileName: handle.name,
-    projectKey: storage.projectKey,
-    controller,
-    close: () => opened.session.close(),
-  };
+    return {
+      fileName: handle.name,
+      projectKey: storage.projectKey,
+      controller,
+      ...(sceneResource === null ? {} : { scene: sceneResource.scene }),
+      close: async () => {
+        try {
+          await opened.session.close();
+        } finally {
+          sceneResource?.dispose();
+        }
+      },
+    };
+  } catch (error) {
+    await opened.session.close();
+    throw error;
+  }
 }
 
 export async function openBrowserTeldraProjectWithPicker(
@@ -541,6 +579,120 @@ export async function openBrowserTeldraProjectWithPicker(
 ): Promise<BrowserStudioProject> {
   const handle = await pickBrowserTeldraFile(host);
   return openBrowserTeldraProject(handle, ownerId);
+}
+
+
+async function resolveBrowserStudioScene(
+  archive: OpenTeldraArchive,
+  assetUrlFactory: BrowserAssetUrlFactory,
+): Promise<BrowserStudioSceneResource | null> {
+  const derivedPaths = archive.manifest.derived?.map((artifact) => artifact.path) ?? [];
+  const conventionalPath = derivedPaths.find(
+    (path) => path === "scene.manifest.json" || path.endsWith("/scene.manifest.json"),
+  );
+
+  let manifest: TeldraSceneManifest | null = null;
+  let manifestPath: string | null = null;
+
+  if (conventionalPath !== undefined) {
+    const entry = archive.entries.find((candidate) => candidate.path === conventionalPath);
+    if (entry === undefined) {
+      throw new Error(
+        `Scene manifest "${conventionalPath}" is referenced by the project but missing from the archive.`,
+      );
+    }
+
+    manifest = parseSceneManifest(parseArchiveJson(entry.bytes, conventionalPath));
+    manifestPath = conventionalPath;
+  } else {
+    for (const path of derivedPaths) {
+      const entry = archive.entries.find((candidate) => candidate.path === path);
+      if (entry === undefined) continue;
+
+      try {
+        const candidate = parseSceneManifest(parseArchiveJson(entry.bytes, path));
+        if (manifest !== null) {
+          throw new Error(
+            `Project contains more than one valid scene manifest ("${manifestPath}" and "${path}").`,
+          );
+        }
+        manifest = candidate;
+        manifestPath = path;
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.startsWith("Project contains more than one valid scene manifest")
+        ) {
+          throw error;
+        }
+        // Other derived manifests are expected not to match the scene schema.
+      }
+    }
+  }
+
+  if (manifest === null) {
+    return null;
+  }
+
+  const glb = archive.entries.find(
+    (entry) => entry.path === manifest.scene.assetPath,
+  );
+  if (glb === undefined) {
+    throw new Error(
+      `Scene manifest "${manifestPath}" references missing GLB "${manifest.scene.assetPath}".`,
+    );
+  }
+
+  const actualSha256 = await sha256Bytes(glb.bytes);
+  if (actualSha256 !== manifest.scene.assetSha256) {
+    throw new Error(
+      `Scene GLB "${manifest.scene.assetPath}" SHA-256 mismatch: expected ${manifest.scene.assetSha256}, got ${actualSha256}.`,
+    );
+  }
+
+  const glbUrl = assetUrlFactory.create(glb.bytes, "model/gltf-binary");
+  return {
+    scene: {
+      manifest,
+      glbUrl,
+    },
+    dispose: () => assetUrlFactory.revoke(glbUrl),
+  };
+}
+
+function parseArchiveJson(bytes: Uint8Array, path: string): unknown {
+  try {
+    return JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    ) as unknown;
+  } catch (error) {
+    throw new Error(
+      `Derived manifest "${path}" is not valid UTF-8 JSON.`,
+      { cause: error },
+    );
+  }
+}
+
+function defaultAssetUrlFactory(): BrowserAssetUrlFactory {
+  if (
+    typeof URL.createObjectURL !== "function" ||
+    typeof URL.revokeObjectURL !== "function"
+  ) {
+    throw new Error(
+      "This browser cannot create temporary URLs for portable scene assets.",
+    );
+  }
+
+  return {
+    create(bytes, mediaType) {
+      const buffer = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(buffer).set(bytes);
+      return URL.createObjectURL(new Blob([buffer], { type: mediaType }));
+    },
+    revoke(url) {
+      URL.revokeObjectURL(url);
+    },
+  };
 }
 
 function defaultRecoveryStore(): BrowserRecoveryStore {
