@@ -21,8 +21,9 @@ class StoryFileHandle implements BrowserTeldraFileHandle {
   }
 
   async getFile(): Promise<Blob> {
-    const copy = this.#bytes.slice();
-    return new Blob([copy.buffer]);
+    const buffer = new ArrayBuffer(this.#bytes.byteLength);
+    new Uint8Array(buffer).set(this.#bytes);
+    return new Blob([buffer]);
   }
 
   async createWritable(): Promise<BrowserWritableFile> {

@@ -23,7 +23,9 @@ class MemoryFileHandle implements BrowserTeldraFileHandle {
   }
 
   async getFile(): Promise<Blob> {
-    return new Blob([this.#bytes]);
+    const buffer = new ArrayBuffer(this.#bytes.byteLength);
+    new Uint8Array(buffer).set(this.#bytes);
+    return new Blob([buffer]);
   }
 
   async createWritable(): Promise<BrowserWritableFile> {

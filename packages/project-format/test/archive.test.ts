@@ -1,6 +1,8 @@
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import goldenAppearance from "../../../fixtures/projects/golden-home/appearance.manifest.json";
+import goldenLighting from "../../../fixtures/projects/golden-home/lighting.manifest.json";
+import goldenScene from "../../../fixtures/projects/golden-home/scene.manifest.json";
+import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
 import type { TwinProject } from "@teldra/domain";
 import {
   decodeStoredZip,
@@ -12,23 +14,61 @@ import {
   type TeldraArchiveEntry,
 } from "../src/archive.js";
 
-const fixtureRoot = resolve("../../fixtures/projects/golden-home");
-const fixtureFiles = [
-  "project.json",
-  "building.ifc",
-  "twin.json",
-  "scene.manifest.json",
-  "appearance.manifest.json",
-  "lighting.manifest.json",
-] as const;
-
 async function goldenEntries(): Promise<TeldraArchiveEntry[]> {
-  return Promise.all(
-    fixtureFiles.map(async (path) => ({
-      path,
-      bytes: new Uint8Array(await readFile(resolve(fixtureRoot, path))),
-    })),
+  const encoder = new TextEncoder();
+  const buildingBytes = encoder.encode(
+    "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n",
   );
+  const twinBytes = encoder.encode(
+    `${JSON.stringify(goldenTwin, null, 2)}\n`,
+  );
+  const sceneBytes = encoder.encode(
+    `${JSON.stringify(goldenScene, null, 2)}\n`,
+  );
+  const appearanceBytes = encoder.encode(
+    `${JSON.stringify(goldenAppearance, null, 2)}\n`,
+  );
+  const lightingBytes = encoder.encode(
+    `${JSON.stringify(goldenLighting, null, 2)}\n`,
+  );
+
+  const manifest = {
+    formatVersion: "0.1.0",
+    building: {
+      path: "building.ifc",
+      sha256: await sha256Bytes(buildingBytes),
+    },
+    twin: {
+      path: "twin.json",
+      sha256: await sha256Bytes(twinBytes),
+    },
+    derived: [
+      {
+        path: "scene.manifest.json",
+        sha256: await sha256Bytes(sceneBytes),
+      },
+      {
+        path: "appearance.manifest.json",
+        sha256: await sha256Bytes(appearanceBytes),
+      },
+      {
+        path: "lighting.manifest.json",
+        sha256: await sha256Bytes(lightingBytes),
+      },
+    ],
+  };
+
+  return [
+    {
+      path: "project.json",
+      bytes: encoder.encode(`${JSON.stringify(manifest, null, 2)}\n`),
+    },
+    { path: "building.ifc", bytes: buildingBytes },
+    { path: "twin.json", bytes: twinBytes },
+    { path: "scene.manifest.json", bytes: sceneBytes },
+    { path: "appearance.manifest.json", bytes: appearanceBytes },
+    { path: "lighting.manifest.json", bytes: lightingBytes },
+  ];
 }
 
 describe(".teldra stored ZIP codec", () => {
@@ -39,11 +79,13 @@ describe(".teldra stored ZIP codec", () => {
 
     expect(forward).toEqual(reverse);
     expect(decodeStoredZip(forward).map((entry) => entry.path)).toEqual(
-      [...fixtureFiles].sort((left, right) => left.localeCompare(right)),
+      entries
+        .map((entry) => entry.path)
+        .sort((left, right) => left.localeCompare(right)),
     );
   });
 
-  it("opens Golden Home by validating manifest paths, hashes, and twin schema", async () => {
+  it("opens Golden Home canonical data by validating manifest paths, hashes, and twin schema", async () => {
     const archive = await openTeldraArchive(
       encodeStoredZip(await goldenEntries()),
     );
@@ -78,8 +120,12 @@ describe(".teldra stored ZIP codec", () => {
       reopened.entries.map((entry) => [entry.path, entry.bytes] as const),
     );
 
-    for (const path of fixtureFiles) {
-      if (path === "project.json" || path === "twin.json") continue;
+    for (const path of [
+      "building.ifc",
+      "scene.manifest.json",
+      "appearance.manifest.json",
+      "lighting.manifest.json",
+    ]) {
       expect(reopenedByPath.get(path)).toEqual(originalByPath.get(path));
     }
 
