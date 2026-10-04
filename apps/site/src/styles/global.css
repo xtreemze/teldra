@@ -26,6 +26,11 @@ body {
 }
 a { color: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
+:where(a, button):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
 .skip-link { position: absolute; left: 1rem; top: -4rem; background: var(--accent); color: var(--ink); padding: .7rem 1rem; z-index: 100; }
 .skip-link:focus { top: 1rem; }
 
