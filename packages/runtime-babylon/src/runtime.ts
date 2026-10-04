@@ -76,10 +76,19 @@ export async function createBabylonTwinRuntime(
     );
     scene.activeCamera = defaultCamera;
     scene.cameraToUseForPointers = defaultCamera;
+    const normalizeCanvasTabOrder = () => {
+      if (canvas.tabIndex > 0) {
+        canvas.tabIndex = 0;
+      }
+    };
+    const tabIndexObserver = new MutationObserver(normalizeCanvasTabOrder);
+    tabIndexObserver.observe(canvas, {
+      attributes: true,
+      attributeFilter: ["tabindex"],
+    });
+
     defaultCamera.attachControl(canvas, true);
-    // Babylon assigns a positive tabindex when camera controls attach.
-    // Preserve keyboard focus without moving the canvas ahead of document order.
-    canvas.tabIndex = 0;
+    normalizeCanvasTabOrder();
     defaultCamera.lowerRadiusLimit = 0.25;
 
     new HemisphericLight(
@@ -270,9 +279,7 @@ export async function createBabylonTwinRuntime(
 
     start(): void {
       engine.runRenderLoop(() => scene.render());
-      // Babylon may assign tabindex=1 during deferred engine/camera setup.
-      // Normalize after render-loop setup so the canvas remains in DOM tab order.
-      canvas.tabIndex = 0;
+      normalizeCanvasTabOrder();
     },
 
     stop(): void {
@@ -284,6 +291,7 @@ export async function createBabylonTwinRuntime(
     },
 
     dispose(): void {
+      tabIndexObserver.disconnect();
       scene.dispose();
       engine.dispose();
     },
