@@ -5,11 +5,14 @@ import {
   type BrowserStudioProject,
 } from "./BrowserTeldraProject";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
+import { StudioSelectionWorkspace } from "./StudioSelectionWorkspace";
+import type { TwinViewportHandle } from "./TwinViewport";
 import "./BrowserProjectStudio.css";
 
 export interface BrowserProjectStudioProps {
   readonly openProject?: () => Promise<BrowserStudioProject>;
   readonly fileAccessSupported?: boolean;
+  readonly onViewportReady?: (handle: TwinViewportHandle) => void;
 }
 
 export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
@@ -106,13 +109,29 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
                   <strong data-testid="browser-project-file">{ready().fileName}</strong>
                 </div>
                 <Show
-                  when={firstDevice()}
-                  fallback={<p>This project has no editable smart-home devices.</p>}
+                  when={ready().scene}
+                  fallback={
+                    <Show
+                      when={firstDevice()}
+                      fallback={<p>This project has no editable smart-home devices.</p>}
+                    >
+                      {(device) => (
+                        <ProjectDeviceEditor
+                          controller={ready().controller}
+                          deviceId={device().id}
+                        />
+                      )}
+                    </Show>
+                  }
                 >
-                  {(device) => (
-                    <ProjectDeviceEditor
+                  {(scene) => (
+                    <StudioSelectionWorkspace
                       controller={ready().controller}
-                      deviceId={device().id}
+                      manifest={scene().manifest}
+                      glbUrl={scene().glbUrl}
+                      {...(props.onViewportReady === undefined
+                        ? {}
+                        : { onViewportReady: props.onViewportReady })}
                     />
                   )}
                 </Show>

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-test("opens, edits, undoes, redoes, and saves the browser project shell", async ({
+test("opens a portable scene in Babylon, shares canonical selection, edits, and saves", async ({
   page,
 }) => {
   await page.goto(
@@ -13,6 +13,30 @@ test("opens, edits, undoes, redoes, and saves the browser project shell", async 
   await expect(page.getByTestId("browser-project-file")).toHaveText(
     "golden-home.teldra",
   );
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+
+  const projectedX = page.getByTestId("browser-project-projected-x");
+  const projectedY = page.getByTestId("browser-project-projected-y");
+  await expect(projectedX).not.toHaveText("pending");
+  await expect(projectedY).not.toHaveText("pending");
+
+  await page.mouse.click(
+    Number(await projectedX.textContent()),
+    Number(await projectedY.textContent()),
+  );
+
+  await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText(
+    "wall:fixture",
+  );
+  await expect(page.getByTestId("workspace-selection-kind")).toHaveText(
+    "Building / scene entity",
+  );
+  await expect(page.getByTestId("device-canonical-id")).toHaveCount(0);
+
+  await page
+    .getByRole("button", { name: /Living room floor lamp/ })
+    .click();
+
   await expect(page.getByTestId("device-canonical-id")).toHaveText(
     "device:living-room-floor-lamp",
   );
@@ -41,7 +65,9 @@ test("opens, edits, undoes, redoes, and saves the browser project shell", async 
   await page.getByRole("button", { name: "Save project" }).click();
   await expect(page.getByTestId("project-dirty-state")).toHaveText("Saved");
 
-  const results = await new AxeBuilder({ page }).analyze();
+  const results = await new AxeBuilder({ page })
+    .include("#storybook-root")
+    .analyze();
   expect(results.violations).toEqual([]);
 });
 

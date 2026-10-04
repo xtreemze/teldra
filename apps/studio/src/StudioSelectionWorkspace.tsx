@@ -51,7 +51,7 @@ export function StudioSelectionWorkspace(
   };
 
   return (
-    <main class="teldra-studio-selection-workspace">
+    <div class="teldra-studio-selection-workspace">
       <section class="teldra-studio-selection-workspace__viewport">
         <TwinViewport
           manifest={props.manifest}
@@ -146,6 +146,6 @@ export function StudioSelectionWorkspace(
           )}
         </Show>
       </aside>
-    </main>
+    </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   BrowserTeldraFileStorage,
   openBrowserTeldraProject,
   supportsBrowserTeldraFileAccess,
+  type BrowserAssetUrlFactory,
   type BrowserRecoveryStore,
   type BrowserTeldraFileHandle,
   type BrowserWritableFile,
@@ -124,6 +125,110 @@ async function makeGoldenArchive(): Promise<{
   return {
     handle: new MemoryFileHandle(encodeStoredZip(entries)),
     buildingBytes,
+  };
+}
+
+
+class RecordingAssetUrlFactory implements BrowserAssetUrlFactory {
+  readonly created: Array<{
+    readonly bytes: Uint8Array;
+    readonly mediaType: string;
+    readonly url: string;
+  }> = [];
+  readonly revoked: string[] = [];
+
+  create(bytes: Uint8Array, mediaType: string): string {
+    const url = `blob:teldra-test:${this.created.length + 1}`;
+    this.created.push({
+      bytes: bytes.slice(),
+      mediaType,
+      url,
+    });
+    return url;
+  }
+
+  revoke(url: string): void {
+    this.revoked.push(url);
+  }
+}
+
+async function makeRenderableArchive(
+  sceneAssetShaOverride?: string,
+): Promise<{
+  readonly handle: MemoryFileHandle;
+  readonly glbBytes: Uint8Array;
+}> {
+  const encoder = new TextEncoder();
+  const twinBytes = encoder.encode(
+    `${JSON.stringify(goldenTwin, null, 2)}\n`,
+  );
+  const buildingBytes = encoder.encode("IFC renderable fixture");
+  const glbBytes = new Uint8Array([0x67, 0x6c, 0x54, 0x46, 1, 2, 3, 4]);
+  const buildingSha256 = await sha256Bytes(buildingBytes);
+  const glbSha256 = sceneAssetShaOverride ?? (await sha256Bytes(glbBytes));
+
+  const sceneManifest = {
+    schemaVersion: "0.1.0",
+    coordinateSystem: {
+      unit: "metre",
+      handedness: "right",
+      upAxis: "Z",
+    },
+    source: {
+      buildingPath: "building.ifc",
+      buildingSha256,
+    },
+    scene: {
+      assetPath: "cache/scene.glb",
+      assetSha256: glbSha256,
+      format: "glb",
+      canonicalToScene: [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, 0,
+        0, 0, 0, 1,
+      ],
+    },
+    nodes: [],
+  };
+  const sceneBytes = encoder.encode(
+    `${JSON.stringify(sceneManifest, null, 2)}\n`,
+  );
+
+  const projectManifest = {
+    formatVersion: "0.1.0",
+    building: {
+      path: "building.ifc",
+      sha256: buildingSha256,
+    },
+    twin: {
+      path: "twin.json",
+      sha256: await sha256Bytes(twinBytes),
+    },
+    derived: [
+      {
+        path: "scene.manifest.json",
+        sha256: await sha256Bytes(sceneBytes),
+      },
+    ],
+  };
+
+  return {
+    handle: new MemoryFileHandle(
+      encodeStoredZip([
+        {
+          path: "project.json",
+          bytes: encoder.encode(
+            `${JSON.stringify(projectManifest, null, 2)}\n`,
+          ),
+        },
+        { path: "building.ifc", bytes: buildingBytes },
+        { path: "twin.json", bytes: twinBytes },
+        { path: "scene.manifest.json", bytes: sceneBytes },
+        { path: "cache/scene.glb", bytes: glbBytes },
+      ]),
+    ),
+    glbBytes,
   };
 }
 
@@ -290,4 +395,57 @@ describe("browser .teldra project workflow", () => {
     expect(supportsBrowserTeldraFileAccess({})).toBe(false);
     expect(supportsBrowserTeldraFileAccess(null)).toBe(false);
   });
+
+  it("resolves a validated scene GLB to a browser-lifetime URL and revokes it on close", async () => {
+    const { handle, glbBytes } = await makeRenderableArchive();
+    const urls = new RecordingAssetUrlFactory();
+    const project = await openBrowserTeldraProject(
+      handle,
+      "scene:owner",
+      new MemoryRecoveryStore(),
+      urls,
+    );
+
+    expect(project.scene?.manifest.scene.assetPath).toBe("cache/scene.glb");
+    expect(project.scene?.glbUrl).toBe("blob:teldra-test:1");
+    expect(urls.created).toEqual([
+      {
+        bytes: glbBytes,
+        mediaType: "model/gltf-binary",
+        url: "blob:teldra-test:1",
+      },
+    ]);
+
+    await project.close();
+    expect(urls.revoked).toEqual(["blob:teldra-test:1"]);
+  });
+
+  it("fails safely when the scene manifest GLB hash does not match the archive bytes", async () => {
+    const { handle } = await makeRenderableArchive("0".repeat(64));
+
+    await expect(
+      openBrowserTeldraProject(
+        handle,
+        "scene:bad-hash",
+        new MemoryRecoveryStore(),
+        new RecordingAssetUrlFactory(),
+      ),
+    ).rejects.toThrow("Scene GLB");
+  });
+
+  it("keeps projects without render cache editable without creating an asset URL", async () => {
+    const { handle } = await makeGoldenArchive();
+    const urls = new RecordingAssetUrlFactory();
+    const project = await openBrowserTeldraProject(
+      handle,
+      "scene:none",
+      new MemoryRecoveryStore(),
+      urls,
+    );
+
+    expect(project.scene).toBeUndefined();
+    expect(urls.created).toEqual([]);
+    await project.close();
+  });
+
 });
