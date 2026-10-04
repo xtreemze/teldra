@@ -62,6 +62,15 @@ test("extracts static, side-effect, dynamic, and require imports", () => {
   );
 });
 
+test("does not treat string literals ending in import as side-effect imports", () => {
+  const imports = parseImportSpecifiers(`
+    export const subsystem = "sh3d-import";
+    export const another = "plain-import";
+  `);
+
+  assert.deepEqual(imports, []);
+});
+
 test("domain may depend on an explicitly exported schema subpath", () => {
   const errors = validateSpecifier({
     sourceProject: domain,

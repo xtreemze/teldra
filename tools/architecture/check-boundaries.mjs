@@ -42,7 +42,7 @@ export function parseImportSpecifiers(source) {
   const specifiers = new Set();
   const patterns = [
     /\b(?:import|export)\s+(?:type\s+)?[^;"']*?\sfrom\s*["']([^"']+)["']/g,
-    /\bimport\s*["']([^"']+)["']/g,
+    /^\s*import\s*["']([^"']+)["']/gm,
     /\b(?:import|require)\s*\(\s*["']([^"']+)["']\s*\)/g,
   ];
 
