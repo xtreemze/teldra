@@ -9,6 +9,7 @@ import type { ProjectPersistenceSession } from "@teldra/project-format";
 export class StudioProjectController {
   readonly #editor: TwinEditor;
   readonly #persistence: ProjectPersistenceSession<TwinProject>;
+  #selectedCanonicalId: string | null = null;
 
   constructor(
     initialTwin: TwinProject,
@@ -40,6 +41,26 @@ export class StudioProjectController {
 
   get persistenceStatus() {
     return this.#persistence.status;
+  }
+
+  get selectedCanonicalId(): string | null {
+    return this.#selectedCanonicalId;
+  }
+
+  get selectedDevice() {
+    const selectedId = this.#selectedCanonicalId;
+    if (selectedId === null) return undefined;
+    return this.#editor.twin.devices.find((device) => device.id === selectedId);
+  }
+
+  get selectedBuildingRef() {
+    const selectedId = this.#selectedCanonicalId;
+    if (selectedId === null) return undefined;
+    return this.#editor.twin.building.refs.find((ref) => ref.id === selectedId);
+  }
+
+  selectCanonicalId(canonicalId: string | null): void {
+    this.#selectedCanonicalId = canonicalId;
   }
 
   renameDevice(
