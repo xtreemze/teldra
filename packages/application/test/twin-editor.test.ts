@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
 import type { TwinProject } from "@teldra/domain";
 import {
+  CommandTransactionError,
   TwinEditor,
   canonicalTwinFingerprint,
 } from "../src/index.js";
@@ -67,9 +68,16 @@ describe("TwinEditor", () => {
     const editor = new TwinEditor(fixture);
     const before = canonicalTwinFingerprint(editor.twin);
 
-    expect(() => editor.renameDevice(deviceId, "   ")).toThrow(
-      "Device name must not be empty",
-    );
+    try {
+      editor.renameDevice(deviceId, "   ");
+      throw new Error("Expected rename to fail.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CommandTransactionError);
+      expect((error as CommandTransactionError).cause).toBeInstanceOf(Error);
+      expect(
+        ((error as CommandTransactionError).cause as Error).message,
+      ).toBe("Device name must not be empty.");
+    }
 
     expect(canonicalTwinFingerprint(editor.twin)).toBe(before);
     expect(editor.revision).toBe(0);
@@ -78,9 +86,15 @@ describe("TwinEditor", () => {
   it("rejects unknown devices without changing history", () => {
     const editor = new TwinEditor(fixture);
 
-    expect(() =>
-      editor.renameDevice("device:missing", "Missing"),
-    ).toThrow('Cannot rename unknown device "device:missing"');
+    try {
+      editor.renameDevice("device:missing", "Missing");
+      throw new Error("Expected rename to fail.");
+    } catch (error) {
+      expect(error).toBeInstanceOf(CommandTransactionError);
+      expect(
+        ((error as CommandTransactionError).cause as Error).message,
+      ).toBe('Cannot rename unknown device "device:missing".');
+    }
 
     expect(editor.history.undoDepth).toBe(0);
     expect(editor.revision).toBe(0);

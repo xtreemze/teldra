@@ -44,6 +44,11 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
     const nextName = nameInput.value;
     const current = requireDevice();
 
+    if (nextName.trim().length === 0) {
+      setMessage("Device name must not be empty.");
+      return;
+    }
+
     if (nextName === current.name) {
       return;
     }
