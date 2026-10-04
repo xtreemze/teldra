@@ -6,6 +6,9 @@ on:
       - ".github/workflows/blender-reference.yml"
       - "integrations/blender/**"
       - "tools/blender/**"
+      - "apps/studio/src/BlenderReference.stories.tsx"
+      - "apps/studio/test/blender-reference/**"
+      - "apps/studio/playwright.blender.config.ts"
       - "quality/asset-interchange.json"
       - "toolchain/manifest.json"
   workflow_dispatch:
@@ -34,6 +37,7 @@ jobs:
           print("BLENDER_URL=" + toolchain["downloadUrl"])
           print("BLENDER_CHECKSUM_URL=" + toolchain["checksumUrl"])
           PY
+          echo "TELDRA_BLENDER_OUTPUT=$RUNNER_TEMP/teldra-blender-output" >> "$GITHUB_ENV"
 
       - name: Download and verify Blender
         shell: bash
@@ -57,18 +61,48 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OUTPUT="$RUNNER_TEMP/teldra-blender-output"
-          mkdir -p "$OUTPUT"
+          mkdir -p "$TELDRA_BLENDER_OUTPUT"
 
-          "$BLENDER_BIN"             --background             --factory-startup             --python integrations/blender/reference_scene.py             --             --output-dir "$OUTPUT"
+          "$BLENDER_BIN"             --background             --factory-startup             --python integrations/blender/reference_scene.py             --             --output-dir "$TELDRA_BLENDER_OUTPUT"
 
-          python tools/blender/verify_reference.py "$OUTPUT"
+          python tools/blender/verify_reference.py "$TELDRA_BLENDER_OUTPUT"
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.1
+          run_install: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install browser certification dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build Studio reference story with generated GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/studio/public/fixtures
+          cp "$TELDRA_BLENDER_OUTPUT/reference.blender.glb"             apps/studio/public/fixtures/blender-reference.glb
+          pnpm --filter @teldra/studio run storybook:build
+
+      - name: Install Chromium
+        run: pnpm --filter @teldra/studio exec playwright install --with-deps chromium
+
+      - name: Certify generated GLB in Babylon
+        run: |
+          pnpm --filter @teldra/studio exec playwright test             --config playwright.blender.config.ts
+
+      - name: Compare Babylon and Cycles visual metrics
+        run: |
+          python tools/blender/verify_browser_reference.py             "$TELDRA_BLENDER_OUTPUT/reference-babylon.png"             "$TELDRA_BLENDER_OUTPUT/reference.metadata.json"
 
       - name: Summarize producer metadata
         if: always()
         shell: bash
         run: |
-          OUTPUT="$RUNNER_TEMP/teldra-blender-output"
-          if test -f "$OUTPUT/reference.metadata.json"; then
-            cat "$OUTPUT/reference.metadata.json"
+          if test -f "$TELDRA_BLENDER_OUTPUT/reference.metadata.json"; then
+            cat "$TELDRA_BLENDER_OUTPUT/reference.metadata.json"
           fi
