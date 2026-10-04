@@ -63,6 +63,17 @@ export async function createBabylonTwinRuntime(
   const scene = new Scene(engine);
   scene.useRightHandedSystem = true;
 
+  const normalizeCanvasTabOrder = () => {
+    if (canvas.tabIndex > 0) {
+      canvas.tabIndex = 0;
+    }
+  };
+  const tabIndexObserver = new MutationObserver(normalizeCanvasTabOrder);
+  tabIndexObserver.observe(canvas, {
+    attributes: true,
+    attributeFilter: ["tabindex"],
+  });
+
   let defaultCamera: ArcRotateCamera | undefined;
 
   if (options.attachDefaultCamera ?? true) {
@@ -77,6 +88,7 @@ export async function createBabylonTwinRuntime(
     scene.activeCamera = defaultCamera;
     scene.cameraToUseForPointers = defaultCamera;
     defaultCamera.attachControl(canvas, true);
+    normalizeCanvasTabOrder();
     defaultCamera.lowerRadiusLimit = 0.25;
 
     new HemisphericLight(
@@ -267,6 +279,7 @@ export async function createBabylonTwinRuntime(
 
     start(): void {
       engine.runRenderLoop(() => scene.render());
+      normalizeCanvasTabOrder();
     },
 
     stop(): void {
@@ -278,6 +291,7 @@ export async function createBabylonTwinRuntime(
     },
 
     dispose(): void {
+      tabIndexObserver.disconnect();
       scene.dispose();
       engine.dispose();
     },

@@ -166,4 +166,51 @@ describe("StudioProjectController", () => {
       storage.primary?.canonical.bindings[0]?.externalId,
     ).toBe("light.living_room_floor_lamp");
   });
+
+  it("keeps canonical selection session-owned and preserves it across rename", async () => {
+    const storage = new MemoryStorage({
+      revision: 2,
+      fingerprint: canonicalTwinFingerprint(fixture),
+      canonical: fixture,
+    });
+
+    const opened = await openProjectPersistence(
+      storage,
+      assertTwinIntegrity,
+      "golden-home",
+      "test:selection",
+    );
+
+    expect(opened.primary).not.toBeNull();
+    if (opened.primary === null) return;
+
+    const controller = new StudioProjectController(
+      opened.primary.canonical,
+      opened.session,
+    );
+
+    const initialRevision = controller.revision;
+    const initialHistory = controller.history;
+
+    controller.selectCanonicalId("wall:fixture");
+    expect(controller.selectedCanonicalId).toBe("wall:fixture");
+    expect(controller.selectedDevice).toBeUndefined();
+    expect(controller.dirty).toBe(false);
+    expect(controller.revision).toBe(initialRevision);
+    expect(controller.history).toEqual(initialHistory);
+
+    controller.selectCanonicalId(deviceId);
+    expect(controller.selectedDevice?.id).toBe(deviceId);
+    expect(controller.dirty).toBe(false);
+    expect(controller.revision).toBe(initialRevision);
+    expect(controller.history).toEqual(initialHistory);
+
+    controller.renameDevice(deviceId, "Reading lamp");
+
+    expect(controller.selectedCanonicalId).toBe(deviceId);
+    expect(controller.selectedDevice?.name).toBe("Reading lamp");
+    expect(controller.revision).toBe(initialRevision + 1);
+    expect(controller.dirty).toBe(true);
+  });
+
 });
