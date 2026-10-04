@@ -120,13 +120,17 @@ def render_metrics(scene: bpy.types.Scene, output_dir: Path) -> dict[str, object
     scene.render.filepath = str(render_path)
     bpy.ops.render.render(write_still=True)
 
-    render = bpy.data.images.get("Render Result")
-    if render is None:
-        raise RuntimeError("Render Result is unavailable")
+    rendered_image = bpy.data.images.load(
+        str(render_path),
+        check_existing=False,
+    )
+    try:
+        pixels = list(rendered_image.pixels)
+    finally:
+        bpy.data.images.remove(rendered_image)
 
-    pixels = list(render.pixels)
     if len(pixels) < 4 or len(pixels) % 4 != 0:
-        raise RuntimeError("Render Result has an invalid RGBA buffer")
+        raise RuntimeError("Saved Cycles render has an invalid RGBA buffer")
 
     luminance: list[float] = []
     alpha_values: list[float] = []
@@ -136,7 +140,7 @@ def render_metrics(scene: bpy.types.Scene, output_dir: Path) -> dict[str, object
         alpha_values.append(alpha)
 
     if len(luminance) == 0:
-        raise RuntimeError("Render Result contains no pixels")
+        raise RuntimeError("Saved Cycles render contains no pixels")
 
     mean = sum(luminance) / len(luminance)
     minimum = min(luminance)
