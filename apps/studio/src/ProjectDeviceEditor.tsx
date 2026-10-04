@@ -5,6 +5,7 @@ import "./ProjectDeviceEditor.css";
 export interface ProjectDeviceEditorProps {
   readonly controller: StudioProjectController;
   readonly deviceId: string;
+  readonly onProjectChange?: () => void;
 }
 
 export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
@@ -75,6 +76,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
         `studio:rename:${props.deviceId}`,
       );
       refresh();
+      props.onProjectChange?.();
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
       syncInput();
@@ -86,6 +88,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
       refresh();
       syncInput();
       setMessage("");
+      props.onProjectChange?.();
     }
   };
 
@@ -94,6 +97,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
       refresh();
       syncInput();
       setMessage("");
+      props.onProjectChange?.();
     }
   };
 
@@ -105,6 +109,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
       await props.controller.save();
       setSaveState("idle");
       refresh();
+      props.onProjectChange?.();
     } catch (error) {
       setSaveState("error");
       setMessage(error instanceof Error ? error.message : String(error));

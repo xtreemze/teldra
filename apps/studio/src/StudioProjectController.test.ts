@@ -115,6 +115,64 @@ describe("StudioProjectController", () => {
     expect(controller.history.canUndo).toBe(true);
   });
 
+  it("keeps canonical selection session-owned and outside history/persistence", async () => {
+    const storage = new MemoryStorage({
+      revision: 3,
+      fingerprint: canonicalTwinFingerprint(fixture),
+      canonical: fixture,
+    });
+
+    const opened = await openProjectPersistence(
+      storage,
+      assertTwinIntegrity,
+      "golden-home",
+      "test:selection",
+    );
+
+    expect(opened.primary).not.toBeNull();
+    if (opened.primary === null) return;
+
+    const controller = new StudioProjectController(
+      opened.primary.canonical,
+      opened.session,
+    );
+
+    const initialHistory = controller.history;
+    const initialRevision = controller.revision;
+
+    controller.selectCanonical("wall:fixture");
+
+    expect(controller.selectedCanonicalId).toBe("wall:fixture");
+    expect(controller.selectedDevice).toBeNull();
+    expect(controller.revision).toBe(initialRevision);
+    expect(controller.history).toEqual(initialHistory);
+    expect(controller.dirty).toBe(false);
+
+    controller.selectCanonical(deviceId);
+
+    expect(controller.selectedCanonicalId).toBe(deviceId);
+    expect(controller.selectedDevice?.id).toBe(deviceId);
+    expect(controller.selectedDevice?.name).toBe("Living room floor lamp");
+    expect(controller.revision).toBe(initialRevision);
+    expect(controller.history).toEqual(initialHistory);
+    expect(controller.dirty).toBe(false);
+
+    controller.renameDevice(deviceId, "Reading lamp");
+
+    expect(controller.selectedCanonicalId).toBe(deviceId);
+    expect(controller.selectedDevice?.name).toBe("Reading lamp");
+    expect(controller.revision).toBe(initialRevision + 1);
+    expect(controller.history.canUndo).toBe(true);
+    expect(controller.dirty).toBe(true);
+
+    expect(controller.undo()).toBe(true);
+    expect(controller.selectedCanonicalId).toBe(deviceId);
+    expect(controller.selectedDevice?.name).toBe("Living room floor lamp");
+
+    controller.selectCanonical(null);
+    expect(controller.selectedCanonicalId).toBeNull();
+    expect(controller.selectedDevice).toBeNull();
+  });
 
   it("drives dirty state, undo/redo, and persistence without SolidJS authority", async () => {
     const storage = new MemoryStorage({

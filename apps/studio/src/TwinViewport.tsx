@@ -24,6 +24,7 @@ export interface TwinViewportHandle {
 export interface TwinViewportProps {
   readonly manifest: unknown;
   readonly glbUrl: string;
+  readonly selectedCanonicalId?: string | null;
   readonly onReady?: (handle: TwinViewportHandle) => void;
   readonly onSelect?: (identity: TwinRenderIdentity | null) => void;
 }
@@ -37,6 +38,11 @@ export function TwinViewport(props: TwinViewportProps) {
   const [backend, setBackend] = createSignal<BabylonBackend | null>(null);
   const [selected, setSelected] =
     createSignal<TwinRenderIdentity | null | undefined>(undefined);
+
+  const displayedSelection = () =>
+    props.selectedCanonicalId === undefined
+      ? selected()
+      : props.selectedCanonicalId;
 
   const resize = () => runtime?.resize();
 
@@ -97,9 +103,9 @@ export function TwinViewport(props: TwinViewportProps) {
         <span data-testid="viewport-status">{status()}</span>
         <span data-testid="viewport-backend">{backend() ?? "pending"}</span>
         <span data-testid="selected-canonical-id">
-          {selected() === undefined
+          {displayedSelection() === undefined
             ? "unattempted"
-            : selected()?.canonicalId ?? "none"}
+            : displayedSelection() ?? "none"}
         </span>
       </div>
     </section>
