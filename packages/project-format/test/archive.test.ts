@@ -71,6 +71,110 @@ async function goldenEntries(): Promise<TeldraArchiveEntry[]> {
   ];
 }
 
+
+function encodeDeflateZip(entries: readonly TeldraArchiveEntry[]): Uint8Array {
+  const encoder = new TextEncoder();
+  const sorted = [...entries].sort((left, right) =>
+    left.path.localeCompare(right.path),
+  );
+  const records = sorted.map((entry) => {
+    const name = encoder.encode(entry.path);
+    const compressed = rawDeflateStoredBlock(entry.bytes);
+    return {
+      entry,
+      name,
+      compressed,
+      crc: testCrc32(entry.bytes),
+    };
+  });
+
+  const localSize = records.reduce(
+    (total, record) => total + 30 + record.name.length + record.compressed.length,
+    0,
+  );
+  const centralSize = records.reduce(
+    (total, record) => total + 46 + record.name.length,
+    0,
+  );
+  const output = new Uint8Array(localSize + centralSize + 22);
+  const view = new DataView(output.buffer);
+  const localOffsets: number[] = [];
+  let offset = 0;
+
+  for (const record of records) {
+    localOffsets.push(offset);
+    view.setUint32(offset, 0x04034b50, true);
+    view.setUint16(offset + 4, 20, true);
+    view.setUint16(offset + 6, 0x0800, true);
+    view.setUint16(offset + 8, 8, true);
+    view.setUint32(offset + 14, record.crc, true);
+    view.setUint32(offset + 18, record.compressed.length, true);
+    view.setUint32(offset + 22, record.entry.bytes.length, true);
+    view.setUint16(offset + 26, record.name.length, true);
+    output.set(record.name, offset + 30);
+    output.set(record.compressed, offset + 30 + record.name.length);
+    offset += 30 + record.name.length + record.compressed.length;
+  }
+
+  const centralOffset = offset;
+  records.forEach((record, index) => {
+    view.setUint32(offset, 0x02014b50, true);
+    view.setUint16(offset + 4, 20, true);
+    view.setUint16(offset + 6, 20, true);
+    view.setUint16(offset + 8, 0x0800, true);
+    view.setUint16(offset + 10, 8, true);
+    view.setUint32(offset + 16, record.crc, true);
+    view.setUint32(offset + 20, record.compressed.length, true);
+    view.setUint32(offset + 24, record.entry.bytes.length, true);
+    view.setUint16(offset + 28, record.name.length, true);
+    view.setUint32(offset + 42, localOffsets[index]!, true);
+    output.set(record.name, offset + 46);
+    offset += 46 + record.name.length;
+  });
+
+  view.setUint32(offset, 0x06054b50, true);
+  view.setUint16(offset + 8, records.length, true);
+  view.setUint16(offset + 10, records.length, true);
+  view.setUint32(offset + 12, offset - centralOffset, true);
+  view.setUint32(offset + 16, centralOffset, true);
+
+  return output;
+}
+
+function rawDeflateStoredBlock(bytes: Uint8Array): Uint8Array {
+  if (bytes.length > 0xffff) {
+    throw new Error("Test helper supports entries up to 65535 bytes.");
+  }
+
+  const output = new Uint8Array(bytes.length + 5);
+  const length = bytes.length;
+  const inverse = (~length) & 0xffff;
+  output[0] = 0x01;
+  output[1] = length & 0xff;
+  output[2] = (length >>> 8) & 0xff;
+  output[3] = inverse & 0xff;
+  output[4] = (inverse >>> 8) & 0xff;
+  output.set(bytes, 5);
+  return output;
+}
+
+function testCrc32(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      const mask = -(crc & 1);
+      crc = (crc >>> 1) ^ (0xedb88320 & mask);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function firstCentralOffset(bytes: Uint8Array): number {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return view.getUint32(bytes.byteLength - 6, true);
+}
+
 describe(".teldra stored ZIP codec", () => {
   it("encodes deterministic stored ZIP archives independent of input order", async () => {
     const entries = await goldenEntries();
@@ -160,4 +264,52 @@ describe(".teldra stored ZIP codec", () => {
       openTeldraArchive(encodeStoredZip(corrupted)),
     ).rejects.toThrow("SHA-256 mismatch");
   });
+
+  it("opens safe DEFLATE-compressed project entries and re-saves them deterministically", async () => {
+    const entries = await goldenEntries();
+    const compressed = encodeDeflateZip(entries);
+
+    const opened = await openTeldraArchive(compressed);
+    expect(opened.twin.devices[0]?.id).toBe(
+      "device:living-room-floor-lamp",
+    );
+
+    const saved = await replaceTeldraTwin(opened, opened.twin);
+    expect(decodeStoredZip(saved.bytes).length).toBe(entries.length);
+    expect(await openTeldraArchive(saved.bytes)).toMatchObject({
+      twin: opened.twin,
+    });
+  });
+
+  it("rejects entries whose declared compression ratio exceeds the archive policy", async () => {
+    const bytes = encodeStoredZip(await goldenEntries());
+    const mutated = bytes.slice();
+    const view = new DataView(mutated.buffer);
+    const central = firstCentralOffset(mutated);
+    const local = view.getUint32(central + 42, true);
+
+    view.setUint16(central + 10, 8, true);
+    view.setUint32(central + 20, 1, true);
+    view.setUint32(central + 24, 201, true);
+    view.setUint16(local + 8, 8, true);
+
+    await expect(openTeldraArchive(mutated)).rejects.toThrow(
+      "maximum compression ratio",
+    );
+  });
+
+  it("rejects Unix symbolic-link entries", async () => {
+    const bytes = encodeStoredZip(await goldenEntries());
+    const mutated = bytes.slice();
+    const view = new DataView(mutated.buffer);
+    const central = firstCentralOffset(mutated);
+
+    view.setUint16(central + 4, (3 << 8) | 20, true);
+    view.setUint32(central + 38, 0xa0000000, true);
+
+    await expect(openTeldraArchive(mutated)).rejects.toThrow(
+      "Symbolic-link",
+    );
+  });
+
 });
