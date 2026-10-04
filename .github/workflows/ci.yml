@@ -46,6 +46,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Verify site build
+        run: pnpm --filter @teldra/site verify
+
       - name: Test
         run: pnpm test
 

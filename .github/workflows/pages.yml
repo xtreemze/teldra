@@ -40,8 +40,8 @@ jobs:
       - name: Typecheck site
         run: pnpm --filter @teldra/site typecheck
 
-      - name: Build site
-        run: pnpm --filter @teldra/site build
+      - name: Build and verify site
+        run: pnpm --filter @teldra/site verify
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
