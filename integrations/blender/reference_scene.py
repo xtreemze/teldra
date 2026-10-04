@@ -125,15 +125,18 @@ def render_metrics(scene: bpy.types.Scene, output_dir: Path) -> dict[str, object
         raise RuntimeError("Render Result is unavailable")
 
     pixels = list(render.pixels)
+    if len(pixels) < 4 or len(pixels) % 4 != 0:
+        raise RuntimeError("Render Result has an invalid RGBA buffer")
+
     luminance: list[float] = []
+    alpha_values: list[float] = []
     for index in range(0, len(pixels), 4):
         red, green, blue, alpha = pixels[index : index + 4]
-        if alpha <= 0:
-            continue
         luminance.append(0.2126 * red + 0.7152 * green + 0.0722 * blue)
+        alpha_values.append(alpha)
 
     if len(luminance) == 0:
-        raise RuntimeError("Render Result contains no opaque pixels")
+        raise RuntimeError("Render Result contains no pixels")
 
     mean = sum(luminance) / len(luminance)
     minimum = min(luminance)
@@ -146,6 +149,7 @@ def render_metrics(scene: bpy.types.Scene, output_dir: Path) -> dict[str, object
         "minLuminance": minimum,
         "maxLuminance": maximum,
         "contrast": maximum - minimum,
+        "meanAlpha": sum(alpha_values) / len(alpha_values),
         "samples": scene.cycles.samples,
         "engine": scene.render.engine,
         "device": scene.cycles.device,
