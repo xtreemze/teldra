@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "0.1.0",
+  "status": "candidate",
+  "blenderVersion": "4.5.14",
+  "cyclesVersion": "4.5.14",
+  "platform": "linux-x64",
+  "archiveName": "blender-4.5.14-linux-x64.tar.xz",
+  "downloadUrl": "https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz",
+  "checksumUrl": "https://download.blender.org/release/Blender4.5/blender-4.5.14.sha256"
+}
