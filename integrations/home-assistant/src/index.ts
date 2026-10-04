@@ -3,6 +3,12 @@ import {
   publicField,
   type DiagnosticEvent,
 } from "@teldra/diagnostics";
+import {
+  revalidateControlLease,
+  type ControlAuthoritySnapshot,
+  type ControlDenialReason,
+  type ControlLease,
+} from "@teldra/control-policy";
 import type {
   ExternalBinding,
   TwinCapability,
@@ -424,6 +430,377 @@ export class HomeAssistantReadAdapter {
       fields,
     });
   }
+}
+
+
+export interface HomeAssistantControlAdapterOptions {
+  readonly authority: () => ControlAuthoritySnapshot;
+  readonly onEnvelope: (envelope: TeldraLiveEnvelope) => void;
+  readonly onDiagnostic?: (event: DiagnosticEvent) => void;
+  readonly now?: () => string;
+  readonly requestIdStart?: number;
+}
+
+export type HomeAssistantControlDispatchResult =
+  | {
+      readonly status: "dispatched";
+      readonly requestId: number;
+    }
+  | {
+      readonly status: "denied";
+      readonly reason: ControlDenialReason | "not-attached" | "unsupported-control";
+    };
+
+interface PendingHomeAssistantCommand {
+  readonly lease: ControlLease;
+  readonly binding: ExternalBinding;
+  readonly desiredPower: boolean;
+}
+
+export class HomeAssistantControlAdapter {
+  readonly #bindings: ReadonlyMap<string, ResolvedBinding>;
+  readonly #authority: () => ControlAuthoritySnapshot;
+  readonly #onEnvelope: (envelope: TeldraLiveEnvelope) => void;
+  readonly #onDiagnostic: (event: DiagnosticEvent) => void;
+  readonly #now: () => string;
+  readonly #pending = new Map<number, PendingHomeAssistantCommand>();
+
+  #socket: HomeAssistantWebSocket | null = null;
+  #detach: (() => void) | null = null;
+  #nextRequestId: number;
+  #sequence = 0;
+  #diagnosticSequence = 0;
+
+  constructor(
+    twin: TwinProject,
+    options: HomeAssistantControlAdapterOptions,
+  ) {
+    this.#bindings = buildBindingIndex(twin);
+    this.#authority = options.authority;
+    this.#onEnvelope = options.onEnvelope;
+    this.#onDiagnostic = options.onDiagnostic ?? (() => undefined);
+    this.#now = options.now ?? (() => new Date().toISOString());
+    this.#nextRequestId = options.requestIdStart ?? 1_000_000;
+  }
+
+  attach(socket: HomeAssistantWebSocket): () => void {
+    this.#detach?.();
+    this.#socket = socket;
+
+    const onMessage = (event: HomeAssistantMessageEvent) => {
+      const message = parseProtocolMessage(event.data);
+      if (message?.type === "result") {
+        this.#handleResult(message);
+      }
+    };
+
+    socket.addEventListener("message", onMessage);
+
+    const detach = () => {
+      socket.removeEventListener("message", onMessage);
+      if (this.#socket === socket) {
+        this.#socket = null;
+      }
+      if (this.#detach === detach) {
+        this.#detach = null;
+      }
+    };
+
+    this.#detach = detach;
+    return detach;
+  }
+
+  dispatchLightPower(
+    lease: ControlLease,
+    power: boolean,
+  ): HomeAssistantControlDispatchResult {
+    const now = this.#now();
+
+    if (
+      lease.intent.target !== "physical" ||
+      lease.intent.adapter !== HOME_ASSISTANT_ADAPTER ||
+      lease.intent.capabilityKind !== "light"
+    ) {
+      return this.#deny(lease, "unsupported-control", now);
+    }
+
+    const revalidated = revalidateControlLease(
+      this.#authority(),
+      lease,
+      now,
+    );
+    if (!revalidated.allowed) {
+      return this.#deny(lease, revalidated.reason, now);
+    }
+
+    const resolved = this.#resolveCapability(
+      lease.intent.deviceId,
+      lease.intent.capabilityId,
+    );
+    if (resolved === null || entityDomain(resolved.binding.externalId) !== "light") {
+      return this.#deny(lease, "unsupported-control", now);
+    }
+
+    const socket = this.#socket;
+    if (socket === null) {
+      return this.#deny(lease, "not-attached", now);
+    }
+
+    const requestId = this.#nextRequestId++;
+    const desired = desiredLightPowerEnvelope(
+      lease,
+      power,
+      now,
+      addMilliseconds(now, 15_000),
+    );
+
+    this.#onEnvelope(desired);
+    this.#pending.set(requestId, {
+      lease,
+      binding: resolved.binding,
+      desiredPower: power,
+    });
+
+    try {
+      socket.send(JSON.stringify({
+        id: requestId,
+        type: "call_service",
+        domain: "light",
+        service: power ? "turn_on" : "turn_off",
+        target: {
+          entity_id: resolved.binding.externalId,
+        },
+        return_response: false,
+      }));
+    } catch (error) {
+      this.#pending.delete(requestId);
+      this.#onEnvelope(commandAckEnvelope(
+        lease,
+        resolved.binding,
+        this.#nextSequence(),
+        this.#now(),
+        "failed",
+        "Home Assistant command dispatch failed before the service call was sent.",
+      ));
+      this.#diagnostic(
+        "error",
+        "home-assistant.command.dispatch-failed",
+        "The Home Assistant command could not be sent.",
+        lease,
+        {
+          reason: publicField(error instanceof Error ? error.name : "unknown-error"),
+        },
+      );
+      return {
+        status: "denied",
+        reason: "not-attached",
+      };
+    }
+
+    this.#diagnostic(
+      "info",
+      "home-assistant.command.dispatched",
+      "The Home Assistant light command was dispatched.",
+      lease,
+      {
+        entityId: privateField(resolved.binding.externalId),
+        service: publicField(power ? "turn_on" : "turn_off"),
+        requestId: publicField(requestId),
+      },
+    );
+
+    return {
+      status: "dispatched",
+      requestId,
+    };
+  }
+
+  #handleResult(message: HomeAssistantResultMessage): void {
+    const pending = this.#pending.get(message.id);
+    if (pending === undefined) {
+      return;
+    }
+    this.#pending.delete(message.id);
+
+    const timestamp = this.#now();
+    const status = message.success ? "completed" : "failed";
+
+    this.#onEnvelope(commandAckEnvelope(
+      pending.lease,
+      pending.binding,
+      this.#nextSequence(),
+      timestamp,
+      status,
+      message.success
+        ? "Home Assistant completed the service action."
+        : "Home Assistant rejected or failed the service action.",
+    ));
+
+    this.#diagnostic(
+      message.success ? "info" : "error",
+      message.success
+        ? "home-assistant.command.completed"
+        : "home-assistant.command.failed",
+      message.success
+        ? "The Home Assistant command completed."
+        : "The Home Assistant command failed.",
+      pending.lease,
+      {
+        entityId: privateField(pending.binding.externalId),
+        requestId: publicField(message.id),
+        desiredPower: publicField(pending.desiredPower),
+      },
+    );
+  }
+
+  #resolveCapability(
+    deviceId: string,
+    capabilityId: string,
+  ): ResolvedBinding | null {
+    for (const resolved of this.#bindings.values()) {
+      if (
+        resolved.binding.deviceId === deviceId &&
+        resolved.capabilities.some((capability) => capability.id === capabilityId)
+      ) {
+        return resolved;
+      }
+    }
+    return null;
+  }
+
+  #deny(
+    lease: ControlLease,
+    reason: ControlDenialReason | "not-attached" | "unsupported-control",
+    timestamp: string,
+  ): HomeAssistantControlDispatchResult {
+    const resolved = this.#resolveCapability(
+      lease.intent.deviceId,
+      lease.intent.capabilityId,
+    );
+
+    if (resolved !== null) {
+      this.#onEnvelope(commandAckEnvelope(
+        lease,
+        resolved.binding,
+        this.#nextSequence(),
+        timestamp,
+        "rejected",
+        `Home Assistant command was not dispatched: ${reason}.`,
+      ));
+    }
+
+    this.#diagnostic(
+      "warn",
+      "home-assistant.command.denied",
+      "The Home Assistant command was not dispatched.",
+      lease,
+      {
+        reason: publicField(reason),
+      },
+    );
+
+    return {
+      status: "denied",
+      reason,
+    };
+  }
+
+  #nextSequence(): number {
+    const current = this.#sequence;
+    this.#sequence += 1;
+    return current;
+  }
+
+  #diagnostic(
+    level: DiagnosticEvent["level"],
+    code: string,
+    userMessage: string,
+    lease: ControlLease,
+    fields: DiagnosticEvent["fields"],
+  ): void {
+    this.#diagnosticSequence += 1;
+
+    this.#onDiagnostic({
+      schemaVersion: "0.1.0",
+      eventId: `ha:control-diagnostic:${this.#diagnosticSequence}`,
+      timestamp: this.#now(),
+      level,
+      subsystem: "home-assistant",
+      code,
+      correlationId: lease.intent.correlationId,
+      operationId: lease.intent.commandId,
+      userMessage,
+      fields: {
+        ...fields,
+        deviceId: privateField(lease.intent.deviceId),
+        capabilityId: privateField(lease.intent.capabilityId),
+      },
+    });
+  }
+}
+
+function desiredLightPowerEnvelope(
+  lease: ControlLease,
+  power: boolean,
+  requestedAt: string,
+  expiresAt: string,
+): TeldraLiveEnvelope {
+  return {
+    schemaVersion: "0.1.0",
+    kind: "desired-state",
+    eventId: `control:${lease.intent.commandId}:desired`,
+    commandId: lease.intent.commandId,
+    subject: {
+      deviceId: lease.intent.deviceId,
+      capabilityId: lease.intent.capabilityId,
+    },
+    requestedAt,
+    expiresAt,
+    values: {
+      power: {
+        kind: "boolean",
+        value: power,
+      },
+    },
+    optimistic: true,
+  };
+}
+
+function commandAckEnvelope(
+  lease: ControlLease,
+  binding: ExternalBinding,
+  sequence: number,
+  receivedAt: string,
+  status: "rejected" | "completed" | "failed",
+  message: string,
+): TeldraLiveEnvelope {
+  return {
+    schemaVersion: "0.1.0",
+    kind: "command-ack",
+    eventId: `control:${lease.intent.commandId}:ack:${sequence}`,
+    commandId: lease.intent.commandId,
+    subject: {
+      deviceId: lease.intent.deviceId,
+      capabilityId: lease.intent.capabilityId,
+    },
+    source: {
+      adapter: HOME_ASSISTANT_ADAPTER,
+      bindingId: binding.id,
+      streamId: `ha:command:${binding.externalId}`,
+      sequence,
+    },
+    receivedAt,
+    status,
+    message,
+  };
+}
+
+function addMilliseconds(timestamp: string, milliseconds: number): string {
+  const parsed = Date.parse(timestamp);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Invalid timestamp "${timestamp}".`);
+  }
+  return new Date(parsed + milliseconds).toISOString();
 }
 
 export function buildBindingIndex(

@@ -14,12 +14,15 @@
   "dependencies": {
     "@teldra/diagnostics": "workspace:*",
     "@teldra/domain": "workspace:*",
-    "@teldra/live-state": "workspace:*"
+    "@teldra/live-state": "workspace:*",
+    "@teldra/control-policy": "workspace:*"
   },
   "devDependencies": {
     "vitest": "5.0.3"
   },
   "nx": {
-    "tags": ["layer:integration"]
+    "tags": [
+      "layer:integration"
+    ]
   }
 }
