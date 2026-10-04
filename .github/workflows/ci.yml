@@ -49,6 +49,9 @@ jobs:
       - name: Verify site build
         run: pnpm --filter @teldra/site verify
 
+      - name: Build Studio application
+        run: pnpm --filter @teldra/studio build
+
       - name: Test
         run: pnpm test
 
