@@ -1,0 +1,86 @@
+---
+const events = [
+  {
+    date: "2 Oct 2026",
+    title: "A canonical foundation",
+    status: "shipped",
+    copy: "The repository begins by separating architectural truth in IFC from smart-home truth in the Teldra twin, with stable identity and renderer-neutral projections.",
+  },
+  {
+    date: "2 Oct 2026",
+    title: "Sweet Home 3D becomes semantic",
+    status: "shipped",
+    copy: "The migration path reads Home.xml and maps architectural concepts into IFC rather than treating an exported mesh as the building model.",
+  },
+  {
+    date: "2 Oct 2026",
+    title: "The twin becomes visible",
+    status: "shipped",
+    copy: "IFC-derived scenes gain identity-preserving GLB export, Babylon.js rendering, and canonical picking in the SolidJS Studio.",
+  },
+  {
+    date: "2–3 Oct 2026",
+    title: "Live state, quality, and persistence",
+    status: "shipped",
+    copy: "The project defines live observations, platform budgets, release/security policy, undo/redo, safe saves, recovery, and reproducible toolchain provenance.",
+  },
+  {
+    date: "3 Oct 2026",
+    title: "Golden Home proves the chain",
+    status: "shipped",
+    copy: "A deterministic smart-home fixture ties together SH3D, IFC, twin identity, derived scenes, live-state examples, and cross-runtime tests.",
+  },
+  {
+    date: "4 Oct 2026",
+    title: "Studio editing arrives",
+    status: "shipped",
+    copy: "The first end-to-end editor slice can modify canonical device data, undo and redo changes, track dirty state, and save without making UI state authoritative.",
+  },
+  {
+    date: "4 Oct 2026",
+    title: "Offline and browser rendering converge",
+    status: "shipped",
+    copy: "A pinned Blender/Cycles reference producer is certified through the Babylon browser path so rendered assets carry reproducible provenance.",
+  },
+  {
+    date: "Now",
+    title: "Connect the inhabited home",
+    status: "in progress",
+    copy: "Current work is wiring canonical Studio selection and implementing the first read-only Home Assistant live-state adapter.",
+  },
+];
+---
+
+<section id="history" class="history-section">
+  <div class="section-shell">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">PROJECT HISTORY</p>
+        <h2>A short history with a deliberate sequence.</h2>
+      </div>
+      <p>
+        The public repository history starts on 2 October 2026. Each step adds a new capability
+        without collapsing building truth, device identity, live state, or presentation into one store.
+      </p>
+    </div>
+
+    <ol class="project-timeline">
+      {events.map((event, index) => (
+        <li>
+          <div class="timeline-rail" aria-hidden="true">
+            <span class:list={["timeline-dot", { "in-progress": event.status === "in progress" }]}></span>
+          </div>
+          <article>
+            <div class="timeline-meta">
+              <time>{event.date}</time>
+              <span>{event.status}</span>
+              <b>0{index + 1}</b>
+            </div>
+            <h3>{event.title}</h3>
+            <p>{event.copy}</p>
+          </article>
+        </li>
+      ))}
+    </ol>
+  </div>
+</section>
