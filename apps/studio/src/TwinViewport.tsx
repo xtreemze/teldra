@@ -25,8 +25,8 @@ export interface TwinViewportProps {
   readonly manifest: unknown;
   readonly glbUrl: string;
   readonly selectedCanonicalId?: string | null;
-  readonly onReady?: (handle: TwinViewportHandle) => void;
-  readonly onSelect?: (identity: TwinRenderIdentity | null) => void;
+  readonly onReady?: ((handle: TwinViewportHandle) => void) | undefined;
+  readonly onSelect?: ((identity: TwinRenderIdentity | null) => void) | undefined;
 }
 
 export function TwinViewport(props: TwinViewportProps) {
@@ -39,10 +39,14 @@ export function TwinViewport(props: TwinViewportProps) {
   const [selected, setSelected] =
     createSignal<TwinRenderIdentity | null | undefined>(undefined);
 
-  const displayedSelection = () =>
-    props.selectedCanonicalId === undefined
-      ? selected()
-      : props.selectedCanonicalId;
+  const displayedSelection = (): string | null | undefined => {
+    if (props.selectedCanonicalId !== undefined) {
+      return props.selectedCanonicalId;
+    }
+
+    const current = selected();
+    return current === undefined ? undefined : current?.canonicalId ?? null;
+  };
 
   const resize = () => runtime?.resize();
 
