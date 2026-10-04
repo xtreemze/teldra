@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "0.1.0",
+  "materialProfile": {
+    "model": "metallic-roughness",
+    "workingRadianceSpace": "linear-srgb",
+    "primaryUvSet": 0,
+    "lightmapUvSet": 1,
+    "textureTransfer": {
+      "base-color": "srgb",
+      "emissive": "srgb",
+      "normal": "linear",
+      "occlusion": "linear",
+      "metallic-roughness": "linear"
+    },
+    "metallicRoughnessPacking": "g-roughness-b-metallic"
+  },
+  "identity": {
+    "sceneNodeAuthority": "scene-manifest-nodeKey",
+    "materialAuthority": "appearance-manifest-materialKey",
+    "rendererNamesAreAuthority": false,
+    "blenderObjectNamesAreAuthority": false
+  },
+  "naming": {
+    "meshNodeRule": "transport names may vary; extras.teldra.nodeKey carries stable identity",
+    "materialRule": "materialKey is portable semantic identity; transport material names are non-authoritative",
+    "generatedAssetRule": "generated filenames are derived and may change when provenance/cache identity changes"
+  },
+  "compression": {
+    "geometry": {
+      "baseline": "glb",
+      "optionalStages": ["meshopt", "draco"],
+      "semanticIdentityMustSurvive": true,
+      "canonicalTransformMustSurvive": true
+    },
+    "textures": {
+      "runtimeContainer": "ktx2",
+      "codec": "policy-selected",
+      "sourceIntermediatesPortable": false
+    }
+  },
+  "optimizationOrder": [
+    "canonical-ifc-and-twin",
+    "scene-export",
+    "identity-annotation",
+    "appearance-binding",
+    "lighting-bake",
+    "geometry-optimization",
+    "texture-compression",
+    "artifact-hash-and-provenance"
+  ],
+  "invalidation": {
+    "requiresArtifactProvenance": true,
+    "invalidateOn": [
+      "source-geometry-hash",
+      "scene-manifest-hash",
+      "appearance-manifest-hash",
+      "uv-layout",
+      "material-semantics",
+      "lighting-groups",
+      "bake-settings",
+      "producer-version",
+      "toolchain-manifest-hash",
+      "compression-settings"
+    ]
+  },
+  "certification": {
+    "contractFixture": "fixtures/projects/golden-home",
+    "babylonIdentityPathCertified": true,
+    "blenderCyclesVisualParity": "pending"
+  }
+}
