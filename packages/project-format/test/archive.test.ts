@@ -1,5 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
+import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
+import type { TwinProject } from "@teldra/domain";
 import {
   decodeTeldraArchive,
   encodeTeldraArchive,
@@ -9,46 +10,72 @@ import {
   type TeldraArchive,
 } from "../src/archive.js";
 
-const fixtureRoot = new URL(
-  "../../../fixtures/projects/golden-home/",
-  import.meta.url,
-);
-
-async function readFixture(path: string): Promise<Uint8Array> {
-  return new Uint8Array(await readFile(new URL(path, fixtureRoot)));
-}
-
 async function goldenArchive(): Promise<TeldraArchive> {
-  const paths = [
-    "project.json",
-    "building.ifc",
-    "twin.json",
-    "scene.manifest.json",
-    "appearance.manifest.json",
-    "lighting.manifest.json",
-  ] as const;
-
-  const entries = new Map<string, Uint8Array>();
-  for (const path of paths) {
-    entries.set(path, await readFixture(path));
-  }
-
-  const manifest = JSON.parse(
-    new TextDecoder().decode(entries.get("project.json")),
+  const twin = structuredClone(goldenTwin) as TwinProject;
+  const encoder = new TextEncoder();
+  const twinBytes = encoder.encode(
+    `${JSON.stringify(twin, null, 2)}\n`,
   );
-  const twin = JSON.parse(
-    new TextDecoder().decode(entries.get("twin.json")),
+  const building = encoder.encode(
+    "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n",
   );
+  const scene = encoder.encode(
+    `${JSON.stringify({ fixture: "scene" }, null, 2)}\n`,
+  );
+  const appearance = encoder.encode(
+    `${JSON.stringify({ fixture: "appearance" }, null, 2)}\n`,
+  );
+  const lighting = encoder.encode(
+    `${JSON.stringify({ fixture: "lighting" }, null, 2)}\n`,
+  );
+
+  const manifest = {
+    formatVersion: "0.1.0" as const,
+    building: {
+      path: "building.ifc",
+      sha256: await sha256Hex(building),
+    },
+    twin: {
+      path: "twin.json",
+      sha256: await sha256Hex(twinBytes),
+    },
+    derived: [
+      {
+        path: "scene.manifest.json",
+        sha256: await sha256Hex(scene),
+      },
+      {
+        path: "appearance.manifest.json",
+        sha256: await sha256Hex(appearance),
+      },
+      {
+        path: "lighting.manifest.json",
+        sha256: await sha256Hex(lighting),
+      },
+    ],
+  };
 
   return {
     manifest,
     twin,
-    entries,
+    entries: new Map([
+      [
+        "project.json",
+        encoder.encode(
+          `${JSON.stringify(manifest, null, 2)}\n`,
+        ),
+      ],
+      ["building.ifc", building],
+      ["twin.json", twinBytes],
+      ["scene.manifest.json", scene],
+      ["appearance.manifest.json", appearance],
+      ["lighting.manifest.json", lighting],
+    ]),
   };
 }
 
 describe(".teldra archive codec", () => {
-  it("round-trips the Golden Home through a deterministic stored ZIP", async () => {
+  it("round-trips a Golden Home twin through a deterministic stored ZIP", async () => {
     const source = await goldenArchive();
     const encoded = encodeTeldraArchive(source);
     const decoded = await decodeTeldraArchive(encoded);
@@ -113,7 +140,7 @@ describe(".teldra archive codec", () => {
     const corruptedEntries = new Map(source.entries);
     corruptedEntries.set(
       "building.ifc",
-      new TextEncoder().encode("not the golden IFC"),
+      new TextEncoder().encode("not the expected IFC"),
     );
 
     await expect(
