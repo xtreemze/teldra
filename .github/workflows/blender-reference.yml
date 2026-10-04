@@ -1,0 +1,108 @@
+name: Blender reference producer
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/blender-reference.yml"
+      - "integrations/blender/**"
+      - "tools/blender/**"
+      - "apps/studio/src/BlenderReference.stories.tsx"
+      - "apps/studio/test/blender-reference/**"
+      - "apps/studio/playwright.blender.config.ts"
+      - "quality/asset-interchange.json"
+      - "toolchain/manifest.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reference-producer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Resolve pinned Blender candidate
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import json
+          from pathlib import Path
+
+          toolchain = json.loads(
+              Path("integrations/blender/reference-toolchain.json").read_text()
+          )
+          print("BLENDER_VERSION=" + toolchain["blenderVersion"])
+          print("BLENDER_ARCHIVE=" + toolchain["archiveName"])
+          print("BLENDER_URL=" + toolchain["downloadUrl"])
+          print("BLENDER_CHECKSUM_URL=" + toolchain["checksumUrl"])
+          PY
+          echo "TELDRA_BLENDER_OUTPUT=$RUNNER_TEMP/teldra-blender-output" >> "$GITHUB_ENV"
+
+      - name: Download and verify Blender
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/teldra-blender"
+          cd "$RUNNER_TEMP/teldra-blender"
+
+          curl --fail --location --retry 3 --output "$BLENDER_ARCHIVE" "$BLENDER_URL"
+          curl --fail --location --retry 3 --output blender.sha256 "$BLENDER_CHECKSUM_URL"
+
+          grep " $BLENDER_ARCHIVE$" blender.sha256 | sha256sum --check -
+
+          tar -xf "$BLENDER_ARCHIVE"
+          BLENDER_DIR="$(find . -maxdepth 1 -type d -name "blender-$BLENDER_VERSION-linux-x64" -print -quit)"
+          test -n "$BLENDER_DIR"
+          BLENDER_BIN="$(realpath "$BLENDER_DIR/blender")"
+          echo "BLENDER_BIN=$BLENDER_BIN" >> "$GITHUB_ENV"
+
+      - name: Run headless Cycles reference producer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$TELDRA_BLENDER_OUTPUT"
+
+          "$BLENDER_BIN"             --background             --factory-startup             --python integrations/blender/reference_scene.py             --             --output-dir "$TELDRA_BLENDER_OUTPUT"
+
+          python tools/blender/verify_reference.py "$TELDRA_BLENDER_OUTPUT"
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.1
+          run_install: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install browser certification dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build Studio reference story with generated GLB
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/studio/public/fixtures
+          cp "$TELDRA_BLENDER_OUTPUT/reference.blender.glb"             apps/studio/public/fixtures/blender-reference.glb
+          pnpm --filter @teldra/studio run storybook:build
+
+      - name: Install Chromium
+        run: pnpm --filter @teldra/studio exec playwright install --with-deps chromium
+
+      - name: Certify generated GLB in Babylon
+        run: |
+          pnpm --filter @teldra/studio exec playwright test             --config playwright.blender.config.ts
+
+      - name: Compare Babylon and Cycles visual metrics
+        run: |
+          python tools/blender/verify_browser_reference.py             "$TELDRA_BLENDER_OUTPUT/reference-babylon.png"             "$TELDRA_BLENDER_OUTPUT/reference.metadata.json"
+
+      - name: Summarize producer metadata
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$TELDRA_BLENDER_OUTPUT/reference.metadata.json"; then
+            cat "$TELDRA_BLENDER_OUTPUT/reference.metadata.json"
+          fi

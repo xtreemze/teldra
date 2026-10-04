@@ -24,8 +24,11 @@
   },
   "authoring": {
     "blender": {
-      "certification": "not-yet-certified",
-      "supportedVersions": [],
+      "certification": "reference-producer-certified",
+      "supportedVersions": [
+        "4.5.14"
+      ],
+      "referenceToolchain": "integrations/blender/reference-toolchain.json",
       "artifactReuseRequiresExactVersion": true
     },
     "bonsai": {

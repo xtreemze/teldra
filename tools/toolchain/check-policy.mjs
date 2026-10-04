@@ -24,6 +24,7 @@ export async function checkToolchainPolicy(repoRoot = REPO_ROOT) {
     ifcProject,
     importProject,
     exportProject,
+    blenderReferenceText,
   ] = await Promise.all([
     readText("toolchain/manifest.json"),
     readText("package.json"),
@@ -35,12 +36,14 @@ export async function checkToolchainPolicy(repoRoot = REPO_ROOT) {
     readText("python/packages/teldra-ifc/pyproject.toml"),
     readText("python/packages/teldra-import-sh3d/pyproject.toml"),
     readText("python/packages/teldra-web-export/pyproject.toml"),
+    readText("integrations/blender/reference-toolchain.json"),
   ]);
 
   const manifest = JSON.parse(manifestText);
   const packageJson = JSON.parse(packageText);
   const quality = JSON.parse(qualityText);
   const provenanceFixture = JSON.parse(provenanceFixtureText);
+  const blenderReference = JSON.parse(blenderReferenceText);
   JSON.parse(provenanceSchemaText);
 
   if (manifest.schemaVersion !== "0.1.0") {
@@ -97,6 +100,32 @@ export async function checkToolchainPolicy(repoRoot = REPO_ROOT) {
     if (policy?.artifactReuseRequiresExactVersion !== true) {
       errors.push(`${tool} artifact reuse must require an exact producer version`);
     }
+  }
+
+  const blenderPolicy = manifest.authoring?.blender;
+  if (blenderPolicy?.certification !== "reference-producer-certified") {
+    errors.push("Blender must remain explicitly reference-producer certified");
+  }
+  if (
+    blenderPolicy?.referenceToolchain !==
+    "integrations/blender/reference-toolchain.json"
+  ) {
+    errors.push("Blender certification must point to the reference toolchain");
+  }
+  if (blenderReference.status !== "certified") {
+    errors.push("Blender reference toolchain must remain certified");
+  }
+  if (
+    !Array.isArray(blenderPolicy?.supportedVersions) ||
+    !blenderPolicy.supportedVersions.includes(blenderReference.blenderVersion)
+  ) {
+    errors.push("global Blender support must include the certified reference version");
+  }
+  if (blenderReference.blenderVersion !== blenderReference.cyclesVersion) {
+    errors.push("reference Blender/Cycles versions must match for the certified profile");
+  }
+  if (typeof blenderReference.buildHash !== "string" || blenderReference.buildHash.length < 8) {
+    errors.push("certified Blender reference producer must pin a build hash");
   }
 
   if (manifest.browsers?.policySource !== "quality/budgets.json") {
