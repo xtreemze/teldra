@@ -182,3 +182,4 @@ function schemaIssues(
 }
 
 export * from "./persistence.js";
+export * from "./archive.js";
