@@ -31,6 +31,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     try {
       const current = project();
       if (current !== null) {
+        setProject(null);
         await current.close();
       }
 
