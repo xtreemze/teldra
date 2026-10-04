@@ -1,0 +1,71 @@
+.teldra-browser-studio {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 2rem;
+  font-family: system-ui, sans-serif;
+  color: CanvasText;
+  background: Canvas;
+}
+
+.teldra-browser-studio__masthead {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 2rem;
+  max-width: 72rem;
+  margin: 0 auto 2rem;
+}
+
+.teldra-browser-studio__masthead h1 {
+  margin: 0.25rem 0;
+  font-size: clamp(1.75rem, 4vw, 3rem);
+}
+
+.teldra-browser-studio__masthead p {
+  max-width: 44rem;
+}
+
+.teldra-browser-studio__eyebrow {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.teldra-browser-studio button {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.9rem;
+}
+
+.teldra-browser-studio__workspace,
+.teldra-browser-studio__empty,
+.teldra-browser-studio__notice {
+  max-width: 72rem;
+  margin: 0 auto;
+}
+
+.teldra-browser-studio__file {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 1rem;
+}
+
+.teldra-browser-studio__file span {
+  opacity: 0.7;
+}
+
+.teldra-browser-studio__error {
+  max-width: 72rem;
+  margin: 1rem auto;
+}
+
+@media (max-width: 42rem) {
+  .teldra-browser-studio {
+    padding: 1rem;
+  }
+
+  .teldra-browser-studio__masthead {
+    flex-direction: column;
+  }
+}
