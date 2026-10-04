@@ -9,7 +9,9 @@
   "scripts": {
     "architecture:check": "node tools/architecture/check-boundaries.mjs",
     "architecture:test": "node --test tools/architecture/*.test.mjs",
-    "quality:check": "node tools/quality/check-policy.mjs",
+    "asset-interchange:check": "node tools/quality/check-asset-interchange.mjs",
+    "asset-interchange:test": "node --test tools/quality/asset-interchange.test.mjs",
+    "quality:check": "node tools/quality/check-policy.mjs && pnpm asset-interchange:check",
     "release:check": "node tools/release/check-policy.mjs",
     "toolchain:check": "node tools/toolchain/check-policy.mjs",
     "toolchain:test": "node --test tools/toolchain/*.test.mjs",
@@ -18,7 +20,7 @@
     "storybook:build": "nx run-many -t storybook:build",
     "storybook:test": "nx run-many -t storybook:test --parallel=1",
     "typecheck": "nx run-many -t typecheck",
-    "test": "pnpm architecture:test && pnpm toolchain:test && nx run-many -t test",
+    "test": "pnpm architecture:test && pnpm asset-interchange:test && pnpm toolchain:test && nx run-many -t test",
     "ci": "pnpm schema:check && pnpm architecture:check && pnpm quality:check && pnpm release:check && pnpm toolchain:check && pnpm typecheck && pnpm test"
   },
   "devDependencies": {

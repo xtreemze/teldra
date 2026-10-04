@@ -32,9 +32,22 @@ It currently proves:
 - reflection probes carry renderer-neutral canonical-space position/influence and multiple precomputed states;
 - live state remains separate from persistent twin configuration;
 - live fixtures cover light, opening, environmental sensor, and media capability values;
-- desired light state is represented separately from observed physical state.
+- desired light state is represented separately from observed physical state;
+- appearance and lighting node bindings resolve only through scene-manifest `nodeKey`;
+- compression/optimization remains downstream of canonical identity annotation;
+- KTX2 is the portable runtime container for baked radiance/probe textures.
 
-The asset hashes inside the appearance/lighting semantic fixtures are deliberate deterministic sentinel values. Referenced GLB/KTX2 payloads are not committed because these fixtures currently certify interchange contracts, not a real Cycles bake. Real reference assets will be introduced with the bake pipeline and must record actual hashes/toolchain provenance.
+Run:
+
+```bash
+pnpm asset-interchange:check
+```
+
+to certify the cross-manifest appearance/lighting contract.
+
+The asset hashes inside the appearance/lighting semantic fixtures are deliberate deterministic sentinel values. Referenced GLB/KTX2 payloads are not committed because these fixtures certify the interchange contract, not a real Cycles bake.
+
+A real Blender/Cycles bake → GLB → Babylon visual-parity fixture remains intentionally pending. That fixture must use actual content hashes, exact Blender/Cycles/toolchain provenance, and measured visual/reference-render expectations before Blender/Cycles is certified as a production producer.
 
 The files under `live/` are platform-neutral envelope examples. The light observation intentionally records `adapter: "home-assistant"`, but its values already use Teldra capability semantics; the external platform entity ID remains in the persistent binding rather than in live values.
 
