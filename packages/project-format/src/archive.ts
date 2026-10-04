@@ -10,6 +10,10 @@ const CENTRAL_DIRECTORY_HEADER = 0x02014b50;
 const END_OF_CENTRAL_DIRECTORY = 0x06054b50;
 const UTF8_FLAG = 0x0800;
 const STORED_METHOD = 0;
+const DEFLATE_METHOD = 8;
+const ENCRYPTED_FLAG = 0x0001;
+const DATA_DESCRIPTOR_FLAG = 0x0008;
+const MAX_COMPRESSION_RATIO = 200;
 const MAX_ENTRIES = 10_000;
 const MAX_SINGLE_ENTRY_BYTES = 512 * 1024 * 1024;
 const MAX_TOTAL_ENTRY_BYTES = 2 * 1024 * 1024 * 1024;
@@ -261,10 +265,218 @@ export function decodeStoredZip(bytes: Uint8Array): readonly TeldraArchiveEntry[
   return entries;
 }
 
+
+async function decodePortableZip(
+  bytes: Uint8Array,
+): Promise<readonly TeldraArchiveEntry[]> {
+  if (bytes.byteLength < 22) {
+    throw new TeldraArchiveError("ZIP is too small to contain a central directory.");
+  }
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const eocdOffset = findEndOfCentralDirectory(view);
+  const diskNumber = view.getUint16(eocdOffset + 4, true);
+  const centralDisk = view.getUint16(eocdOffset + 6, true);
+  const entriesOnDisk = view.getUint16(eocdOffset + 8, true);
+  const entryCount = view.getUint16(eocdOffset + 10, true);
+  const centralSize = view.getUint32(eocdOffset + 12, true);
+  const centralOffset = view.getUint32(eocdOffset + 16, true);
+  const commentLength = view.getUint16(eocdOffset + 20, true);
+
+  if (diskNumber !== 0 || centralDisk !== 0 || entriesOnDisk !== entryCount) {
+    throw new TeldraArchiveError("Multi-disk ZIP archives are not supported.");
+  }
+  if (entryCount > MAX_ENTRIES) {
+    throw new TeldraArchiveError(
+      `ZIP contains ${entryCount} entries; maximum is ${MAX_ENTRIES}.`,
+    );
+  }
+  if (eocdOffset + 22 + commentLength !== bytes.byteLength) {
+    throw new TeldraArchiveError("ZIP end record or comment length is malformed.");
+  }
+  if (centralOffset + centralSize > eocdOffset) {
+    throw new TeldraArchiveError("ZIP central directory is out of bounds.");
+  }
+
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const entries: TeldraArchiveEntry[] = [];
+  const paths = new Set<string>();
+  let totalBytes = 0;
+  let offset = centralOffset;
+
+  for (let index = 0; index < entryCount; index += 1) {
+    assertRange(bytes, offset, 46, "central directory header");
+    if (view.getUint32(offset, true) !== CENTRAL_DIRECTORY_HEADER) {
+      throw new TeldraArchiveError(
+        `ZIP central directory entry ${index} has an invalid signature.`,
+      );
+    }
+
+    const madeByPlatform = view.getUint16(offset + 4, true) >>> 8;
+    const flags = view.getUint16(offset + 8, true);
+    const method = view.getUint16(offset + 10, true);
+    const expectedCrc = view.getUint32(offset + 16, true);
+    const compressedSize = view.getUint32(offset + 20, true);
+    const uncompressedSize = view.getUint32(offset + 24, true);
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLengthEntry = view.getUint16(offset + 32, true);
+    const externalAttributes = view.getUint32(offset + 38, true);
+    const localOffset = view.getUint32(offset + 42, true);
+
+    if ((flags & ENCRYPTED_FLAG) !== 0) {
+      throw new TeldraArchiveError("Encrypted ZIP entries are not supported.");
+    }
+    if ((flags & DATA_DESCRIPTOR_FLAG) !== 0) {
+      throw new TeldraArchiveError("ZIP data descriptors are not supported.");
+    }
+    if (method !== STORED_METHOD && method !== DEFLATE_METHOD) {
+      throw new TeldraArchiveError(
+        `Unsupported ZIP compression method ${method}.`,
+      );
+    }
+    if (method === STORED_METHOD && compressedSize !== uncompressedSize) {
+      throw new TeldraArchiveError("Stored ZIP entry has mismatched sizes.");
+    }
+    if (uncompressedSize > MAX_SINGLE_ENTRY_BYTES) {
+      throw new TeldraArchiveError(
+        `ZIP entry exceeds ${MAX_SINGLE_ENTRY_BYTES} bytes.`,
+      );
+    }
+    if (
+      uncompressedSize > 0 &&
+      (compressedSize === 0 ||
+        uncompressedSize / compressedSize > MAX_COMPRESSION_RATIO)
+    ) {
+      throw new TeldraArchiveError(
+        `ZIP entry exceeds maximum compression ratio ${MAX_COMPRESSION_RATIO}:1.`,
+      );
+    }
+    if (madeByPlatform === 3) {
+      const unixMode = externalAttributes >>> 16;
+      if ((unixMode & 0xf000) === 0xa000) {
+        throw new TeldraArchiveError("Symbolic-link ZIP entries are not allowed.");
+      }
+    }
+
+    assertRange(
+      bytes,
+      offset + 46,
+      nameLength + extraLength + commentLengthEntry,
+      "central directory variable data",
+    );
+    const nameBytes = bytes.subarray(offset + 46, offset + 46 + nameLength);
+    if ((flags & UTF8_FLAG) === 0 && nameBytes.some((value) => value >= 0x80)) {
+      throw new TeldraArchiveError("Non-UTF-8 ZIP filenames are not supported.");
+    }
+    const path = decoder.decode(nameBytes);
+    validateEntryPath(path);
+    if (paths.has(path)) {
+      throw new TeldraArchiveError(`Duplicate ZIP entry path "${path}".`);
+    }
+    paths.add(path);
+
+    assertRange(bytes, localOffset, 30, "local file header");
+    if (view.getUint32(localOffset, true) !== LOCAL_FILE_HEADER) {
+      throw new TeldraArchiveError(
+        `ZIP entry "${path}" has an invalid local header signature.`,
+      );
+    }
+
+    const localFlags = view.getUint16(localOffset + 6, true);
+    const localMethod = view.getUint16(localOffset + 8, true);
+    const localNameLength = view.getUint16(localOffset + 26, true);
+    const localExtraLength = view.getUint16(localOffset + 28, true);
+    if (localFlags !== flags || localMethod !== method) {
+      throw new TeldraArchiveError(
+        `ZIP entry "${path}" central/local metadata disagrees.`,
+      );
+    }
+
+    assertRange(
+      bytes,
+      localOffset + 30,
+      localNameLength + localExtraLength,
+      `entry "${path}" local metadata`,
+    );
+    const localPath = decoder.decode(
+      bytes.subarray(localOffset + 30, localOffset + 30 + localNameLength),
+    );
+    if (localPath !== path) {
+      throw new TeldraArchiveError(
+        `ZIP entry "${path}" central/local path disagrees.`,
+      );
+    }
+
+    const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
+    assertRange(bytes, dataOffset, compressedSize, `entry "${path}" data`);
+    const compressed = bytes.subarray(dataOffset, dataOffset + compressedSize);
+    const data =
+      method === STORED_METHOD
+        ? compressed.slice()
+        : await inflateRaw(compressed, path);
+
+    if (data.byteLength !== uncompressedSize) {
+      throw new TeldraArchiveError(
+        `ZIP entry "${path}" has unexpected uncompressed size.`,
+      );
+    }
+    if (crc32(data) !== expectedCrc) {
+      throw new TeldraArchiveError(
+        `ZIP entry "${path}" failed CRC-32 validation.`,
+      );
+    }
+
+    totalBytes += data.byteLength;
+    if (totalBytes > MAX_TOTAL_ENTRY_BYTES) {
+      throw new TeldraArchiveError(
+        `ZIP uncompressed content exceeds ${MAX_TOTAL_ENTRY_BYTES} bytes.`,
+      );
+    }
+
+    entries.push({ path, bytes: data });
+    offset += 46 + nameLength + extraLength + commentLengthEntry;
+  }
+
+  if (offset !== centralOffset + centralSize) {
+    throw new TeldraArchiveError("ZIP central directory size does not match its entries.");
+  }
+
+  return entries;
+}
+
+async function inflateRaw(
+  compressed: Uint8Array,
+  path: string,
+): Promise<Uint8Array> {
+  if (typeof DecompressionStream === "undefined") {
+    throw new TeldraArchiveError(
+      `ZIP entry "${path}" uses DEFLATE, but this runtime cannot decompress it.`,
+    );
+  }
+
+  const input = new ArrayBuffer(compressed.byteLength);
+  new Uint8Array(input).set(compressed);
+
+  try {
+    const stream = new Blob([input])
+      .stream()
+      .pipeThrough(
+        new DecompressionStream("deflate-raw" as CompressionFormat),
+      );
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch (error) {
+    throw new TeldraArchiveError(
+      `Could not inflate ZIP entry "${path}".`,
+      { cause: error },
+    );
+  }
+}
+
 export async function openTeldraArchive(
   bytes: Uint8Array,
 ): Promise<OpenTeldraArchive> {
-  const entries = decodeStoredZip(bytes);
+  const entries = await decodePortableZip(bytes);
   const byPath = new Map(entries.map((entry) => [entry.path, entry] as const));
 
   const projectEntry = requireEntry(byPath, "project.json");
