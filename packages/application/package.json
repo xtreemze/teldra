@@ -12,6 +12,11 @@
     "test": "vitest run"
   },
   "nx": {
-    "tags": ["layer:application"]
+    "tags": [
+      "layer:application"
+    ]
+  },
+  "dependencies": {
+    "@teldra/domain": "workspace:*"
   }
 }

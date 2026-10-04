@@ -214,15 +214,26 @@ export class CommandProcessor<
   Command extends CanonicalCommand,
 > {
   #state: State;
-  #revision = 0;
+  #revision: number;
   readonly #resolve: CommandResolver<State, Command>;
   readonly #undoStack: HistoryEntry<Command>[] = [];
   readonly #redoStack: HistoryEntry<Command>[] = [];
   readonly #executedTransactionIds = new Set<string>();
 
-  constructor(initialState: State, resolve: CommandResolver<State, Command>) {
+  constructor(
+    initialState: State,
+    resolve: CommandResolver<State, Command>,
+    initialRevision = 0,
+  ) {
+    if (!Number.isInteger(initialRevision) || initialRevision < 0) {
+      throw new CommandContractError(
+        "Initial command revision must be a non-negative integer.",
+      );
+    }
+
     this.#state = initialState;
     this.#resolve = resolve;
+    this.#revision = initialRevision;
   }
 
   get state(): Readonly<State> {
