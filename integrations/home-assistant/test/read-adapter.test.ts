@@ -231,11 +231,14 @@ describe("HomeAssistantReadAdapter", () => {
     });
 
     expect(
-      envelopes.some((event) =>
-        event.kind === "observation" &&
-        event.values.power.kind === "boolean" &&
-        event.values.power.value === false
-      ),
+      envelopes.some((event) => {
+        if (event.kind !== "observation") return false;
+        const power = event.values.power;
+        return (
+          power?.kind === "boolean" &&
+          power.value === false
+        );
+      }),
     ).toBe(true);
 
     expect(envelopes.at(-1)).toMatchObject({
