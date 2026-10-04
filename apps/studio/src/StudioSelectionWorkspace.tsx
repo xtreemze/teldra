@@ -1,6 +1,8 @@
 import { createSignal, For, Show } from "solid-js";
 import type { TwinRenderIdentity } from "@teldra/runtime-babylon";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
+import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
+import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
 import {
   TwinViewport,
@@ -13,6 +15,7 @@ export interface StudioSelectionWorkspaceProps {
   readonly manifest: unknown;
   readonly glbUrl: string;
   readonly onViewportReady?: (handle: TwinViewportHandle) => void;
+  readonly liveState?: StudioLiveStateController;
 }
 
 export function StudioSelectionWorkspace(
@@ -126,10 +129,20 @@ export function StudioSelectionWorkspace(
 
         <Show when={selectedDevice()}>
           {(device) => (
-            <ProjectDeviceEditor
-              controller={props.controller}
-              deviceId={device().id}
-            />
+            <>
+              <ProjectDeviceEditor
+                controller={props.controller}
+                deviceId={device().id}
+              />
+              <Show when={props.liveState}>
+                {(liveState) => (
+                  <SelectedDeviceLiveState
+                    controller={liveState()}
+                    device={device()}
+                  />
+                )}
+              </Show>
+            </>
           )}
         </Show>
       </aside>
