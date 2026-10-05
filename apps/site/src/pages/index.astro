@@ -8,8 +8,8 @@ const base = import.meta.env.BASE_URL;
 const workflow = [
   ["01", "Model the home", "Start from an IFC model or migrate a Sweet Home 3D project into semantic building data."],
   ["02", "Attach the smart home", "Give devices and capabilities stable Teldra identities while external platform IDs remain bindings."],
-  ["03", "Explore spatially", "Open the home as an interactive scene and select real building or device identity rather than disconnected dashboard cards."],
-  ["04", "Observe and edit", "Inspect live context, edit canonical device information, undo or redo changes, and save the project safely."],
+  ["03", "Explore spatially", "Open a portable .teldra project in Studio, render its bundled scene, and select real building or device identity rather than disconnected dashboard cards."],
+  ["04", "Observe and edit", "Inspect read-only live context, edit canonical device information, undo or redo changes, recover safely, and save the .teldra project locally."],
   ["05", "Project the same twin", "Use the same identity for interactive 3D, analytical overlays, offline rendering, diagnostics, and future automation."],
 ];
 
@@ -17,6 +17,7 @@ const conventional = [
   ["3D smart-home control surface", "Navigate rooms and devices spatially instead of hunting through a flat entity list.", "current / expanding"],
   ["BIM-backed home record", "Keep rooms, walls, openings, fixtures, and stable architectural identity in IFC.", "current"],
   ["Sweet Home 3D migration", "Carry Home.xml semantics into IFC rather than freezing the project as an OBJ mesh.", "current"],
+  ["Portable .teldra workflow", "Open, render, edit, recover, and save a documented local project container directly in the browser.", "current"],
   ["Device inspection and editing", "Select canonical devices, edit their authored data, undo/redo, and save through application-owned commands.", "current"],
   ["Home Assistant connection", "Bring read-only live observations into the twin while Home Assistant remains an external adapter.", "current"],
   ["High-quality visualization", "Move reproducibly between IFC-derived web scenes and Blender/Cycles asset production.", "current"],
@@ -49,8 +50,9 @@ const ambitions = [
       <h1>Your home as a place, not a list of devices.</h1>
       <p class="hero-lede">
         Teldra connects the architectural model of a home with its smart devices, live observations,
-        interactive 3D, analysis, and high-quality rendering. The result is one spatial twin that can
-        be explored by people without losing the identity behind each room, object, or device.
+        interactive 3D, analysis, and high-quality rendering. Portable <code>.teldra</code> projects
+        can now open locally in Studio, render their bundled scene, recover safely, and save back
+        without requiring a server or making browser state canonical.
       </p>
       <div class="hero-actions">
         <a class="button primary" href={`${base}onboarding/`}>See how it works</a>
