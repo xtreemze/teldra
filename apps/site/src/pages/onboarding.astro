@@ -6,9 +6,9 @@ const base = import.meta.env.BASE_URL;
 const journey = [
   ["01", "Bring in your home", "Open an IFC building model or migrate a Sweet Home 3D project. Teldra keeps architectural meaning—rooms, walls, openings, fixtures, placement—rather than reducing the home to a picture or mesh."],
   ["02", "Recognize the things that live there", "Devices and capabilities receive stable Teldra identities. Home Assistant entity IDs or future platform IDs remain external bindings, so changing automation software does not redefine what the device is."],
-  ["03", "Enter the spatial twin", "Navigate the home visually. Selecting a wall, fixture, or device resolves back to the same canonical identity used by the project instead of creating a renderer-only copy."],
-  ["04", "Inspect and change authored information", "The Studio already has a first canonical editing slice for device data with undo, redo, dirty-state tracking, and safe save semantics."],
-  ["05", "Add live context", "The first read-only Home Assistant adapter now brings normalized observations into Teldra without making Home Assistant the twin itself."],
+  ["03", "Enter the spatial twin", "Open a portable .teldra project and navigate its bundled scene visually. Selecting a wall, fixture, or device resolves back to the same canonical identity used by the project instead of creating a renderer-only copy."],
+  ["04", "Inspect and change authored information", "Studio can edit canonical device data, undo and redo changes, maintain recovery state, and safely save the portable project back from the browser."],
+  ["05", "Add live context", "The read-only Home Assistant adapter brings normalized observations into Teldra without making Home Assistant the twin itself or implying that observation grants control."],
   ["06", "Use the same home in different ways", "Interactive 3D, analytical overlays, diagnostics, offline Blender/Cycles rendering, and future automation can all project from the same identity-preserving model."],
 ];
 
@@ -20,9 +20,9 @@ const whatYouSee = [
 ];
 
 const status = [
-  ["Available foundation", "IFC identity, semantic SH3D import, stable schemas, Babylon rendering/picking, Studio device editing, project save/recovery, deterministic fixtures, Blender/Cycles interchange, and read-only Home Assistant live state."],
-  ["Being connected now", "Shared Studio selection across the viewport and device inspector."],
-  ["Designed for later", "Physical control, richer analytical overlays, broader automation adapters, deeper historical/maintenance context, and more complete end-user authoring."],
+  ["Available foundation", "IFC identity, semantic SH3D import, stable schemas, portable .teldra open/edit/save, Babylon scene rendering and canonical selection, project recovery, deterministic fixtures, Blender/Cycles interchange, and read-only Home Assistant live state."],
+  ["Being connected now", "Authorization-gated Home Assistant control with explicit intent, acknowledgement, failure, and safety boundaries. The shipped adapter remains read-only."],
+  ["Designed for later", "Richer analytical overlays, broader automation adapters, deeper historical/maintenance context, and more complete end-user authoring."],
 ];
 ---
 
@@ -102,8 +102,8 @@ const status = [
       <h2>You select a floor lamp.</h2>
       <p>
         The visible object resolves to a canonical device. That device can retain its room and building
-        relationship, its external Home Assistant binding, its authored name and capabilities, and—once the
-        live adapter is connected—its latest observation. Editing its name should not change its identity;
+        relationship, its external Home Assistant binding, its authored name and capabilities, and its latest
+        read-only observation. Editing its name should not change its identity;
         changing the camera should not change its placement; changing automation platforms should not erase what it is.
       </p>
     </div>
