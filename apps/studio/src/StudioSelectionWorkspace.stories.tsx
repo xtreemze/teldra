@@ -2,7 +2,17 @@ import { createSignal, onMount, Show } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
 import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
 import { canonicalTwinFingerprint } from "@teldra/application";
-import { HomeAssistantReadAdapter } from "@teldra/home-assistant";
+import {
+  HomeAssistantControlAdapter,
+  HomeAssistantReadAdapter,
+  type HomeAssistantMessageEvent,
+  type HomeAssistantWebSocket,
+} from "@teldra/home-assistant";
+import {
+  capabilityAuthorityKey,
+  deviceAuthorityKey,
+  type ControlAuthoritySnapshot,
+} from "@teldra/control-policy";
 import {
   assertTwinIntegrity,
   type TwinProject,
@@ -13,6 +23,7 @@ import {
   type StoredProject,
 } from "@teldra/project-format";
 import { StudioLiveStateController } from "./StudioLiveStateController";
+import { StudioPhysicalControlController } from "./StudioPhysicalControlController";
 import { StudioProjectController } from "./StudioProjectController";
 import {
   StudioSelectionWorkspace,
@@ -21,6 +32,70 @@ import type { TwinViewportClientPoint } from "./TwinViewport";
 
 const fixture = goldenTwin as TwinProject;
 const fixtureNodeKey = "ifc:fixture-wall:body";
+const fixtureDeviceId = "device:living-room-floor-lamp";
+const fixtureCapabilityId = "capability:living-room-floor-lamp:light";
+
+class StoryCommandSocket implements HomeAssistantWebSocket {
+  readonly sent: string[] = [];
+  readonly #listeners = new Set<
+    (event: HomeAssistantMessageEvent) => void
+  >();
+
+  send(data: string): void {
+    this.sent.push(data);
+  }
+
+  addEventListener(
+    _type: "message",
+    listener: (event: HomeAssistantMessageEvent) => void,
+  ): void {
+    this.#listeners.add(listener);
+  }
+
+  removeEventListener(
+    _type: "message",
+    listener: (event: HomeAssistantMessageEvent) => void,
+  ): void {
+    this.#listeners.delete(listener);
+  }
+}
+
+function authorizedStoryControlState(): ControlAuthoritySnapshot {
+  return {
+    revision: 1,
+    adapters: {
+      "home-assistant": {
+        read: true,
+        control: true,
+        connection: "connected",
+        connectionRevision: 1,
+      },
+    },
+    devices: {
+      [deviceAuthorityKey("home-assistant", fixtureDeviceId)]: {
+        read: true,
+        control: true,
+      },
+    },
+    capabilities: {
+      [capabilityAuthorityKey(
+        "home-assistant",
+        fixtureDeviceId,
+        fixtureCapabilityId,
+      )]: {
+        read: true,
+        control: true,
+      },
+    },
+    sessions: {
+      "session:storybook": {
+        sessionId: "session:storybook",
+        allowedOrigins: ["studio"],
+        userPresent: true,
+      },
+    },
+  };
+}
 
 const manifest = {
   schemaVersion: "0.1.0",
@@ -151,7 +226,7 @@ class StoryMemoryStorage implements ProjectStorageAdapter<TwinProject> {
   }
 }
 
-function GoldenHomeSelectionHarness() {
+function GoldenHomeSelectionHarness(props: { readonly physicalControl?: boolean } = {}) {
   const [controller, setController] =
     createSignal<StudioProjectController | null>(null);
   const [projected, setProjected] =
@@ -160,6 +235,25 @@ function GoldenHomeSelectionHarness() {
   const homeAssistant = new HomeAssistantReadAdapter(fixture, {
     onEnvelope: (envelope) => liveState.apply(envelope),
     now: () => "2026-10-04T12:00:00Z",
+  });
+
+  const controlAuthority = authorizedStoryControlState();
+  const commandSocket = new StoryCommandSocket();
+  const commandAdapter = new HomeAssistantControlAdapter(fixture, {
+    authority: () => controlAuthority,
+    onEnvelope: (envelope) => liveState.apply(envelope),
+    now: () => "2026-10-04T12:00:05Z",
+    requestIdStart: 200,
+  });
+  commandAdapter.attach(commandSocket);
+
+  let commandSequence = 0;
+  const physicalControl = new StudioPhysicalControlController(commandAdapter, {
+    sessionId: "session:storybook",
+    authority: () => controlAuthority,
+    now: () => "2026-10-04T12:00:05Z",
+    createCommandId: () => `command:storybook:${++commandSequence}`,
+    createCorrelationId: () => "correlation:storybook-light",
   });
 
   const injectOnline = () => {
@@ -203,12 +297,14 @@ function GoldenHomeSelectionHarness() {
         throw new Error("Golden Home story primary is missing.");
       }
 
-      setController(
-        new StudioProjectController(
-          opened.primary.canonical,
-          opened.session,
-        ),
+      const studioController = new StudioProjectController(
+        opened.primary.canonical,
+        opened.session,
       );
+      if (props.physicalControl === true) {
+        studioController.selectCanonicalId(fixtureDeviceId);
+      }
+      setController(studioController);
       injectOnline();
     })();
   });
@@ -225,11 +321,19 @@ function GoldenHomeSelectionHarness() {
             manifest={manifest}
             glbUrl="/fixtures/twin-pick.glb"
             liveState={liveState}
+            {...(props.physicalControl === true
+              ? { physicalControl }
+              : {})}
             onViewportReady={(handle) => {
               setProjected(handle.projectNode(fixtureNodeKey));
             }}
           />
         )}
+      </Show>
+      <Show when={props.physicalControl === true}>
+        <output hidden data-testid="story-last-service-call">
+          {commandSocket.sent.at(-1) ?? ""}
+        </output>
       </Show>
       <aside aria-label="Story fixture controls">
         <button type="button" data-testid="inject-live-online" onClick={injectOnline}>
@@ -267,4 +371,8 @@ type Story = StoryObj;
 
 export const GoldenHome: Story = {
   render: () => <GoldenHomeSelectionHarness />,
+};
+
+export const AuthorizedLightControl: Story = {
+  render: () => <GoldenHomeSelectionHarness physicalControl />,
 };
