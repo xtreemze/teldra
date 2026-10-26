@@ -138,6 +138,47 @@ function harness(snapshot = authority()) {
 }
 
 describe("HomeAssistantControlAdapter", () => {
+  it("rechecks authority after a desired-state callback revokes control before send", () => {
+    const original = authority();
+    let current = original;
+    const socket = new FakeSocket();
+    const envelopes: TeldraLiveEnvelope[] = [];
+    const adapter = new HomeAssistantControlAdapter(fixture, {
+      authority: () => current,
+      now: () => "2026-10-04T16:00:00Z",
+      onEnvelope: envelope => {
+        envelopes.push(envelope);
+        if (envelope.kind === "desired-state") {
+          current = { ...original, revision: original.revision + 1 };
+        }
+      },
+    });
+    adapter.attach(socket);
+    expect(adapter.dispatchLightPower(lease(original), true)).toEqual({
+      status: "denied", reason: "authority-changed",
+    });
+    expect(socket.sent).toEqual([]);
+    expect(envelopes.at(-1)).toMatchObject({kind: "command-ack", status: "rejected"});
+  });
+
+  it("does not send on a socket detached by the desired-state callback", () => {
+    const original = authority();
+    const socket = new FakeSocket();
+    let detach = () => {};
+    const adapter = new HomeAssistantControlAdapter(fixture, {
+      authority: () => original,
+      now: () => "2026-10-04T16:00:00Z",
+      onEnvelope: envelope => {
+        if (envelope.kind === "desired-state") detach();
+      },
+    });
+    detach = adapter.attach(socket);
+    expect(adapter.dispatchLightPower(lease(original), true)).toEqual({
+      status: "denied", reason: "not-attached",
+    });
+    expect(socket.sent).toEqual([]);
+  });
+
   it("revalidates a light lease immediately before dispatch and sends the official call_service shape", () => {
     const state = authority();
     const { adapter, envelopes } = harness(state);
