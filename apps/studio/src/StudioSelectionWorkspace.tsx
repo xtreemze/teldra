@@ -3,6 +3,7 @@ import type { TwinRenderIdentity } from "@teldra/runtime-babylon";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
+import type { StudioPhysicalControlController } from "./StudioPhysicalControlController";
 import type { StudioProjectController } from "./StudioProjectController";
 import {
   TwinViewport,
@@ -16,6 +17,7 @@ export interface StudioSelectionWorkspaceProps {
   readonly glbUrl: string;
   readonly onViewportReady?: (handle: TwinViewportHandle) => void;
   readonly liveState?: StudioLiveStateController;
+  readonly physicalControl?: StudioPhysicalControlController;
 }
 
 export function StudioSelectionWorkspace(
@@ -139,6 +141,9 @@ export function StudioSelectionWorkspace(
                   <SelectedDeviceLiveState
                     controller={liveState()}
                     device={device()}
+                    {...(props.physicalControl === undefined
+                      ? {}
+                      : { physicalControl: props.physicalControl })}
                   />
                 )}
               </Show>
