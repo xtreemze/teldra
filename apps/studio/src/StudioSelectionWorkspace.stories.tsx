@@ -36,13 +36,17 @@ const fixtureDeviceId = "device:living-room-floor-lamp";
 const fixtureCapabilityId = "capability:living-room-floor-lamp:light";
 
 class StoryCommandSocket implements HomeAssistantWebSocket {
-  readonly sent: string[] = [];
+  readonly #onSend: (data: string) => void;
   readonly #listeners = new Set<
     (event: HomeAssistantMessageEvent) => void
   >();
 
+  constructor(onSend: (data: string) => void) {
+    this.#onSend = onSend;
+  }
+
   send(data: string): void {
-    this.sent.push(data);
+    this.#onSend(data);
   }
 
   addEventListener(
@@ -237,8 +241,9 @@ function GoldenHomeSelectionHarness(props: { readonly physicalControl?: boolean 
     now: () => "2026-10-04T12:00:00Z",
   });
 
-  const controlAuthority = authorizedStoryControlState();
-  const commandSocket = new StoryCommandSocket();
+  let controlAuthority = authorizedStoryControlState();
+  const [lastServiceCall, setLastServiceCall] = createSignal("");
+  const commandSocket = new StoryCommandSocket(setLastServiceCall);
   const commandAdapter = new HomeAssistantControlAdapter(fixture, {
     authority: () => controlAuthority,
     onEnvelope: (envelope) => liveState.apply(envelope),
@@ -332,10 +337,36 @@ function GoldenHomeSelectionHarness(props: { readonly physicalControl?: boolean 
       </Show>
       <Show when={props.physicalControl === true}>
         <output hidden data-testid="story-last-service-call">
-          {commandSocket.sent.at(-1) ?? ""}
+          {lastServiceCall()}
         </output>
       </Show>
       <aside aria-label="Story fixture controls">
+        <Show when={props.physicalControl === true}>
+          <button type="button" onClick={() => {
+            controlAuthority = {
+              ...controlAuthority,
+              revision: controlAuthority.revision + 1,
+              adapters: {
+                "home-assistant": {
+                  ...controlAuthority.adapters["home-assistant"]!,
+                  control: false,
+                },
+              },
+            };
+          }}>Revoke physical control</button>
+          <button type="button" onClick={() => {
+            controlAuthority = {
+              ...controlAuthority,
+              adapters: {
+                "home-assistant": {
+                  ...controlAuthority.adapters["home-assistant"]!,
+                  connection: "disconnected",
+                  connectionRevision: 2,
+                },
+              },
+            };
+          }}>Disconnect command channel</button>
+        </Show>
         <button type="button" data-testid="inject-live-online" onClick={injectOnline}>
           Inject live online
         </button>

@@ -555,6 +555,15 @@ export class HomeAssistantControlAdapter {
     );
 
     this.#onEnvelope(desired);
+    // Subscribers may revoke authority or detach/replace the channel. Recheck
+    // after publishing desired state, at the last boundary before the side effect.
+    const dispatchAuthority = revalidateControlLease(this.#authority(), lease, this.#now());
+    if (!dispatchAuthority.allowed) {
+      return this.#deny(lease, dispatchAuthority.reason, this.#now());
+    }
+    if (this.#socket !== socket) {
+      return this.#deny(lease, "not-attached", this.#now());
+    }
     this.#pending.set(requestId, {
       lease,
       binding: resolved.binding,

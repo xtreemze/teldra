@@ -105,6 +105,7 @@ test("dispatches authorized light power only through the semantic Studio control
   ).toHaveText("online");
 
   const power = page.getByRole("button", { name: "Power" });
+  await expect(page.getByTestId("story-last-service-call")).toHaveText("");
   await expect(power).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("project-dirty-state")).toHaveText("Saved");
 
@@ -128,3 +129,18 @@ test("dispatches authorized light power only through the semantic Studio control
 
   expect(accessibility.violations).toEqual([]);
 });
+
+for (const change of ["Revoke physical control", "Disconnect command channel"]) {
+  test(`refuses light dispatch after ${change.toLowerCase()}`, async ({ page }) => {
+    await page.goto(
+      "/iframe.html?id=studio-selectionworkspace--authorized-light-control&viewMode=story",
+    );
+    await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+    await page.getByRole("button", { name: change, exact: true }).click();
+    const power = page.getByRole("button", { name: "Power", exact: true });
+    await power.click();
+    await expect(page.getByTestId("story-last-service-call")).toHaveText("");
+    await expect(page.getByTestId("project-dirty-state")).toHaveText("Saved");
+    await expect(power).toHaveAttribute("aria-pressed", "true");
+  });
+}
