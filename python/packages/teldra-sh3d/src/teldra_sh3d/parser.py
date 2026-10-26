@@ -74,7 +74,15 @@ def parse_home_xml(payload: bytes | str) -> Sh3dHome:
 
     levels = tuple(_parse_level(node, index) for index, node in enumerate(root.findall("level")))
     furniture_nodes = [
-        child for child in root if child.tag in {"pieceOfFurniture", "doorOrWindow", "light"}
+        child
+        for child in root.iter()
+        if child.tag
+        in {
+            "pieceOfFurniture",
+            "doorOrWindow",
+            "light",
+            "shelfUnit",
+        }
     ]
     furniture = tuple(_parse_furniture(node, index) for index, node in enumerate(furniture_nodes))
     walls = tuple(_parse_wall(node, index) for index, node in enumerate(root.findall("wall")))
@@ -82,9 +90,9 @@ def parse_home_xml(payload: bytes | str) -> Sh3dHome:
     camera_nodes = [child for child in root if child.tag in {"camera", "observerCamera"}]
     cameras = tuple(_parse_camera(node, index) for index, node in enumerate(camera_nodes))
 
-    unsupported = tuple(
-        sorted({child.tag for child in root if child.tag in {"furnitureGroup", "shelfUnit"}})
-    )
+    # Group children already carry absolute SH3D placement, not group-local
+    # transforms. Preserve each leaf's source identity without transforming twice.
+    unsupported = ()
 
     return Sh3dHome(
         name=root.get("name"),
@@ -115,7 +123,7 @@ def _parse_level(node: ElementTree.Element, ordinal: int) -> Sh3dLevel:
 
 def _parse_furniture(node: ElementTree.Element, ordinal: int) -> Sh3dFurniture:
     kind = node.tag
-    if kind not in {"pieceOfFurniture", "doorOrWindow", "light"}:
+    if kind not in {"pieceOfFurniture", "doorOrWindow", "light", "shelfUnit"}:
         raise Sh3dFormatError(f'Unsupported furniture element "{kind}".')
 
     materials = tuple(_parse_material(material) for material in node.findall("material"))

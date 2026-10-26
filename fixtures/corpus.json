@@ -56,6 +56,17 @@
       ]
     },
     {
+      "id": "sh3d-visual-transport",
+      "paths": ["fixtures/sh3d/visual-transport/fixture.json"],
+      "generator": "tools/fixtures/generate_sh3d_visual_fixture.py",
+      "provenance": "Teldra-authored synthetic triangles and 2x2 RGBA pattern; no user assets or vendor implementation code.",
+      "license": "repository-owned-test-fixture; distribution follows repository license policy",
+      "invariants": [
+        "UVs, alpha, source Phong parameters, and embedded texture data survive transport.",
+        "Hidden source geometry remains loaded and can be revealed without canonical mutation."
+      ]
+    },
+    {
       "id": "golden-home-live-state",
       "paths": [
         "fixtures/projects/golden-home/live/light-observation.json",

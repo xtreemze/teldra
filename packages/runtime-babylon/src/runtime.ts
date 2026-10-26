@@ -8,6 +8,8 @@ import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { Scene } from "@babylonjs/core/scene";
+import type { Material } from "@babylonjs/core/Materials/material";
+import { sourceMaterialProjection } from "./source-material.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
   parseSceneManifest,
@@ -30,6 +32,8 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean };
+  setHiddenSourceContentVisible(visible: boolean): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
@@ -75,6 +79,10 @@ export async function createBabylonTwinRuntime(
   });
 
   let defaultCamera: ArcRotateCamera | undefined;
+  let loadedMeshParts = 0;
+  const sourceMaterials = new Map<Material, Material>();
+  const sourceHiddenMeshes = new Set<AbstractMesh>();
+  let sourceHiddenVisible = false;
 
   if (options.attachDefaultCamera ?? true) {
     defaultCamera = new ArcRotateCamera(
@@ -210,6 +218,22 @@ export async function createBabylonTwinRuntime(
   return {
     backend,
     manifest,
+    assetSummary() {
+      return {
+        meshParts: loadedMeshParts,
+        visibleMeshParts: loadedMeshParts - (sourceHiddenVisible ? 0 : sourceHiddenMeshes.size),
+        hiddenSourceParts: sourceHiddenMeshes.size,
+        sourcePhongMaterials: new Set([...sourceMaterials]
+          .filter(([source, projected]) => source !== projected)
+          .map(([source]) => source.metadata?.gltf?.extras?.teldraSourceMaterial?.materialKey ?? source.uniqueId)).size,
+        textures: scene.textures.length,
+        texturesReady: scene.textures.every(texture => texture.isReady()),
+      };
+    },
+    setHiddenSourceContentVisible(visible: boolean) {
+      sourceHiddenVisible = visible;
+      for (const mesh of sourceHiddenMeshes) mesh.setEnabled(visible);
+    },
 
     async load(glbUrl: string): Promise<void> {
       const container = glbUrl.startsWith("blob:")
@@ -222,9 +246,22 @@ export async function createBabylonTwinRuntime(
       const renderMeshes = container.meshes.filter(
         (mesh) => mesh.getTotalVertices() > 0,
       );
+      loadedMeshParts = renderMeshes.length;
       const loadedBuildingNodeKeys = new Set<string>();
 
       for (const mesh of renderMeshes) {
+        if (mesh.metadata?.gltf?.extras?.teldraSourceVisibility?.hidden === true) {
+          sourceHiddenMeshes.add(mesh);
+          mesh.setEnabled(sourceHiddenVisible);
+        }
+        if (mesh.material !== null) {
+          let projected = sourceMaterials.get(mesh.material);
+          if (projected === undefined) {
+            projected = sourceMaterialProjection(mesh.material, scene);
+            sourceMaterials.set(mesh.material, projected);
+          }
+          mesh.material = projected;
+        }
         mesh.isPickable = true;
         mesh.computeWorldMatrix(true);
 
@@ -252,7 +289,7 @@ export async function createBabylonTwinRuntime(
       }
 
       if (defaultCamera !== undefined && renderMeshes.length > 0) {
-        defaultCamera.zoomOn(renderMeshes);
+        defaultCamera.zoomOn(renderMeshes.filter(mesh => mesh.isEnabled()));
       }
 
       // A resolved load is a renderer-readiness boundary: camera framing,

@@ -63,6 +63,7 @@
     "blenderExtensionTarget": "GPL-3.0-or-later",
     "ifcLibraryDependency": "LGPL-3.0-or-later",
     "sh3dCompatibility": "clean-room-format-compatibility-only",
+    "sh3dNativeVisualProducer": "optional-external-installed-application-no-bundled-vendor-code",
     "copiedSweetHome3DImplementationInPortableCore": false,
     "thirdPartyAssetLicenseMetadataRequired": true
   }

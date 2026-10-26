@@ -28,17 +28,34 @@ The first package, `teldra-ifc`, deliberately does not depend on Blender or Bons
 From `python/`, after syncing the workspace:
 
 ```bash
-uv run python ../tools/import/sh3d_to_project.py ../examples/21d-sweethome3d/21D.sh3d /path/to/21D.teldra
+uv run python ../integrations/sweethome3d/export_visuals.py ../examples/21d-sweethome3d/21D.sh3d /path/to/visual-export --installation /path/to/SweetHome3D --java /path/to/java --javac /path/to/javac
+uv run python ../tools/import/sh3d_to_project.py ../examples/21d-sweethome3d/21D.sh3d /path/to/21D.teldra --visual-export /path/to/visual-export
 ```
 
 Open the resulting `.teldra` with Studio's **Open .teldra** button. The converter
 refuses existing destinations and preserves the original SH3D bytes. The archive
 contains IFC, a twin with source-derived reference IDs, a derived GLB/scene
-manifest, and a checksummed `import-report.json`. No physical devices or adapter
+manifest, a checksummed `import-report.json`, and the untouched original source
+archive. No physical devices or adapter
 bindings are inferred from furniture. This command creates a new project; it is
 not a reconciliation/re-import command for an existing edited project.
 
-This is a limited semantic/architectural import. Supported walls are rendered;
-furniture models, textures, grouped furniture, shelf units, and original cameras
-are not reproduced in Studio. Inspect the warnings before relying on the result.
-The Studio file picker does not directly accept `.sh3d` files.
+The optional external producer uses the installed Sweet Home 3D public API to
+export all levels, including hidden furniture, shelves, grouped objects, floors,
+ceilings, and baseboards. The producer receives XML and embedded content only;
+the Java-serialized `Home` entry is removed first. See
+`integrations/sweethome3d/README.md` for runtime/compiler setup.
+
+The portable converter preserves mesh positions, normals, UVs, material colors,
+shininess, opacity, and image resolution. Ordinary image bytes are embedded
+unchanged; ICC-tagged images are color-managed into glTF sRGB with alpha retained.
+Original source images remain recoverable from `source.sh3d`. Studio recognizes
+the source Phong material profile and preserves hidden-level visibility; use
+**Show hidden source content** to reveal it. Visual parts resolve back to imported
+IFC source identities; ground/background parts remain presentation geometry.
+
+This preserves the authored visual assets, rather than claiming pixel-identical
+lighting between Java 3D, Babylon, and offline renderers. Studio uses its own
+interactive camera and preview lighting. The file picker accepts converted
+`.teldra`, not raw `.sh3d`. The explicitly limited wall-only path remains available
+with `--architecture-only`; the CLI requires choosing a conversion mode.

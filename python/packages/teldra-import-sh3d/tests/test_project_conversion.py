@@ -53,3 +53,23 @@ def test_invalid_source_does_not_publish_a_project(tmp_path) -> None:
     with pytest.raises(ValueError, match="ZIP"):
         convert(source, destination)
     assert not destination.exists()
+
+
+def test_visual_export_receipt_must_match_original_source(tmp_path) -> None:
+    source = tmp_path / "source.sh3d"
+    with ZipFile(source, "w") as archive:
+        archive.writestr("Home.xml", (ROOT / "fixtures/sh3d/golden-home/Home.xml").read_bytes())
+    visual = tmp_path / "visuals"
+    visual.mkdir()
+    (visual / "visual-export.json").write_text(
+        json.dumps(
+            {
+                "sourceSha256": "wrong",
+                "xmlOnly": True,
+            }
+        )
+    )
+    destination = tmp_path / "out.teldra"
+    with pytest.raises(ValueError, match="does not match"):
+        convert(source, destination, visual_export=visual)
+    assert not destination.exists()

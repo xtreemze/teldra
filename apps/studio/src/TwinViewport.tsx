@@ -17,6 +17,7 @@ export interface TwinViewportClientPoint {
 }
 
 export interface TwinViewportHandle {
+  assetSummary(): ReturnType<BabylonTwinRuntime["assetSummary"]>;
   projectNode(nodeKey: string): TwinViewportClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
 }
@@ -35,6 +36,7 @@ export function TwinViewport(props: TwinViewportProps) {
 
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading");
   const [backend, setBackend] = createSignal<BabylonBackend | null>(null);
+  const [hasHiddenSourceContent, setHasHiddenSourceContent] = createSignal(false);
   const [selected, setSelected] =
     createSignal<TwinRenderIdentity | null | undefined>(undefined);
 
@@ -54,9 +56,11 @@ export function TwinViewport(props: TwinViewportProps) {
         });
         await runtime.load(props.glbUrl);
         runtime.start();
+        setHasHiddenSourceContent(runtime.assetSummary().hiddenSourceParts > 0);
 
         const readyRuntime = runtime;
         props.onReady?.({
+          assetSummary: () => readyRuntime.assetSummary(),
           projectNode(nodeKey) {
             return readyRuntime.projectNode(nodeKey);
           },
@@ -102,6 +106,13 @@ export function TwinViewport(props: TwinViewportProps) {
             : selected()?.canonicalId ?? "none"}
         </span>
       </div>
+      {hasHiddenSourceContent() && (
+        <label>
+          <input type="checkbox" onChange={event =>
+            runtime?.setHiddenSourceContentVisible(event.currentTarget.checked)} />
+          Show hidden source content
+        </label>
+      )}
     </section>
   );
 }

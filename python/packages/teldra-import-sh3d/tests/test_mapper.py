@@ -17,6 +17,21 @@ from teldra_sh3d import parse_home_xml
 FIXTURE = Path(__file__).parents[4] / "fixtures" / "sh3d" / "golden-home" / "Home.xml"
 
 
+def test_nested_furniture_and_shelf_map_without_applying_group_transform_twice() -> None:
+    xml = FIXTURE.read_text().replace(
+        "</home>",
+        """<furnitureGroup x='900' y='800'>
+      <shelfUnit id='shelf' name='Shelf' level='level0' x='100' y='200'
+        width='50' depth='40' height='90'/>
+      </furnitureGroup></home>""",
+    )
+    result = import_home_to_ifc(parse_home_xml(xml))
+    shelf = result.model.by_guid(result.source_to_global_id["shelfUnit:shelf"])
+    assert shelf.is_a("IfcFurniture")
+    matrix = ifcopenshell.util.placement.get_local_placement(shelf.ObjectPlacement)
+    assert tuple(matrix[:3, 3]) == pytest.approx((1, -2, 0))
+
+
 def test_source_frame_conversion_preserves_right_handed_z_up_space() -> None:
     assert source_to_canonical(1.0, 2.0, 3.0) == (1.0, -2.0, 3.0)
     assert source_yaw_to_canonical(0.5) == pytest.approx(-0.5)
