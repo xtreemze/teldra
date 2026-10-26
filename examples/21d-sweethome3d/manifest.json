@@ -1,0 +1,1175 @@
+{
+  "source": "Repository-owner-supplied Documents/21D project and adjacent exported assets",
+  "copiedOn": "2026-10-26",
+  "fileCount": 232,
+  "totalBytes": 127198273.0,
+  "validation": {
+    "sh3dArchiveEntries": 484,
+    "homeXmlPresent": true,
+    "distinctMaterialTextureReferences": 207,
+    "missingTextures": [],
+    "byteIdenticalCopies": true
+  },
+  "files": [
+    {
+      "path": "21D___.jpeg",
+      "bytes": 1011576,
+      "sha256": "4621497af809dcaf5e6b44d6c3a11f46a75a11c539dd94deeee86575cd0cb0a0"
+    },
+    {
+      "path": "21D___auto_.jpeg",
+      "bytes": 1596,
+      "sha256": "f914124c827d868553bac91f81f54f90bca8fb54e63da54475f5c513faa447a9"
+    },
+    {
+      "path": "21D___auto_3.jpeg",
+      "bytes": 1627,
+      "sha256": "312e3e05f2184f81b5a04299e5d18c82f3e541a2ccbda12e3c1ee5c7aad1f65c"
+    },
+    {
+      "path": "21D___Translucent_Resin_Crush_Gray_1.jpeg",
+      "bytes": 14012,
+      "sha256": "a98a96acc22bddd2502e4d70bb2f5569943c2571b5a6a9332b2dc18ba443ebcb"
+    },
+    {
+      "path": "21D___Wood__Floor_1.jpeg",
+      "bytes": 13026,
+      "sha256": "238e55b2f6c8cebbabbf01993ff30bf99828184e09c6cc681a7a9f5bb03119a4"
+    },
+    {
+      "path": "21D_1.png",
+      "bytes": 349743,
+      "sha256": "e4eb0cb3877f34bdd0401d4db3ca77282ec167eb33a01143d113bed4b76014dc"
+    },
+    {
+      "path": "21D_15.jpeg",
+      "bytes": 46217,
+      "sha256": "3afef1904dee9d22f2eb7b9818896b42fae20926fba8d616fe858fe8c4c39d46"
+    },
+    {
+      "path": "21D_2.jpeg",
+      "bytes": 37776,
+      "sha256": "fe2d8534323588a8a3f7e77f897d1d3393cbbea4dd44ecc99111847777fd0461"
+    },
+    {
+      "path": "21D_20.png",
+      "bytes": 285804,
+      "sha256": "59eb4cee888bcb23bfeaa762b46debf8f8972012dbc79aeb394371adefcc2bd3"
+    },
+    {
+      "path": "21D_27.png",
+      "bytes": 956215,
+      "sha256": "8c8b5af131c0b11844f5ae0e41df222f7524dea047aa52b2bde4be38ea042b66"
+    },
+    {
+      "path": "21D_29.png",
+      "bytes": 147524,
+      "sha256": "3cd728e0a687334bf5abf7eb10931c4351d8e97d2a7bdc7d5b2092cb06b02590"
+    },
+    {
+      "path": "21D_406.png",
+      "bytes": 90125,
+      "sha256": "4f9c665fdb96b26b161f55904dbb232ccda2cf2dd8d09722c3bfae562dd1e851"
+    },
+    {
+      "path": "21D_alu.jpeg",
+      "bytes": 86349,
+      "sha256": "1ba7872b1efafe4c18dd0364aca20ab96c15ac37b684daf3ccccb518661009e7"
+    },
+    {
+      "path": "21D_apple.jpeg",
+      "bytes": 15319,
+      "sha256": "097f87b57e22618f1d2064523f93ee4f29f9e297cf7513b07f495355d21b68bf"
+    },
+    {
+      "path": "21D_bac_acier.jpeg",
+      "bytes": 81575,
+      "sha256": "6bbe6eec88bc29983825903a4c103d878d3699a2a672f8cf33c83cbb73720215"
+    },
+    {
+      "path": "21D_banana.jpeg",
+      "bytes": 46873,
+      "sha256": "6a7833e2e7a33b4df5c0c087754d3396b94987edb012007ebdd27f59a0d6ff30"
+    },
+    {
+      "path": "21D_cardboard_1161.jpeg",
+      "bytes": 82099,
+      "sha256": "d9cbca51e391a67137456b9b2dcc3c1ee55aca20ae64568342507248b063fa25"
+    },
+    {
+      "path": "21D_cardboard_572.jpeg",
+      "bytes": 82099,
+      "sha256": "d9cbca51e391a67137456b9b2dcc3c1ee55aca20ae64568342507248b063fa25"
+    },
+    {
+      "path": "21D_circulargreen.jpeg",
+      "bytes": 210363,
+      "sha256": "5f26c6ca57a020663525733aed31d53e75a6a224f1a2fc6b58a5f418cd223b2e"
+    },
+    {
+      "path": "21D_dalioberon3_back.png",
+      "bytes": 1493823,
+      "sha256": "076807ab8f1b0d4da92fc787ff41d034841fbb32f8da6cd9304029d99fe08e9f"
+    },
+    {
+      "path": "21D_dalioberon3_side_with_black_1.jpeg",
+      "bytes": 336500,
+      "sha256": "8d71376bd2ebedaff681fbbecd3f0dd6f3e215550ed169c70ecffa7d94997b04"
+    },
+    {
+      "path": "21D_dalioberon3_side_with_black.png",
+      "bytes": 2102500,
+      "sha256": "56c3e86f13f22a925929dc0a01fdaf300706244b631a298817be55509e80c7c4"
+    },
+    {
+      "path": "21D_Diamond_Box.jpeg",
+      "bytes": 47850,
+      "sha256": "27dd54decc8b472b493b3a27d8461fce5030365d092a527ccac89792d23baddd"
+    },
+    {
+      "path": "21D_Ebony_Fretboard.jpeg",
+      "bytes": 38484,
+      "sha256": "84a9059e171204f5221591ed9b75b155bb0e81ce956a1d48f7d7b580653abda0"
+    },
+    {
+      "path": "21D_Eyepupil.jpeg",
+      "bytes": 4940,
+      "sha256": "ec074d93e879100a59e8a58acca252cdc8c8a09938bc45833ec01830251d739f"
+    },
+    {
+      "path": "21D_FABRIC_orange.jpeg",
+      "bytes": 130987,
+      "sha256": "373fcab716294d733ce4328a14ad5ce2f5644623cf7d107e2495da79567be165"
+    },
+    {
+      "path": "21D_fabric_Plane_1060.jpeg",
+      "bytes": 133903,
+      "sha256": "882cb2c1f0098df064df73a43d69a51efd8566f66054e28b7c028c8de741cc0e"
+    },
+    {
+      "path": "21D_fabric_Plane_1162.jpeg",
+      "bytes": 117953,
+      "sha256": "c220cde5fa9d39854f4beeba059b0080e6f51deaff47cd486e190dfd1dc7ddb1"
+    },
+    {
+      "path": "21D_fabric_Plane_471.jpeg",
+      "bytes": 133903,
+      "sha256": "882cb2c1f0098df064df73a43d69a51efd8566f66054e28b7c028c8de741cc0e"
+    },
+    {
+      "path": "21D_fabric_Plane_573.jpeg",
+      "bytes": 117953,
+      "sha256": "c220cde5fa9d39854f4beeba059b0080e6f51deaff47cd486e190dfd1dc7ddb1"
+    },
+    {
+      "path": "21D_gold_shiny1.jpeg",
+      "bytes": 1806,
+      "sha256": "e9334d76e18c0fdd62e492693b69ff127cddfb0291038717f88700338e14cdbe"
+    },
+    {
+      "path": "21D_ground_2.png",
+      "bytes": 1787757,
+      "sha256": "ba814483cc5e5e5c4ee8bc2447b02e9409572264e9eb1ad3340771c922adb739"
+    },
+    {
+      "path": "21D_HairDark.jpeg",
+      "bytes": 4400,
+      "sha256": "b9237591e24c2cb3e2c280a7c3aaf68c6d77cc97a6677c2059b2607800b5cb11"
+    },
+    {
+      "path": "21D_Jen_clothes.jpeg",
+      "bytes": 27616,
+      "sha256": "928148630c8b874829f62f185b860f209eddc0006342b35f6d4146d413637bd6"
+    },
+    {
+      "path": "21D_Lips.jpeg",
+      "bytes": 8855,
+      "sha256": "29e51c6d9016bb64ecd17545056f0b4badc0da464e6ff9d181eb482e47aad581"
+    },
+    {
+      "path": "21D_Maple_Top_100.jpeg",
+      "bytes": 636,
+      "sha256": "5a7e980032501e09fadeeb7a517c23964184e87881872fad8ed04be759f3f984"
+    },
+    {
+      "path": "21D_Maple_Top_101.jpeg",
+      "bytes": 633,
+      "sha256": "df6aff97ddd489b048462facc42a9e9b32f051b383916ffb39fbe6479e762759"
+    },
+    {
+      "path": "21D_Maple_Top_102.jpeg",
+      "bytes": 636,
+      "sha256": "da1f59922598f3199a2eaeba0e77a318da684ce0c0a42b523ea54e2b6b493fe8"
+    },
+    {
+      "path": "21D_Maple_Top_103.jpeg",
+      "bytes": 634,
+      "sha256": "5755561992a45710d3462ffc8d0e7e3698c9fac60c417d4e57a4c623674cec6f"
+    },
+    {
+      "path": "21D_Maple_Top_104.jpeg",
+      "bytes": 636,
+      "sha256": "3afaedbf570ce7b5342ac23bb6f043af7025ef8dcbfa8083ebff1e95515c8934"
+    },
+    {
+      "path": "21D_Maple_Top_81.jpeg",
+      "bytes": 634,
+      "sha256": "9ff3f3ea0c2f74fbe92da76fbfe52975124889275c7727b188d6f9fb3d521c2e"
+    },
+    {
+      "path": "21D_Maple_Top_82.jpeg",
+      "bytes": 632,
+      "sha256": "19d3540363497661e704ab8d38e7958a1e328efd3a9771b6c6bb47a028c96dd8"
+    },
+    {
+      "path": "21D_Maple_Top_83.jpeg",
+      "bytes": 633,
+      "sha256": "b79c37a11272f80346b53468371a544913f6fc99d9d0097566551516b0ecd3ce"
+    },
+    {
+      "path": "21D_Maple_Top_84.jpeg",
+      "bytes": 632,
+      "sha256": "e7dc8ebcaaa7b8a17c93b881f8343fa974574326052f8288badf19c7f4ff59a3"
+    },
+    {
+      "path": "21D_Maple_Top_85.jpeg",
+      "bytes": 632,
+      "sha256": "af157625987d3a4122ebd0a3ad12da243590ff66afea70c3e318f2d34e320666"
+    },
+    {
+      "path": "21D_Maple_Top_86.jpeg",
+      "bytes": 632,
+      "sha256": "5725199e94eb996ea181e884da063b6f900e48cb2e96196cdbab0f50e3682af9"
+    },
+    {
+      "path": "21D_Maple_Top_87.jpeg",
+      "bytes": 634,
+      "sha256": "ee9be9ff7db9a8c31b99312d38e0b5a7727e95a00f1e96b2fb4b4252a8be3d8b"
+    },
+    {
+      "path": "21D_Maple_Top_88.jpeg",
+      "bytes": 632,
+      "sha256": "8837311721c05345e5faa703f3f43c4e6a5bee1bf8b6b4e7153da8ab5a8e9a4d"
+    },
+    {
+      "path": "21D_Maple_Top_89.jpeg",
+      "bytes": 632,
+      "sha256": "e4669b379717bea581cff2dac37e765e7ac0e3a9e3f40e663a23359b3c964b6b"
+    },
+    {
+      "path": "21D_Maple_Top_91.jpeg",
+      "bytes": 634,
+      "sha256": "014ba98211d479b07c7382eea8b7bd94b14410d9934d0d907f09d27d61d619b9"
+    },
+    {
+      "path": "21D_Maple_Top_92.jpeg",
+      "bytes": 632,
+      "sha256": "7ad8a9c43bf40d5f862996e9e25e6aeae1ae27bbc04b9493bb7f3ad787d9576a"
+    },
+    {
+      "path": "21D_Maple_Top_93.jpeg",
+      "bytes": 635,
+      "sha256": "28013f2eeb30d9f09bb4740d69cf8f2213a4e462dcfbd32633a78d20c2b0943e"
+    },
+    {
+      "path": "21D_Maple_Top_95.jpeg",
+      "bytes": 634,
+      "sha256": "1baeb0ba8c2752f3d234034c19259dd0976533b7eef59a175da6e2882e99cc70"
+    },
+    {
+      "path": "21D_Maple_Top_96.jpeg",
+      "bytes": 632,
+      "sha256": "c2793a0b5a1e60380eb13705b657a1e89a183db3e22cd8e90fb48f27c3ef236d"
+    },
+    {
+      "path": "21D_Maple_Top_97.jpeg",
+      "bytes": 636,
+      "sha256": "c759d139b737fa2987a0c0ab8bdb5ffcf998169259383abcdc403642fd041567"
+    },
+    {
+      "path": "21D_Maple_Top_98.jpeg",
+      "bytes": 636,
+      "sha256": "a5c091088b61d7b3011bedb1d1fdd999a4abf9a99a5e8d1b56c9503b0dab4c89"
+    },
+    {
+      "path": "21D_Maple_Top_99.jpeg",
+      "bytes": 633,
+      "sha256": "73ee06b34cf2b947d42a50c47b0489f6560e80bb9b40204b97088d78edb6e0bd"
+    },
+    {
+      "path": "21D_Maple_Top.jpeg",
+      "bytes": 27988,
+      "sha256": "35e3d4ced79db848af6aa48575832baa629d7da6c006a57891d4259abb587583"
+    },
+    {
+      "path": "21D_material_0_4_1372.png",
+      "bytes": 160664,
+      "sha256": "d7d49f1fdfb796ba1a0f55e2967016469ae7ff42fc9b51adfa9c2aecf99150a4"
+    },
+    {
+      "path": "21D_material_0_4_1961.png",
+      "bytes": 160664,
+      "sha256": "d7d49f1fdfb796ba1a0f55e2967016469ae7ff42fc9b51adfa9c2aecf99150a4"
+    },
+    {
+      "path": "21D_material_0_838_3020.png",
+      "bytes": 163328,
+      "sha256": "bbd2cdab1cf840345c09574de61dd3f9a99835a13c63281cd5d490981a61a38e"
+    },
+    {
+      "path": "21D_material_0_838_3609.png",
+      "bytes": 163328,
+      "sha256": "bbd2cdab1cf840345c09574de61dd3f9a99835a13c63281cd5d490981a61a38e"
+    },
+    {
+      "path": "21D_material_1_15_1816.png",
+      "bytes": 1423214,
+      "sha256": "7b1270bea626752134ad235103438a7749b12be0b9705a81e86dce1515119cdb"
+    },
+    {
+      "path": "21D_material_1_15_2405.png",
+      "bytes": 1423214,
+      "sha256": "7b1270bea626752134ad235103438a7749b12be0b9705a81e86dce1515119cdb"
+    },
+    {
+      "path": "21D_material_1_19_1791.jpeg",
+      "bytes": 1830988,
+      "sha256": "e301604745061fb1212720577064961aff8682d208471b68e0d278b88808a19f"
+    },
+    {
+      "path": "21D_material_1_19_2380.jpeg",
+      "bytes": 1830988,
+      "sha256": "e301604745061fb1212720577064961aff8682d208471b68e0d278b88808a19f"
+    },
+    {
+      "path": "21D_material_1_839_3021.png",
+      "bytes": 855091,
+      "sha256": "d3ec8e5637bad36d955969aac29fa0d8e0736e7b4fb6ad6aba56a7d0dffb9278"
+    },
+    {
+      "path": "21D_material_1_839_3610.png",
+      "bytes": 855091,
+      "sha256": "d3ec8e5637bad36d955969aac29fa0d8e0736e7b4fb6ad6aba56a7d0dffb9278"
+    },
+    {
+      "path": "21D_material_1.jpeg",
+      "bytes": 22632,
+      "sha256": "ecbf87fe18590abc3b59a7909f5b7de56514afcbe6f36e5801f11da48492080a"
+    },
+    {
+      "path": "21D_material_10.png",
+      "bytes": 1573,
+      "sha256": "c0abcd303cb9cd551eb28c07e036c1994f3264c84a95a1f841de7ea6042fc096"
+    },
+    {
+      "path": "21D_material_11.png",
+      "bytes": 1377,
+      "sha256": "d59d8e185228efa7886500bed38ac44fe6630b22539a9a31c50be528573743ce"
+    },
+    {
+      "path": "21D_material_12.png",
+      "bytes": 1506,
+      "sha256": "8f72f9aa4d2f4fc05b7cf540a5c2235b729f2232c4e9381461aa2893a7f9548d"
+    },
+    {
+      "path": "21D_material_13.png",
+      "bytes": 1301,
+      "sha256": "8d4422f6173fb00ec9f0442500e85ef92efce8c536d1cf6b557871a862556e57"
+    },
+    {
+      "path": "21D_material_14_44_3605.jpeg",
+      "bytes": 1299,
+      "sha256": "1b6fc53cdbb5168cd1f3ee10e0a6dcb2826a93f50e506a8d62e12bdc1740db1f"
+    },
+    {
+      "path": "21D_material_14_44_4194.jpeg",
+      "bytes": 1299,
+      "sha256": "1b6fc53cdbb5168cd1f3ee10e0a6dcb2826a93f50e506a8d62e12bdc1740db1f"
+    },
+    {
+      "path": "21D_material_14.png",
+      "bytes": 1457,
+      "sha256": "fa30a46ceb9d5b5929873586bb0031be51422c194b1e56cdee18ce11828e44b4"
+    },
+    {
+      "path": "21D_material_15.png",
+      "bytes": 1356,
+      "sha256": "0535fa2001b7fc9830fa8a7769bd506fa0bf236d135bf6c7b67f0eb8ad6043ae"
+    },
+    {
+      "path": "21D_material_16.png",
+      "bytes": 1477,
+      "sha256": "56f125345cb112139e0030f7d4154eeadcb07ad7202ab0abaeab6f5cbd49ac96"
+    },
+    {
+      "path": "21D_material_17.png",
+      "bytes": 2051,
+      "sha256": "91d7f6204e8855539db80a0e67aaa6b3d48ba2b0548c856207681ea4ea99652c"
+    },
+    {
+      "path": "21D_material_18.png",
+      "bytes": 2001,
+      "sha256": "b63bf1e26c51ad0390d663ab5906e8294dae2fc55e539ef2ab9aa36d61e02bb5"
+    },
+    {
+      "path": "21D_material_19_7_3592.jpeg",
+      "bytes": 1741,
+      "sha256": "41240437ae928f8dadf3fe828311c71a6e2cc4cad5ca1756753e7783581cce0a"
+    },
+    {
+      "path": "21D_material_19_7_4181.jpeg",
+      "bytes": 1741,
+      "sha256": "41240437ae928f8dadf3fe828311c71a6e2cc4cad5ca1756753e7783581cce0a"
+    },
+    {
+      "path": "21D_material_19.png",
+      "bytes": 2177,
+      "sha256": "1a924479f599844323ede97ac2ba8cb1f851bd07f9d6903561c1be1595803696"
+    },
+    {
+      "path": "21D_material_2_840_3022.png",
+      "bytes": 6535,
+      "sha256": "375c974fcbbb347ab753c30232bdb0509d391ecf9dcb5723a604e41a75d455e6"
+    },
+    {
+      "path": "21D_material_2_840_3611.png",
+      "bytes": 6535,
+      "sha256": "375c974fcbbb347ab753c30232bdb0509d391ecf9dcb5723a604e41a75d455e6"
+    },
+    {
+      "path": "21D_material_2.jpeg",
+      "bytes": 26255,
+      "sha256": "bbeab0d6c1f4d7cb97e686eed59993df10ee2e1b5a62c533986b2a2d8af17dbf"
+    },
+    {
+      "path": "21D_material_20.png",
+      "bytes": 2483,
+      "sha256": "5f0e93e3276395b40d69a02fbfbe0e438a5c285562b6800072be223fb3adfd7f"
+    },
+    {
+      "path": "21D_material_21.png",
+      "bytes": 2074,
+      "sha256": "6bc20e5445f0525893c51f8c57a15dd474677cdbcaf426a182089671cc10781c"
+    },
+    {
+      "path": "21D_material_22.png",
+      "bytes": 2017,
+      "sha256": "354b44edcfb5e9c6857e371c08b8278775ad54ebf0b6fa850a702b0a644674ba"
+    },
+    {
+      "path": "21D_material_23.png",
+      "bytes": 1902,
+      "sha256": "c0d87c31ba5263ccd652ff18f30e384d0db4b733377c2b61b0040733c62d6535"
+    },
+    {
+      "path": "21D_material_24.png",
+      "bytes": 2458,
+      "sha256": "b958eeed8410923a505a3fa6de56d774f628e762da337c9f90b3af92f2aa6c56"
+    },
+    {
+      "path": "21D_material_25.png",
+      "bytes": 2082,
+      "sha256": "789657817da99e68213cf03931c3073e181424f2d11534e9714423366fe5422a"
+    },
+    {
+      "path": "21D_material_26.png",
+      "bytes": 2260,
+      "sha256": "70f782fa15ad8ffc3e7eec45a44d051378cebf4b79da774df79157625c83a44a"
+    },
+    {
+      "path": "21D_material_27_872_3054.png",
+      "bytes": 1985,
+      "sha256": "4def94c1dd290ca21149cab4614860f0d82d750ba7440c9475a060fe03c6ff8f"
+    },
+    {
+      "path": "21D_material_27_872_3643.png",
+      "bytes": 1985,
+      "sha256": "4def94c1dd290ca21149cab4614860f0d82d750ba7440c9475a060fe03c6ff8f"
+    },
+    {
+      "path": "21D_material_27.png",
+      "bytes": 180541,
+      "sha256": "f8e8b5a697db83d89b9c92ca74da15597dde61edfaf15dfa9695665529f9a602"
+    },
+    {
+      "path": "21D_material_28.png",
+      "bytes": 1909,
+      "sha256": "0f561c5403fcea2b0c189e23f903bc598f8cbe5ad5e85d164f03001dacf2475f"
+    },
+    {
+      "path": "21D_material_29_874_3056.png",
+      "bytes": 2103,
+      "sha256": "9e140c9aeac93e12315d52efe90880de87005cd475a4055847affd4e0193a92a"
+    },
+    {
+      "path": "21D_material_29_874_3645.png",
+      "bytes": 2103,
+      "sha256": "9e140c9aeac93e12315d52efe90880de87005cd475a4055847affd4e0193a92a"
+    },
+    {
+      "path": "21D_material_29.png",
+      "bytes": 201412,
+      "sha256": "1a699c0ba07b547de866594eb3fc594cedfe8e0eab985fc628583d7ff8dbe3b9"
+    },
+    {
+      "path": "21D_material_3.png",
+      "bytes": 5389,
+      "sha256": "c71421c80e48f8fa6e4c485fc8d8b2961313ff42d607ff837aa56aaf63ce8fa8"
+    },
+    {
+      "path": "21D_material_30.png",
+      "bytes": 2101,
+      "sha256": "a013cdb8a4545eb74fca53fc948148a606841cc3e2771dcd44ffefc8f88d3ed7"
+    },
+    {
+      "path": "21D_material_31.png",
+      "bytes": 2342,
+      "sha256": "7fa80eecb52e7fd8e4e5a13f23b406da6ff422eba895b66ad3038ca34b603ce1"
+    },
+    {
+      "path": "21D_material_32.png",
+      "bytes": 1994,
+      "sha256": "cc7465c20e4a1083a0f7dd568078b2ce997714b55d66c4366b577dfaf45cd87e"
+    },
+    {
+      "path": "21D_material_33.png",
+      "bytes": 2043,
+      "sha256": "559d040a0293d06417d1a98296c5104fcbce02d292694afbd1cf9aadb18fa860"
+    },
+    {
+      "path": "21D_material_4.png",
+      "bytes": 6318,
+      "sha256": "258ea7e9b1308933d7c425be0edcf80d2fde35fef77279cb0c998e6c59515397"
+    },
+    {
+      "path": "21D_material_5_843_3025.png",
+      "bytes": 6697,
+      "sha256": "dde601f59140c69a12fe68c3cc37ba1f3a4eee610a3938a07610e872661c7c15"
+    },
+    {
+      "path": "21D_material_5_843_3614.png",
+      "bytes": 6697,
+      "sha256": "dde601f59140c69a12fe68c3cc37ba1f3a4eee610a3938a07610e872661c7c15"
+    },
+    {
+      "path": "21D_material_6.png",
+      "bytes": 1399,
+      "sha256": "2e8d15eb9b1489dda749c2e258865703ccb0b76d619eb0692629c2fb37e14afb"
+    },
+    {
+      "path": "21D_material_7.png",
+      "bytes": 1402,
+      "sha256": "f0f9848350666cd2a1e4555ad170a180c92e12f4645804d9ede146bb774ed23e"
+    },
+    {
+      "path": "21D_material_8.png",
+      "bytes": 1332,
+      "sha256": "6589e9dd9bbe8df3acd71e284382b1990a8cc400f973241ae5aa1b3653f6415c"
+    },
+    {
+      "path": "21D_material_837_3019.png",
+      "bytes": 8240,
+      "sha256": "88dce912435c353ca3325a409f25bef4ec75ce984ce8b0f8a1d7f84019bdb6a4"
+    },
+    {
+      "path": "21D_material_837_3608.png",
+      "bytes": 8240,
+      "sha256": "88dce912435c353ca3325a409f25bef4ec75ce984ce8b0f8a1d7f84019bdb6a4"
+    },
+    {
+      "path": "21D_material_9.png",
+      "bytes": 1481,
+      "sha256": "a2969389ad0fd0e92c361ee864167144120bdf8b6e546e6495cc10c188be50d3"
+    },
+    {
+      "path": "21D_Material.jpeg",
+      "bytes": 31794,
+      "sha256": "52a4caca93f98b236f2a6ef4434c233231f289e286acf80575bd00db77428fc3"
+    },
+    {
+      "path": "21D_Metal_Brushed.jpeg",
+      "bytes": 25698,
+      "sha256": "717b2529decc2e5258aebe7e7922ef689b8be63e1851de6f52315e14efdffd9f"
+    },
+    {
+      "path": "21D_Neck_10.jpeg",
+      "bytes": 656,
+      "sha256": "fc363a229330e643f09300c967835efcc1677c57c2216d4d8f40a2a7468cbebb"
+    },
+    {
+      "path": "21D_Neck_11.jpeg",
+      "bytes": 662,
+      "sha256": "0d9581acfcd3ebe7645c74b3f26e6b5b3ebf4376f40fd8997801bbbe473cd2f2"
+    },
+    {
+      "path": "21D_Neck_12.jpeg",
+      "bytes": 656,
+      "sha256": "8869faedb7ec99e4df693917c1b96aaacc4b7eece2fc5b98f5090ae791324ff2"
+    },
+    {
+      "path": "21D_Neck_13.jpeg",
+      "bytes": 654,
+      "sha256": "1251109a3de9f4c5d13301ccf8bd0b96e3b8861c08e201e4a3e7f566845aa27b"
+    },
+    {
+      "path": "21D_Neck_14.jpeg",
+      "bytes": 656,
+      "sha256": "766184ef1de1378484f1527a2f4c2ca55e337475b039d0665d3679fd0e830960"
+    },
+    {
+      "path": "21D_Neck_15.jpeg",
+      "bytes": 673,
+      "sha256": "1e8ae6ccbe7e5e084143f4803759c4ec8d5b639da73ef23ac0a747ea6d28dc65"
+    },
+    {
+      "path": "21D_Neck_16.jpeg",
+      "bytes": 696,
+      "sha256": "549a7fa3e69cedd7b3acf164fc3205673e44c3c1117f75f2d0db1b26768d1ef9"
+    },
+    {
+      "path": "21D_Neck_17.jpeg",
+      "bytes": 748,
+      "sha256": "28222520b5a003ba657a44b591df76bbb819c1df07f23dbeb38f7ca6d7739bf4"
+    },
+    {
+      "path": "21D_Neck_18.jpeg",
+      "bytes": 677,
+      "sha256": "0eaf01cf065d2b457fe3731dcffa751f670c394279992853b1341f365827b005"
+    },
+    {
+      "path": "21D_Neck_19.jpeg",
+      "bytes": 700,
+      "sha256": "d09bd271bb4f3c7d1aa948d75359f34f9d52b31b523cb262638852a5382f5791"
+    },
+    {
+      "path": "21D_Neck_2.jpeg",
+      "bytes": 1292,
+      "sha256": "ecf81ae7b1f235dd01109a6c8065fa93605fa6596dcdc49e61fc156e891d8398"
+    },
+    {
+      "path": "21D_Neck_20.jpeg",
+      "bytes": 695,
+      "sha256": "eb114dd42867c01212f5e50f69c4b5e0ec17a467287d6177bf10f74e902e0353"
+    },
+    {
+      "path": "21D_Neck_21.jpeg",
+      "bytes": 887,
+      "sha256": "e5f48e68a552a7311d870028f49211842a33ef680a77b631d7b6ccc3f85d25e2"
+    },
+    {
+      "path": "21D_Neck_22.jpeg",
+      "bytes": 682,
+      "sha256": "bcc2818ac4a1df1089f8a72b80e9faa8c3fd72afc4436fb41c8eb13ef0c933a6"
+    },
+    {
+      "path": "21D_Neck_23.jpeg",
+      "bytes": 679,
+      "sha256": "af8a23c36941a1e982942c158fbeb92e73ca463d7c2fec67458d4dd46b32f425"
+    },
+    {
+      "path": "21D_Neck_24.jpeg",
+      "bytes": 678,
+      "sha256": "54fc04c2670bdb040f0615a0cf9369f850a656e57905c0a2c7be25b5d96457b2"
+    },
+    {
+      "path": "21D_Neck_25.jpeg",
+      "bytes": 679,
+      "sha256": "0843a19167d3609bebdcffe4315be5d81832dc13e7470df94da4d9859491b9fc"
+    },
+    {
+      "path": "21D_Neck_26.jpeg",
+      "bytes": 3175,
+      "sha256": "1470c8c9ee23743e9b593b167c6bd56cf04a0805189fa4a0177579d0b580015d"
+    },
+    {
+      "path": "21D_Neck_27.jpeg",
+      "bytes": 686,
+      "sha256": "989daefcbae09ae8ca06b9d11223df696096b7242dbb46e1e2149060099b32c1"
+    },
+    {
+      "path": "21D_Neck_28.jpeg",
+      "bytes": 676,
+      "sha256": "33654c88f92e763eec51428edce6f5bc9f57dd5ff75387b4399687426b0bf8b8"
+    },
+    {
+      "path": "21D_Neck_29.jpeg",
+      "bytes": 690,
+      "sha256": "dbd2a46311aa782432aec6cf3f7e5b44b62f852e79c9f42aeece4f060cf48023"
+    },
+    {
+      "path": "21D_Neck_3.jpeg",
+      "bytes": 673,
+      "sha256": "b675b69c31c6e9f3ee21da5b71e0b774ffd56908d89904c2608999f10cf9ab0d"
+    },
+    {
+      "path": "21D_Neck_30.jpeg",
+      "bytes": 682,
+      "sha256": "b62687a16584e91b42b4dc14653dd3f6f814d927fe96dc2984953afc95a8c95b"
+    },
+    {
+      "path": "21D_Neck_31.jpeg",
+      "bytes": 704,
+      "sha256": "e603c35939905e4c7658e463a41a78a4d189af69682cd894f8570bfcee77d596"
+    },
+    {
+      "path": "21D_Neck_32.jpeg",
+      "bytes": 705,
+      "sha256": "b8232979ee7a0f4b81a5ec9382745738d2ccffb5a6f4d47d28ba2a4e99efc8cb"
+    },
+    {
+      "path": "21D_Neck_33.jpeg",
+      "bytes": 705,
+      "sha256": "38550273d9602920cf0b17d9dadf4cddbed15b1057b640d5aaf62316e7052c5d"
+    },
+    {
+      "path": "21D_Neck_34.jpeg",
+      "bytes": 690,
+      "sha256": "3b4ce711544d2fca16fbaf57d140b503366a055fd4d78111606894d9db8d65a6"
+    },
+    {
+      "path": "21D_Neck_35.jpeg",
+      "bytes": 687,
+      "sha256": "4f080aa78623bbda791ee11b39d8362042fb9f6139633e55663ece8734427e2c"
+    },
+    {
+      "path": "21D_Neck_36.jpeg",
+      "bytes": 701,
+      "sha256": "c6f2db4ab7f533b9c820f6bff9b273913a6ffc1bfbcf775759fe7fef63cec841"
+    },
+    {
+      "path": "21D_Neck_37.jpeg",
+      "bytes": 694,
+      "sha256": "2238387617c8119b2919b1692dfdb655c56f43677e875cbf7455af3e39896e69"
+    },
+    {
+      "path": "21D_Neck_38.jpeg",
+      "bytes": 695,
+      "sha256": "4e98ca1e2e0710e116342b205d7be1228a93476f53106f28ef6983cda11d2d88"
+    },
+    {
+      "path": "21D_Neck_39.jpeg",
+      "bytes": 678,
+      "sha256": "778dedeb0278092a604c76354f7452636851e2707f53e068252b92784b17168d"
+    },
+    {
+      "path": "21D_Neck_4.jpeg",
+      "bytes": 662,
+      "sha256": "f0b839cf945d0fe6b22e5db086a21bb24b9f10a88210bf7a524417715c3add9b"
+    },
+    {
+      "path": "21D_Neck_40.jpeg",
+      "bytes": 686,
+      "sha256": "2877fbd7a65f6831faa7c276d6250eaee93dd33f5a9cecdecbb02a05c380e91d"
+    },
+    {
+      "path": "21D_Neck_41.jpeg",
+      "bytes": 703,
+      "sha256": "b645cb49ec6b4cad005f31cec03c972f054104ae0ac07bf105a7873fef9f245e"
+    },
+    {
+      "path": "21D_Neck_42.jpeg",
+      "bytes": 731,
+      "sha256": "f3580be97aebf618eed9eed924c09f173438a1ab48f059fc18b37b4211f7fcc4"
+    },
+    {
+      "path": "21D_Neck_43.jpeg",
+      "bytes": 719,
+      "sha256": "bf9aac770bfe462af1bbd6ea7a5c6e98ea942329d22f7dbd5388e3cd07fae3b0"
+    },
+    {
+      "path": "21D_Neck_44.jpeg",
+      "bytes": 676,
+      "sha256": "dd1d116787276aa8946591d30dc830eabd68323bec7c16703e1963336567c1ae"
+    },
+    {
+      "path": "21D_Neck_45.jpeg",
+      "bytes": 674,
+      "sha256": "d3467764d2656ac77812f9a4a6feb76f1b727c6221ca9512d6dfaf569c44a715"
+    },
+    {
+      "path": "21D_Neck_46.jpeg",
+      "bytes": 673,
+      "sha256": "feae6829158c344a4a3646400f998103150bc72cf5b5acfe489611b0b48bed7a"
+    },
+    {
+      "path": "21D_Neck_47.jpeg",
+      "bytes": 675,
+      "sha256": "f29a0fa4ecde74c247b4a0489d4a7be3e8e4306f9aa025ff5c56aafdd5397c90"
+    },
+    {
+      "path": "21D_Neck_48.jpeg",
+      "bytes": 662,
+      "sha256": "53d6b1dc07838ac855b224ddb0fad046967dee126ed4e1b1b115c30918ed6784"
+    },
+    {
+      "path": "21D_Neck_49.jpeg",
+      "bytes": 665,
+      "sha256": "1aaeb8b49bc0b0aba67966a90eb367c18045e2e79676285ebb3e63cfdf3ac51c"
+    },
+    {
+      "path": "21D_Neck_5.jpeg",
+      "bytes": 664,
+      "sha256": "f97bd9d70b612d6975812201d4b303fec62e708ae477eae739fe8a6b853009d1"
+    },
+    {
+      "path": "21D_Neck_50.jpeg",
+      "bytes": 659,
+      "sha256": "43c21d6f9d945d21939f52b4ec3be1b4678a9ecfc362e6b3a7dccd90d70a699e"
+    },
+    {
+      "path": "21D_Neck_51.jpeg",
+      "bytes": 644,
+      "sha256": "3bba420e69ca6e89c01347f36cc27634a89fc058cf8ea86a26edae706e4584f8"
+    },
+    {
+      "path": "21D_Neck_52.jpeg",
+      "bytes": 654,
+      "sha256": "d603b8db85aa1fa26eea852594a588dd019538e0b7200b8a04d2bd650c478285"
+    },
+    {
+      "path": "21D_Neck_53.jpeg",
+      "bytes": 654,
+      "sha256": "9e9efcde52b50236fd16497060856eb7743aed4f53ece730dc5b2c34959e5b04"
+    },
+    {
+      "path": "21D_Neck_54.jpeg",
+      "bytes": 655,
+      "sha256": "bf10051bee2968c549ad3cbf9b1115069ba8e9a9febf48e00e33954cb85b6225"
+    },
+    {
+      "path": "21D_Neck_55.jpeg",
+      "bytes": 648,
+      "sha256": "7aa3e7464fda3e7f9a8f6665dac3f7921052cac80b410c2f90e223838a4331f0"
+    },
+    {
+      "path": "21D_Neck_56.jpeg",
+      "bytes": 649,
+      "sha256": "779a094572b0e42900eac5dd03827e8ba9291fb5e4b8546d54086a340a870a95"
+    },
+    {
+      "path": "21D_Neck_57.jpeg",
+      "bytes": 652,
+      "sha256": "a6a1f3edc6e9e9dde09ecf33058234fb11acadd94fdf33174529af1fe689b469"
+    },
+    {
+      "path": "21D_Neck_58.jpeg",
+      "bytes": 657,
+      "sha256": "6041727615b050efd5b5edc5c7425ca89adeca7d890c8b23ebd89ae5cd22a961"
+    },
+    {
+      "path": "21D_Neck_59.jpeg",
+      "bytes": 657,
+      "sha256": "32e00ae731d05748c04cf86c9427137bbacea4289b506faf498fb52985b7d642"
+    },
+    {
+      "path": "21D_Neck_6.jpeg",
+      "bytes": 661,
+      "sha256": "25b2465969cfde70fb6614daf162dcc3577a428a27df9c34bebb29d4ff1e818c"
+    },
+    {
+      "path": "21D_Neck_60.jpeg",
+      "bytes": 655,
+      "sha256": "b3bd7ea8dac7eca9b613f3d9395f385b6cbf7ba6cbd809305c0042228bc910bc"
+    },
+    {
+      "path": "21D_Neck_61.jpeg",
+      "bytes": 651,
+      "sha256": "43ea851de3b877b1a5061aa5b65df46c97045b773789492e4e1399f86abb7e86"
+    },
+    {
+      "path": "21D_Neck_62.jpeg",
+      "bytes": 652,
+      "sha256": "4d4aa68490529d6f1d6e5247808226e498a8e8876033317e24f37a40e3cc6790"
+    },
+    {
+      "path": "21D_Neck_63.jpeg",
+      "bytes": 652,
+      "sha256": "e1159fbff1ae7ab30ce2c4b0d78ae1b2d55e6ecc133cfa0fc8cb1019f7ae1064"
+    },
+    {
+      "path": "21D_Neck_64.jpeg",
+      "bytes": 646,
+      "sha256": "4b3aac5349267b88c17a5d20e8d6eef21dc68d1d37108087a8c643db4848cab2"
+    },
+    {
+      "path": "21D_Neck_65.jpeg",
+      "bytes": 647,
+      "sha256": "54ebf4ba825e41842d63a53733412771331e34fad1626f955df820c4570e2923"
+    },
+    {
+      "path": "21D_Neck_66.jpeg",
+      "bytes": 654,
+      "sha256": "250f14b2eda177f311b4dfe938b844ab89db61a29af122a25d02c871991a35cf"
+    },
+    {
+      "path": "21D_Neck_67.jpeg",
+      "bytes": 646,
+      "sha256": "761d5d206d03074a91b898bfdc9428ddbffcc0a608e4ab80870bfb363da93ddc"
+    },
+    {
+      "path": "21D_Neck_68.jpeg",
+      "bytes": 646,
+      "sha256": "4dcc5a4f2017035a33fef5d8064aeb1293dc1574d3e3843cd79dfdd6936c0503"
+    },
+    {
+      "path": "21D_Neck_69.jpeg",
+      "bytes": 718,
+      "sha256": "62741cd938004b387e29789f93184fd4c727ba0f951c9e5dc604c29902d05347"
+    },
+    {
+      "path": "21D_Neck_7.jpeg",
+      "bytes": 664,
+      "sha256": "eb4e1bea5af37f98a6704a653f51744f5c9e29ae344cb1f797a4374c0bfd7d54"
+    },
+    {
+      "path": "21D_Neck_70.jpeg",
+      "bytes": 662,
+      "sha256": "cc9d7c6a97665d24b1316db8c4f2cc2df23389340c8de8b1b08d631142002d95"
+    },
+    {
+      "path": "21D_Neck_71.jpeg",
+      "bytes": 680,
+      "sha256": "8286719420d0c536ec95a56135adee6ec34f7503c7b554820a9078667e1f492b"
+    },
+    {
+      "path": "21D_Neck_72.jpeg",
+      "bytes": 654,
+      "sha256": "40ce9e897878da5faced4ca14a508a7cbbb0b34fb9e51e43c27b40195a0ea508"
+    },
+    {
+      "path": "21D_Neck_73.jpeg",
+      "bytes": 652,
+      "sha256": "d7cde4be3048eb797965b036fb94265ac1c19385c22a8a81eb69c059f10f136e"
+    },
+    {
+      "path": "21D_Neck_74.jpeg",
+      "bytes": 654,
+      "sha256": "66c49f8dc62ff5544a338af4ecb7173576bd62b70d2506c5f279dbd2478178eb"
+    },
+    {
+      "path": "21D_Neck_75.jpeg",
+      "bytes": 650,
+      "sha256": "9c006ae30a0e5722042b525ed9a8e3365d4f0819af2e187d869b3e72acaa26dc"
+    },
+    {
+      "path": "21D_Neck_76.jpeg",
+      "bytes": 723,
+      "sha256": "4bf94148245acd10b8758f153d772dd7d93d596c3c29cd6deb63b542f458fe7d"
+    },
+    {
+      "path": "21D_Neck_77.jpeg",
+      "bytes": 690,
+      "sha256": "9e76c9fd9258b6ce28e495e5e7302c310094e0116efd9a4d0c12058c2fe219d1"
+    },
+    {
+      "path": "21D_Neck_78.jpeg",
+      "bytes": 721,
+      "sha256": "f851a31a0c51dc683f12d71af2187a976f7d4813df5bfe3f85b1b02149b1c9bc"
+    },
+    {
+      "path": "21D_Neck_79.jpeg",
+      "bytes": 675,
+      "sha256": "d879abbd0fce895c6310f2bcb5096902131e0ae5f89b37f8e1229e93b1477178"
+    },
+    {
+      "path": "21D_Neck_8.jpeg",
+      "bytes": 660,
+      "sha256": "8e4dcf7afca5edccc72aa079172533ee9a280f9f5a8ec98ab5215dfec5dfa3a5"
+    },
+    {
+      "path": "21D_Neck_80.jpeg",
+      "bytes": 679,
+      "sha256": "881501dd6e614019e39d8c89513d51402a4f2ab1367ceee6d0162dc1fe668265"
+    },
+    {
+      "path": "21D_Neck_9.jpeg",
+      "bytes": 653,
+      "sha256": "74611d138315f91ee4801fe1d0f3793752997c70b4eb9fa2241fc54662621923"
+    },
+    {
+      "path": "21D_Neck.jpeg",
+      "bytes": 84427,
+      "sha256": "6fe6948cd4448a0b64371b16d8c8e9412590003127f2db1bb87f95eaaa8f044b"
+    },
+    {
+      "path": "21D_NeckSkin.jpeg",
+      "bytes": 1085,
+      "sha256": "abef4d46a80d2c6c771079437acfa14893abf5729b736ccb6fbeda1bdef16e2d"
+    },
+    {
+      "path": "21D_OberonVokalBack_0.jpeg",
+      "bytes": 110173,
+      "sha256": "2c4e53ac5f4682380bbb504ded3fc6f691a94bac3267b616ef1627af4887617a"
+    },
+    {
+      "path": "21D_OberonVokalBack.jpeg",
+      "bytes": 76282,
+      "sha256": "3c8de8be008145a00195da1560207a0a4c7fe0a4b241bac95c6e65f5ffc1c45b"
+    },
+    {
+      "path": "21D_OberonVokalFront_1.jpeg",
+      "bytes": 6957,
+      "sha256": "f582361e47bcba7d093ba268147c74ca5d932d0393da82cda98e916398c833e4"
+    },
+    {
+      "path": "21D_OberonVokalFront_2.jpeg",
+      "bytes": 509576,
+      "sha256": "fd59e2fa48f74f447812d90c9f21c459a4bc45972a97f07d1c91911ca208826d"
+    },
+    {
+      "path": "21D_OberonVokalFront_3.jpeg",
+      "bytes": 2994,
+      "sha256": "d0f7e24c18dcb705fb71dea4f2563e53366179afe8bd71f6475930a189eb9928"
+    },
+    {
+      "path": "21D_OberonVokalFront_4.jpeg",
+      "bytes": 31968,
+      "sha256": "99cbaf29fed06854511ad0fa580de77406da4d08eb066a72ccc649edf3da90f9"
+    },
+    {
+      "path": "21D_OberonVokalFront.jpeg",
+      "bytes": 99805,
+      "sha256": "7e66526f472ad37765a2c03f1b37ac65f878697d47508a9594c04ab5e4f0974e"
+    },
+    {
+      "path": "21D_OberonVokalFrontGrille.jpeg",
+      "bytes": 359492,
+      "sha256": "4f6a8f1e732604132d7031be17b78b43e07dde68c77c1dd86e943cea4f663692"
+    },
+    {
+      "path": "21D_orange.jpeg",
+      "bytes": 30370,
+      "sha256": "3d7b7ee404c6968dcafe719d332adee81e3ece22de295244621a4f18e617c7f7"
+    },
+    {
+      "path": "21D_pear.jpeg",
+      "bytes": 48508,
+      "sha256": "ebb65c0bd9a49a7dfc2227802d9dd2978182334f9764a8b06422cd015de230c7"
+    },
+    {
+      "path": "21D_perla.jpeg",
+      "bytes": 90761,
+      "sha256": "866cad296cb7d5300826e3efd5ffad6b4681050839bd8c60d4068685ced093a1"
+    },
+    {
+      "path": "21D_planche.jpeg",
+      "bytes": 21026,
+      "sha256": "6e879753576988ce7817264b14995898a2a9c9b566d5c138e2838eceedf9f699"
+    },
+    {
+      "path": "21D_room_1_3902.jpeg",
+      "bytes": 125417,
+      "sha256": "8ed10cb4e62cbbea31a2bf50a08a06fa3ea26ae50c4adebb1ec3b12a89fe7c49"
+    },
+    {
+      "path": "21D_room_13_3926.jpeg",
+      "bytes": 64393,
+      "sha256": "4138945f04cb626508d337dff1daee5054bd184637c38e11f326c7ede01675f1"
+    },
+    {
+      "path": "21D_room_3_3906.jpeg",
+      "bytes": 48503,
+      "sha256": "477d60307782ae884e54710a26df6e7d6e76eb38a595ff7b0127998ec9fc2e68"
+    },
+    {
+      "path": "21D_room_83_564.jpeg",
+      "bytes": 125417,
+      "sha256": "8ed10cb4e62cbbea31a2bf50a08a06fa3ea26ae50c4adebb1ec3b12a89fe7c49"
+    },
+    {
+      "path": "21D_room_85_568.jpeg",
+      "bytes": 48503,
+      "sha256": "477d60307782ae884e54710a26df6e7d6e76eb38a595ff7b0127998ec9fc2e68"
+    },
+    {
+      "path": "21D_room_95_588.jpeg",
+      "bytes": 64393,
+      "sha256": "4138945f04cb626508d337dff1daee5054bd184637c38e11f326c7ede01675f1"
+    },
+    {
+      "path": "21D_Sans_titre.jpeg",
+      "bytes": 1390,
+      "sha256": "032758f40346cecb7587ca0a7d66b54b7229a0e2cd94430264eb2d0709143a20"
+    },
+    {
+      "path": "21D_Sans_titre1.jpeg",
+      "bytes": 1653,
+      "sha256": "bc66f25a006bc0eca20eb5dc09169fc080e7726a5490a5220cfa702144a96f6f"
+    },
+    {
+      "path": "21D_ShoesSole.jpeg",
+      "bytes": 57412,
+      "sha256": "2646c6409667d0c228ad43be5f8a3d5f2425132c3ba773cb6208d4571b2cbfe7"
+    },
+    {
+      "path": "21D_sweethome3d_window_mirror_1048.jpeg",
+      "bytes": 5825,
+      "sha256": "403fad1b338f2085450eb86d78c253518ff12bc6e27c7a06162a3a1c226a6f47"
+    },
+    {
+      "path": "21D_sweethome3d_window_mirror_459.jpeg",
+      "bytes": 5825,
+      "sha256": "403fad1b338f2085450eb86d78c253518ff12bc6e27c7a06162a3a1c226a6f47"
+    },
+    {
+      "path": "21D_tornillos.jpeg",
+      "bytes": 194372,
+      "sha256": "14096d4ef7b2ed3aeeaaccae98b8767444f59ce249022adb153e1f355af02a7b"
+    },
+    {
+      "path": "21D_unten_4.jpeg",
+      "bytes": 116192,
+      "sha256": "e8602d11aeb0a3c229e81c3ab540ab18525b48847e76f5a47aa1837b5f7efb85"
+    },
+    {
+      "path": "21D_wall_15_3936.jpeg",
+      "bytes": 62707,
+      "sha256": "30c4876530c72f94679f8c727e3a7d83c7d29255f69f89eaa542a2080f8c70b5"
+    },
+    {
+      "path": "21D_wall_2_11.jpeg",
+      "bytes": 62707,
+      "sha256": "30c4876530c72f94679f8c727e3a7d83c7d29255f69f89eaa542a2080f8c70b5"
+    },
+    {
+      "path": "21D_Wechselrahmen.jpeg",
+      "bytes": 510230,
+      "sha256": "1c0a290ecbed51fd399ada30e319fdfdc4bd228948adcbb5b2df08c24f0c7787"
+    },
+    {
+      "path": "21D_white_Cylinder_1_1136.jpeg",
+      "bytes": 68822,
+      "sha256": "daacfcd5bdd0e25e46813d806078938bc63a56559f0661abe78545015d67463a"
+    },
+    {
+      "path": "21D_white_Cylinder_1_547.jpeg",
+      "bytes": 68822,
+      "sha256": "daacfcd5bdd0e25e46813d806078938bc63a56559f0661abe78545015d67463a"
+    },
+    {
+      "path": "21D_Wood_Grain_Light.jpeg",
+      "bytes": 75722,
+      "sha256": "3d43d0d6a599e35be1b6286a65e496b38c1bf9555381df363d1469e579c7ef84"
+    },
+    {
+      "path": "21D_Wood_OSB.jpeg",
+      "bytes": 11009,
+      "sha256": "48e19aad1885d7ea2617d630e80d9ce0841354a9ff81e797a14c3b1646f0a43e"
+    },
+    {
+      "path": "21D.mtl",
+      "bytes": 48398,
+      "sha256": "77fa2ea194c84f3497c4b444c79223356bd536b62ab340d9bfbfae950e5f97da"
+    },
+    {
+      "path": "21D.obj",
+      "bytes": 54543382,
+      "sha256": "98cee5896da369deaff2db14387dab262eba28050ea3f29430dd4b156d0c5761"
+    },
+    {
+      "path": "21D.sh3d",
+      "bytes": 49794740,
+      "sha256": "cf8bda595744221beb8aafc2abb119ab4bd6e581f48d8b95dcf3fa7f55e0e8e7"
+    }
+  ]
+}
