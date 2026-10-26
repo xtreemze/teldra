@@ -66,7 +66,7 @@ class Sh3dWallBinding:
 @dataclass(frozen=True, slots=True)
 class Sh3dFurniture:
     source: Sh3dSourceRef
-    kind: Literal["pieceOfFurniture", "doorOrWindow", "light"]
+    kind: Literal["pieceOfFurniture", "doorOrWindow", "light", "shelfUnit"]
     name: str
     level_id: str | None
     x_m: float

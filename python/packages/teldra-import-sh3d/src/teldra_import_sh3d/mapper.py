@@ -318,7 +318,7 @@ def _create_furniture_entity(
     kind: str,
     name: str,
 ) -> ifcopenshell.entity_instance:
-    if kind == "pieceOfFurniture":
+    if kind in {"pieceOfFurniture", "shelfUnit"}:
         return ifcopenshell.api.root.create_entity(
             model,
             ifc_class="IfcFurniture",

@@ -48,6 +48,12 @@ IfcOpenShell reusable libraries are LGPL-3.0-or-later; Bonsai is GPL-3.0-or-late
 
 Sweet Home 3D and SweetHome3DJS are GPL-2-or-later. Teldra's SH3D support therefore remains a clean-room format-compatibility implementation based on independently observed/documented file semantics and Teldra-owned fixtures. GPL Sweet Home implementation code must not be copied into the portable core.
 
+The optional `integrations/sweethome3d` visual producer is a separate license zone
+that invokes an independently installed application through its public APIs.
+No vendor binaries or implementation source are bundled. Its distribution must
+receive GPL/dependency review before release. The portable OBJ/MTL/GLB converter
+remains independent of those application libraries.
+
 Third-party models, textures, HDRIs, fonts, sample projects, and other assets require explicit provenance and license metadata. A project's ability to import an asset does not imply Teldra may redistribute that asset.
 
 ## Distribution evidence

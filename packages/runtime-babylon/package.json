@@ -16,6 +16,9 @@
     "@babylonjs/loaders": "9.29.0",
     "@teldra/scene-manifest": "workspace:*"
   },
+  "devDependencies": {
+    "vitest": "5.0.3"
+  },
   "nx": {
     "tags": ["layer:runtime"]
   }

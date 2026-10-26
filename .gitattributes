@@ -1,1 +1,3 @@
 examples/21d-sweethome3d/21D* filter=lfs diff=lfs merge=lfs -text
+fixtures/projects/golden-home/** text eol=lf
+fixtures/sh3d/visual-transport/*.json text eol=lf

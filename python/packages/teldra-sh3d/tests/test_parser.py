@@ -92,3 +92,40 @@ def test_parser_reports_missing_required_numeric_attribute() -> None:
         parse_home_xml(
             b"""<home><wall id='wall0' xStart='0' yStart='0' yEnd='0' thickness='7.5'/></home>"""
         )
+
+
+@pytest.mark.parametrize("color", ["FF002B39", "00001000", "12345678", "00abcdef"])
+def test_parser_reads_unprefixed_hexadecimal_colors(color: str) -> None:
+    payload = FIXTURE.read_text().replace("00AAAAAA", color).replace("00FFFFFF", color)
+    home = parse_home_xml(payload)
+    assert home.furniture[0].materials[0].color == int(color, 16)
+    assert home.furniture[2].light_sources[0].color == int(color, 16)
+
+
+@pytest.mark.parametrize("color", ["garbage", "100000000", "-1", "FF_002B39"])
+def test_parser_rejects_malformed_colors(color: str) -> None:
+    payload = FIXTURE.read_text().replace("00AAAAAA", color)
+    with pytest.raises(Sh3dFormatError, match="color"):
+        parse_home_xml(payload)
+
+
+def test_hex_color_support_does_not_change_integer_fields() -> None:
+    with pytest.raises(Sh3dFormatError, match="version"):
+        parse_home_xml('<home version="FF002B39"/>')
+
+
+def test_group_children_keep_absolute_source_placement_and_shelf_identity() -> None:
+    payload = """<home><furnitureGroup id='group' x='900' y='800' angle='1'>
+      <pieceOfFurniture id='child' name='Child' level='l' x='100' y='200'
+        width='50' depth='60' height='70'/>
+      <shelfUnit id='shelf' name='Shelf' level='l' x='300' y='400'
+        width='50' depth='60' height='70'/>
+    </furnitureGroup></home>"""
+    home = parse_home_xml(payload)
+    assert [piece.source.key for piece in home.furniture] == [
+        "pieceOfFurniture:child",
+        "shelfUnit:shelf",
+    ]
+    assert home.furniture[0].x_m == 1
+    assert home.furniture[0].y_m == 2
+    assert home.unsupported_elements == ()

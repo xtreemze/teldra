@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import runpy
 from pathlib import Path
 
 import ifcopenshell
@@ -9,6 +10,13 @@ import ifcopenshell
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 PROJECT_DIR = REPOSITORY_ROOT / "fixtures" / "projects" / "golden-home"
 BUILDING_IFC = PROJECT_DIR / "building.ifc"
+
+
+def test_golden_generator_matches_checked_in_bytes_across_repeated_builds() -> None:
+    generator = runpy.run_path(str(REPOSITORY_ROOT / "tools/fixtures/generate_golden_home.py"))
+    first = generator["build_fixture"]()
+    assert generator["build_fixture"]() == first
+    assert first[0] == BUILDING_IFC.read_bytes()
 
 
 def _json(path: Path):
