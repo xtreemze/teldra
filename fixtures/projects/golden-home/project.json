@@ -1,7 +1,7 @@
 {
   "building": {
     "path": "building.ifc",
-    "sha256": "1b4d49d32f3739add07ba32e4ccb9fdd93ea83a7d7570845c53e158cb3c9c881"
+    "sha256": "ae8fd2e36b261d69054154a2d0f7589c03b16c9fb296f9eaf8cbfde1a6748032"
   },
   "derived": [
     {

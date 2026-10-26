@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from re import fullmatch
 from xml.etree import ElementTree
 from zipfile import BadZipFile, ZipFile
 
@@ -158,7 +159,7 @@ def _parse_material(node: ElementTree.Element) -> Sh3dMaterial:
     return Sh3dMaterial(
         name=_required(node, "name"),
         key=node.get("key"),
-        color=_optional_int(node, "color"),
+        color=_color(node, optional=True),
         shininess=_optional_float(node, "shininess"),
     )
 
@@ -168,7 +169,7 @@ def _parse_light_source(node: ElementTree.Element) -> Sh3dLightSource:
         x_ratio=_float(node, "x"),
         y_ratio=_float(node, "y"),
         z_ratio=_float(node, "z"),
-        color=_integer(node, "color"),
+        color=_color(node),
         diameter_ratio=_optional_float(node, "diameter"),
     )
 
@@ -286,9 +287,17 @@ def _optional_float(node: ElementTree.Element, name: str) -> float | None:
         ) from error
 
 
-def _integer(node: ElementTree.Element, name: str) -> int:
-    value = _required(node, name)
-    return _parse_integer(node, name, value)
+def _color(node: ElementTree.Element, *, optional: bool = False) -> int | None:
+    value = node.get("color") if optional else _required(node, "color")
+    if value is None:
+        return None
+    # SH3D exports hexadecimal color bit patterns, including digit-only values.
+    # Do not use the integer-field parser: decimal interpretation changes colors.
+    if fullmatch(r"[0-9a-fA-F]{1,8}", value) is None:
+        raise Sh3dFormatError(
+            f'{node.tag} attribute "color" must be 1-8 hexadecimal digits, got "{value}".'
+        )
+    return int(value, 16)
 
 
 def _optional_int(

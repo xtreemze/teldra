@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 import ifcopenshell.guid
-from teldra_ifc import resolve_global_id, write_model
+from teldra_ifc import write_model
 from teldra_import_sh3d import import_home_to_ifc
 from teldra_sh3d import parse_home_xml
 
@@ -82,6 +82,15 @@ def build_fixture() -> tuple[bytes, bytes, bytes]:
         raise RuntimeError(
             "Golden IFC generation did not materialize expected source identities: "
             + ", ".join(missing)
+        )
+
+    # IFC SET attributes have no semantic order. IfcOpenShell may enumerate them
+    # differently across processes/platforms; keep reference bytes reproducible.
+    for assignment in model.by_type("IfcUnitAssignment"):
+        assignment.Units = sorted(assignment.Units, key=lambda entity: entity.id())
+    for relation in model.by_type("IfcRelContainedInSpatialStructure"):
+        relation.RelatedElements = sorted(
+            relation.RelatedElements, key=lambda entity: entity.id()
         )
 
     with tempfile.TemporaryDirectory() as directory:

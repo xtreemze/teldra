@@ -11,4 +11,18 @@ The 232 source files are stored using Git LFS. Run `git lfs pull` after cloning.
 
 This is a large reference example outside the automated synthetic fixture corpus. The SH3D remains source evidence; the OBJ export is derived. No IFC conversion or canonical Teldra identity is asserted.
 
+## Local compatibility verification (26 October 2026)
+
+After the hexadecimal-color parser correction, the original archive parses as
+2 levels, 82 walls, 13 rooms, 150 supported furniture items, and 2 cameras. The
+conversion command documented in `python/README.md` maps 247 source identities
+into IFC and exports 82 wall identities into the Studio scene. A local Chromium
+test opened the resulting `21D.teldra` through Studio's production archive loader
+and reached viewport status `ready` using WebGL with no page errors.
+
+This verifies the converted architectural scene, not direct `.sh3d` opening or
+full visual fidelity. Grouped furniture and shelf units remain unsupported; two
+door/window host matches fail explicitly. Furniture models/textures and original
+appearance are not converted. The original files in this directory are unchanged.
+
 Individual models and textures may be third-party assets. Their authors and license terms have not been supplied or verified; no blanket license is asserted for these files.
