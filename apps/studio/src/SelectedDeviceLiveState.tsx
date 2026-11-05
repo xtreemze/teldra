@@ -11,11 +11,14 @@ import type {
   StateValue,
 } from "@teldra/live-state";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
+import type { StudioPhysicalControlController } from "./StudioPhysicalControlController";
+import { LightControl } from "./LightControl";
 import "./SelectedDeviceLiveState.css";
 
 export interface SelectedDeviceLiveStateProps {
   readonly controller: StudioLiveStateController;
   readonly device: TwinDevice;
+  readonly physicalControl?: StudioPhysicalControlController;
 }
 
 export function SelectedDeviceLiveState(
@@ -68,6 +71,40 @@ export function SelectedDeviceLiveState(
                     {availability()}
                   </output>
                 </header>
+
+                <Show
+                  when={
+                    capability.kind === "light" &&
+                    props.physicalControl !== undefined
+                  }
+                >
+                  <LightControl
+                    label="Power"
+                    on={lightPower(current())}
+                    disabled={availability() !== "online"}
+                    onChange={(next) => {
+                      props.physicalControl?.setLightPower(
+                        props.device.id,
+                        capability.id,
+                        next,
+                      );
+                    }}
+                  />
+                </Show>
+
+                <Show
+                  when={current().commandAck}
+                >
+                  {(ack) => (
+                    <p
+                      class="teldra-selected-device-live__command"
+                      data-testid={`live-command-${capability.id}`}
+                      data-status={ack().status}
+                    >
+                      Command {ack().status}
+                    </p>
+                  )}
+                </Show>
 
                 <Show
                   when={observed()}
@@ -125,4 +162,14 @@ function formatStateValue(value: StateValue): string {
     case "rgb":
       return value.value.join(", ");
   }
+}
+
+function lightPower(snapshot: CapabilityRuntimeSnapshot): boolean {
+  const desired = snapshot.desired?.values.power;
+  if (desired?.kind === "boolean") {
+    return desired.value;
+  }
+
+  const observed = snapshot.observed?.values.power;
+  return observed?.kind === "boolean" ? observed.value : false;
 }
