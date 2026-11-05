@@ -1,5 +1,6 @@
 import {
   createSignal,
+  Show,
   onCleanup,
   onMount,
 } from "solid-js";
@@ -10,6 +11,7 @@ import {
   type TwinRenderIdentity,
 } from "@teldra/runtime-babylon";
 import "./TwinViewport.css";
+import { ViewportControls } from "./ViewportControls";
 
 export interface TwinViewportClientPoint {
   readonly clientX: number;
@@ -17,12 +19,15 @@ export interface TwinViewportClientPoint {
 }
 
 export interface TwinViewportHandle {
+  layers(): ReturnType<BabylonTwinRuntime["layers"]>;
+  viewState(): ReturnType<BabylonTwinRuntime["viewState"]>;
   assetSummary(): ReturnType<BabylonTwinRuntime["assetSummary"]>;
   projectNode(nodeKey: string): TwinViewportClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
 }
 
 export interface TwinViewportProps {
+  readonly selectedCanonicalId?: string | null | undefined;
   readonly manifest: unknown;
   readonly glbUrl: string;
   readonly onReady?: (handle: TwinViewportHandle) => void;
@@ -35,6 +40,7 @@ export function TwinViewport(props: TwinViewportProps) {
   let unsubscribePick: (() => void) | undefined;
 
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading");
+  const [readyRuntime, setReadyRuntime] = createSignal<BabylonTwinRuntime>();
   const [backend, setBackend] = createSignal<BabylonBackend | null>(null);
   const [hasHiddenSourceContent, setHasHiddenSourceContent] = createSignal(false);
   const [selected, setSelected] =
@@ -56,10 +62,13 @@ export function TwinViewport(props: TwinViewportProps) {
         });
         await runtime.load(props.glbUrl);
         runtime.start();
+        setReadyRuntime(runtime);
         setHasHiddenSourceContent(runtime.assetSummary().hiddenSourceParts > 0);
 
         const readyRuntime = runtime;
         props.onReady?.({
+          layers: () => readyRuntime.layers(),
+          viewState: () => readyRuntime.viewState(),
           assetSummary: () => readyRuntime.assetSummary(),
           projectNode(nodeKey) {
             return readyRuntime.projectNode(nodeKey);
@@ -95,8 +104,11 @@ export function TwinViewport(props: TwinViewportProps) {
         class="teldra-twin-viewport__canvas"
         width="640"
         height="400"
+        tabindex="0"
+        aria-label="3D scene navigation"
         data-testid="twin-canvas"
       />
+      <Show when={readyRuntime()}>{current => <ViewportControls runtime={current()} canvas={canvas} selectedId={props.selectedCanonicalId === undefined ? selected()?.canonicalId : props.selectedCanonicalId ?? undefined} />}</Show>
       <div class="teldra-twin-viewport__status" aria-live="polite">
         <span data-testid="viewport-status">{status()}</span>
         <span data-testid="viewport-backend">{backend() ?? "pending"}</span>

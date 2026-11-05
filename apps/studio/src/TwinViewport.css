@@ -20,3 +20,23 @@
   font: 0.75rem/1.4 ui-monospace, monospace;
   opacity: 0.72;
 }
+
+.teldra-view-controls { display: grid; gap: .5rem; font: .875rem/1.5 system-ui, sans-serif; }
+.teldra-view-controls__bar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.teldra-view-controls button, .teldra-view-controls select { min-height: 2.5rem; padding: .35rem .65rem; font: inherit; }
+.teldra-view-controls :focus-visible { outline: 3px solid #357bd8; outline-offset: 2px; }
+.teldra-view-controls__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
+.teldra-orientation { width: 120px; height: 120px; position: relative; flex-shrink: 0; }
+.teldra-orientation svg { position: absolute; width: 100%; height: 100%; }
+.teldra-orientation .teldra-orientation__axis { position: absolute; transform: translate(-50%, -50%); padding: 0; min-height: 30px; width: 30px; border-radius: 50%; font-size: .7rem; background: #fff; color: #172536; border: 1px solid #627283; }
+.teldra-view-controls__layers { display: flex; flex-wrap: wrap; gap: .75rem; }
+.teldra-view-controls__layers fieldset { flex: 1; min-width: 10rem; }
+.teldra-view-controls__layers label { display: flex; align-items: center; gap: .4rem; min-height: 2.5rem; }
+.teldra-view-controls__diagnostic { display: none; }
+.teldra-view-controls__announcement:empty { display: none; }
+
+.teldra-twin-viewport { position: relative; }
+.teldra-orientation { position: absolute; top: .5rem; right: .5rem; border-radius: .75rem; background: rgb(255 255 255 / 85%); }
+
+.teldra-twin-viewport, .teldra-twin-viewport__canvas, .teldra-view-controls { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.teldra-twin-viewport__status { flex-wrap: wrap; }

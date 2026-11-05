@@ -59,6 +59,7 @@ export function StudioSelectionWorkspace(
           {...(props.onViewportReady === undefined
             ? {}
             : { onReady: props.onViewportReady })}
+          selectedCanonicalId={selectedCanonicalId() ?? null}
           onSelect={selectRenderIdentity}
         />
       </section>

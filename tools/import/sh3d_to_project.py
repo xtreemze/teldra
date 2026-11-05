@@ -100,6 +100,7 @@ def convert(
             obj = (visual_export / receipt["obj"]).resolve()
             if not obj.is_relative_to(visual_export.resolve()):
                 raise ValueError("Visual export OBJ escapes its directory.")
+            level_names = {level.source.source_id: level.name for level in home.levels}
             report["visualScene"] = export_wavefront_scene(
                 obj,
                 staging / "building.glb",
@@ -111,6 +112,14 @@ def convert(
                     "profile": "sh3d-preview-v1",
                     "lightColor": home.preview_light_color,
                     "skyColor": home.preview_sky_color,
+                },
+                source_layers={
+                    record.source.key: {
+                        "levelId": record.level_id,
+                        "levelName": level_names[record.level_id],
+                    }
+                    for record in (*home.walls, *home.rooms, *home.furniture)
+                    if record.level_id in level_names
                 },
                 source_bindings={
                     source_key: (canonical[global_id], global_id)

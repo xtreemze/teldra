@@ -73,9 +73,9 @@ vt 1 0
 vt 0.5 1
 vn 0 0 1
 usemtl patterned
-g teldraVisible_furniture
+g teldraVisible_furniture_a_CullBack_1
 f 1/1/1 2/2/1 3/3/1
-g teldraHidden_ceiling
+g teldraHidden_room_b_CullBack_2
 f 1/1/1 2/2/1 4/3/1
 """)
         export_wavefront_scene(
@@ -83,6 +83,20 @@ f 1/1/1 2/2/1 4/3/1
             root / "scene.glb",
             root / "scene.json",
             building_sha256="a" * 64,
+            source_bindings={
+                "pieceOfFurniture:furniture-a": (
+                    "sh3d:pieceOfFurniture:furniture-a",
+                    "0123456789012345678901",
+                ),
+                "room:room-b": ("sh3d:room:room-b", "0123456789012345678902"),
+            },
+            source_layers={
+                "pieceOfFurniture:furniture-a": {
+                    "levelId": "main",
+                    "levelName": "Main floor",
+                },
+                "room:room-b": {"levelId": "upper", "levelName": "Upper floor"},
+            },
             preview_lighting={
                 "profile": "sh3d-preview-v1",
                 "lightColor": 0x777777,

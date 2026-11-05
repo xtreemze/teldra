@@ -68,3 +68,26 @@ soft shadows, or photo exposure. Those settings and light-source records remain
 recoverable in the original source. Sky textures are not yet projected. Existing
 packages without this metadata retain their existing preview lighting and must
 be regenerated with the converter to acquire this profile.
+
+
+## Viewport navigation and layers
+
+Studio exposes an interactive XYZ orientation gizmo with six axis views,
+isometric/top/front/right presets, scene/selection framing, zoom and pan buttons,
+and perspective/orthographic projection. The gizmo follows the actual camera.
+Pointer orbit/right-button pan/wheel zoom and native two-finger gestures share
+one Babylon camera. Canvas-focused keyboard controls are documented in the UI.
+Navigation drags and canceled gestures do not issue selection clicks.
+
+SH3D visual nodes carry optional `extras.teldraSourceLayer` with the stable
+source `levelId` and `levelName`. The converter derives it from XML source
+membership, not world-height guesses (the real file contains two levels at the
+same elevation). Regenerate older packages to acquire level metadata. Category
+toggles also work on existing packages using canonical source kinds.
+
+Visibility is the intersection of content category, level, and original hidden
+source visibility. Revealing hidden content never overrides a disabled category
+or level. Fitting ignores hidden meshes, and an empty scene safely leaves the
+camera unchanged. Framing selection uses the workspace's canonical selection.
+Camera/layer controls never rewrite IFC placement, twin records, source
+metadata, undo history, project dirty state or physical automation state.

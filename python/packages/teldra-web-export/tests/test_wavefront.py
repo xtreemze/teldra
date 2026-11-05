@@ -106,11 +106,13 @@ def test_native_source_tags_bind_render_parts_to_ifc_and_keep_hidden_content(tmp
         tmp_path / "scene.json",
         building_sha256="a" * 64,
         source_bindings={"pieceOfFurniture:chair": ("furniture:chair", "1234567890123456789012")},
+        source_layers={"pieceOfFurniture:chair": {"levelId": "up", "levelName": "Upper floor"}},
     )
     assert result["hiddenMeshParts"] == 1
     assert result["mappedVisualParts"] == 1
     assert result["sourceKeysWithVisuals"] == ["pieceOfFurniture:chair"]
     node = read_glb_json(glb)["nodes"][0]
+    assert node["extras"]["teldraSourceLayer"] == {"levelId": "up", "levelName": "Upper floor"}
     assert node["extras"]["teldraSourceVisibility"]["hidden"] is True
     assert node["extras"]["teldra"]["ifcGlobalId"] == "1234567890123456789012"
 

@@ -41,6 +41,12 @@ test("opens a portable scene in Babylon, shares canonical selection, edits, and 
     "device:living-room-floor-lamp",
   );
 
+  const cleanState = await page.getByTestId("project-dirty-state").textContent();
+  await page.getByRole("button", {name: "Top", exact: true}).click();
+  await page.getByLabel("Projection", {exact: true}).selectOption("orthographic");
+  await page.getByRole("button", {name: "Reset view", exact: true}).click();
+  await expect(page.getByTestId("project-dirty-state")).toHaveText(cleanState ?? "");
+
   const name = page.getByLabel("Device name");
   await name.fill("Reading lamp");
   await page.getByRole("button", { name: "Apply name" }).click();

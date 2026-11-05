@@ -13,3 +13,5 @@ export {
   type BabylonTwinRuntime,
   type BabylonTwinRuntimeOptions,
 } from "./runtime.js";
+
+export type { ViewDirection, ViewProjection, ViewState, ViewLayer } from "./view-controls.js";
