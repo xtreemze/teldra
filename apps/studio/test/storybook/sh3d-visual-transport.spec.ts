@@ -8,6 +8,7 @@ test("loads source textures and Phong appearance and reveals hidden source conte
   const summary = page.getByTestId("source-asset-summary");
   await expect(summary).toContainText('"sourcePhongMaterials":1');
   await expect(summary).toContainText('"texturesReady":true');
+  await expect(summary).toContainText('"lightingProfile":"sh3d-preview-v1"');
   await expect(summary).toContainText('"visibleMeshParts":1');
   const reveal = page.getByLabel("Show hidden source content");
   await expect(reveal).not.toBeChecked();

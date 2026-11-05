@@ -47,3 +47,24 @@ The converter explicitly distinguishes the full visual path from an opt-in
 fully transparent source objects may legitimately have no renderable mesh and
 are recorded as such. Two unresolved IFC host-wall relationships in 21D do not
 remove their native visual geometry and remain reported semantic limitations.
+
+
+## Interactive lighting profile
+
+`sh3d-preview-v1` in the first visual node's `extras.teldraSourceLighting`
+preserves the XML environment's 24-bit `lightColor` and `skyColor`. Studio
+replaces its generic hemisphere with four directional lights and 0.2 ambient
+fill, and retains native Phong Ka/Kd/Ks/Ns and transparency. Directions use the
+same right-handed Y-up frame as the exported OBJ; source brightness multiplies
+the directional colors. This is derived presentation, never twin/device state.
+
+Reference: the official [SH3D interactive view API source](https://www.sweethome3d.com/jsdoc/symbols/src/_Users_manu_Desktop_tmp_Developer_Java_SweetHome3DJS_src_HomeComponent3D.js.html),
+`createLights` and `updateLightColor`. Numerical scene parameters are interoperable
+data; vendor implementation is not bundled.
+
+This profile targets the interactive preview, not the offline photo renderer:
+no claim of matching sun/sky ray tracing, fixture power, indirect illumination,
+soft shadows, or photo exposure. Those settings and light-source records remain
+recoverable in the original source. Sky textures are not yet projected. Existing
+packages without this metadata retain their existing preview lighting and must
+be regenerated with the converter to acquire this profile.

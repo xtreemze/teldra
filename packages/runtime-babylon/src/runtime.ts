@@ -9,6 +9,7 @@ import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { Scene } from "@babylonjs/core/scene";
 import type { Material } from "@babylonjs/core/Materials/material";
+import { applySourceLighting } from "./source-lighting.js";
 import { sourceMaterialProjection } from "./source-material.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
@@ -32,7 +33,7 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
-  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean };
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string };
   setHiddenSourceContentVisible(visible: boolean): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
@@ -80,6 +81,8 @@ export async function createBabylonTwinRuntime(
 
   let defaultCamera: ArcRotateCamera | undefined;
   let loadedMeshParts = 0;
+  let lightingProfile = "preview";
+  let previewLight: HemisphericLight | undefined;
   const sourceMaterials = new Map<Material, Material>();
   const sourceHiddenMeshes = new Set<AbstractMesh>();
   let sourceHiddenVisible = false;
@@ -99,7 +102,7 @@ export async function createBabylonTwinRuntime(
     normalizeCanvasTabOrder();
     defaultCamera.lowerRadiusLimit = 0.25;
 
-    new HemisphericLight(
+    previewLight = new HemisphericLight(
       "teldra-preview-light",
       new Vector3(0, 1, 0),
       scene,
@@ -220,6 +223,7 @@ export async function createBabylonTwinRuntime(
     manifest,
     assetSummary() {
       return {
+        lightingProfile,
         meshParts: loadedMeshParts,
         visibleMeshParts: loadedMeshParts - (sourceHiddenVisible ? 0 : sourceHiddenMeshes.size),
         hiddenSourceParts: sourceHiddenMeshes.size,
@@ -246,6 +250,13 @@ export async function createBabylonTwinRuntime(
       const renderMeshes = container.meshes.filter(
         (mesh) => mesh.getTotalVertices() > 0,
       );
+      const lighting = renderMeshes.map(mesh => mesh.metadata?.gltf?.extras?.teldraSourceLighting)
+        .find(value => value !== undefined);
+      if (applySourceLighting(lighting, scene)) {
+        previewLight?.dispose();
+        previewLight = undefined;
+        lightingProfile = "sh3d-preview-v1";
+      }
       loadedMeshParts = renderMeshes.length;
       const loadedBuildingNodeKeys = new Set<string>();
 

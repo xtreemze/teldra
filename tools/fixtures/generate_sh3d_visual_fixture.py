@@ -83,6 +83,11 @@ f 1/1/1 2/2/1 4/3/1
             root / "scene.glb",
             root / "scene.json",
             building_sha256="a" * 64,
+            preview_lighting={
+                "profile": "sh3d-preview-v1",
+                "lightColor": 0x777777,
+                "skyColor": 0xCCE4FC,
+            },
         )
         result = {
             "provenance": "Teldra-authored synthetic geometry and 2x2 RGBA texture",

@@ -134,3 +134,5 @@ class Sh3dHome:
     rooms: tuple[Sh3dRoom, ...]
     cameras: tuple[Sh3dCamera, ...]
     unsupported_elements: tuple[str, ...]
+    preview_light_color: int = 0xD0D0D0
+    preview_sky_color: int = 0xCCE4FC

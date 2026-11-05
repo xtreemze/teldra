@@ -158,3 +158,16 @@ def test_authored_browser_fixture_matches_the_transport_generator() -> None:
     assert (
         generator["build"]() == (root / "fixtures/sh3d/visual-transport/fixture.json").read_bytes()
     )
+
+
+def test_preview_lighting_is_embedded_in_the_loaded_node_metadata(tmp_path) -> None:
+    profile = {"profile": "sh3d-preview-v1", "lightColor": 0x777777, "skyColor": 0xCCE4FC}
+    glb = tmp_path / "lit.glb"
+    export_wavefront_scene(
+        fixture(tmp_path),
+        glb,
+        tmp_path / "scene.json",
+        building_sha256="a" * 64,
+        preview_lighting=profile,
+    )
+    assert read_glb_json(glb)["nodes"][0]["extras"]["teldraSourceLighting"] == profile
