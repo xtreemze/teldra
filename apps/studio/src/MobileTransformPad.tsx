@@ -1,14 +1,16 @@
 import {createEffect, createSignal, onCleanup, Show} from "solid-js";
-import type {FurnitureWorldPose} from "@teldra/application";
-import {touchTransformPose, type TouchPoint, type TouchTransformMode, type WorldAxis} from "./mobile-transform";
+import type {FurnitureGeometryScale, FurnitureWorldPose} from "@teldra/application";
+import {touchTransformPose, touchScalePreview, type ScaleAxis, type TouchPoint, type TouchTransformMode, type WorldAxis} from "./mobile-transform";
 import "./MobileTransformPad.css";
 
 interface MobileTransformPadProps {
   readonly mode: TouchTransformMode;
   readonly pose: () => FurnitureWorldPose;
+  readonly scale: () => FurnitureGeometryScale | null;
   readonly translationSnap: number;
   readonly rotationSnap: number; // radians
   readonly onPreview: (pose: FurnitureWorldPose) => void;
+  readonly onScalePreview: (scale: FurnitureGeometryScale) => void;
   readonly onApply: () => void;
   readonly onCancel: () => void;
   readonly startExpanded?: boolean;
@@ -21,6 +23,7 @@ interface MobileTransformPadProps {
  */
 export function MobileTransformPad(props: MobileTransformPadProps) {
   const [axis, setAxis] = createSignal<WorldAxis>("x");
+  const [scaleAxis, setScaleAxis] = createSignal<ScaleAxis>("all");
   const [haptics, setHaptics] = createSignal(true);
   const [sound, setSound] = createSignal(false);
   const [label, setLabel] = createSignal("Use two fingers in the touch area to preview a transform.");
@@ -34,6 +37,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     ids: readonly [number, number];
     start: readonly [TouchPoint, TouchPoint];
     base: FurnitureWorldPose;
+    baseScale: FurnitureGeometryScale | null;
     bucket: number;
     lastDelta: number;
   } | null = null;
@@ -65,11 +69,12 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
 
   // Switching tools/axes invalidates a gesture's original coordinate frame.
   createEffect(() => {
-    props.mode; axis();
+    props.mode; axis(); scaleAxis();
     contacts.clear();
     gesture = null;
     setActive(false);
     setLabel(props.mode === "rotate" ? "Twist two fingers to rotate around IFC world Z." :
+      props.mode === "scale" ? "Pinch with two fingers to scale validated IFC geometry (" + scaleAxis().toUpperCase() + ")." :
       "Slide two fingers vertically to move along world " + axis().toUpperCase() + ".");
   });
   onCleanup(() => { contacts.clear(); gesture = null; if (audio) void audio.close(); });
@@ -83,7 +88,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       const entries = [...contacts.entries()];
       const first = entries[0]!, second = entries[1]!;
       gesture = {ids: [first[0], second[0]], start: [first[1], second[1]],
-        base: props.pose(), bucket: 0, lastDelta: 0};
+        base: props.pose(), baseScale: props.scale(), bucket: 0, lastDelta: props.mode === "scale" ? 1 : 0};
       setActive(true);
       setAnnouncement("Two-finger editing preview active.");
       cue();
@@ -102,6 +107,17 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     const first = contacts.get(gesture.ids[0]), second = contacts.get(gesture.ids[1]);
     if (!first || !second) return;
     const mode = props.mode;
+    if (mode === "scale") {
+      if (!gesture.baseScale) return;
+      const result = touchScalePreview(gesture.baseScale, gesture.start, [first, second], scaleAxis());
+      if (!result || Math.abs(result.ratio - gesture.lastDelta) < 1e-7) return;
+      gesture.lastDelta = result.ratio;
+      props.onScalePreview(result.scale);
+      setLabel("Scale " + scaleAxis().toUpperCase() + ": " + (result.ratio * 100).toFixed(1) + "% of gesture start · preview only");
+      const bucket = Math.round((result.ratio - 1) / 0.05);
+      if (bucket !== gesture.bucket) { gesture.bucket = bucket; cue(510); }
+      return;
+    }
     const snap = mode === "rotate" ? props.rotationSnap : props.translationSnap;
     const result = touchTransformPose(gesture.base, gesture.start, [first, second], mode, axis(), snap);
     if (!result || Math.abs(result.delta - gesture.lastDelta) < 1e-7) return;
@@ -132,7 +148,8 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     event.preventDefault();
     contacts.delete(event.pointerId);
     if (gesture) {
-      props.onPreview(gesture.base);
+      if (props.mode === "scale" && gesture.baseScale) props.onScalePreview(gesture.baseScale);
+      else props.onPreview(gesture.base);
       gesture = null;
       setAnnouncement("Interrupted gesture reverted to the previous preview.");
     }
@@ -143,12 +160,20 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     <div class="teldra-mobile-transform-pad__header">
       <button type="button" aria-expanded={expanded()} aria-controls="teldra-mobile-transform-details"
         onClick={() => setExpanded(!expanded())}>
-        {props.mode === "rotate" ? "Touch rotate" : "Touch move"} {expanded() ? "▴" : "▾"}
+        {props.mode === "rotate" ? "Touch rotate" : props.mode === "scale" ? "Touch scale" : "Touch move"} {expanded() ? "▴" : "▾"}
       </button>
-      <span>{props.mode === "rotate" ? "Two-finger twist" : "Two-finger axis slide"} · Preview</span>
+      <span>{props.mode === "rotate" ? "Two-finger twist" : props.mode === "scale" ? "Two-finger pinch" : "Two-finger axis slide"} · Preview</span>
     </div>
     <div id="teldra-mobile-transform-details" class="teldra-mobile-transform-pad__details" hidden={!expanded()}>
-    <Show when={props.mode === "translate"} fallback={<p class="teldra-mobile-transform-pad__axis-label">World Z rotation only</p>}>
+    <Show when={props.mode === "translate"} fallback={
+      <Show when={props.mode === "scale"} fallback={<p class="teldra-mobile-transform-pad__axis-label">World Z rotation only</p>}>
+        <div class="teldra-mobile-transform-pad__axes" role="group" aria-label="Scale local IFC geometry axis">
+          {(["all", "x", "y", "z"] as const).map(value =>
+            <button type="button" aria-pressed={scaleAxis() === value}
+              onClick={() => setScaleAxis(value)}>{value === "all" ? "All" : value.toUpperCase()}</button>)}
+        </div>
+      </Show>
+    }>
       <div class="teldra-mobile-transform-pad__axes" role="group" aria-label="Move along world axis">
         {(["x", "y", "z"] as const).map(value =>
           <button type="button" aria-pressed={axis() === value}
