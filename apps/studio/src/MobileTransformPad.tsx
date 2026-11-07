@@ -46,6 +46,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     start: readonly [TouchPoint, TouchPoint];
     base: FurnitureWorldPose;
     baseScale: FurnitureGeometryScale | null;
+    mode: TouchTransformMode;
     bucket: number;
     lastDelta: number;
   } | null = null;
@@ -61,12 +62,26 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     if (sound()) signalMobileTone(frequency, true);
   };
 
-  // Switching tools/axes invalidates a gesture's original coordinate frame.
+  // Restore only the in-progress gesture, not an already completed preview:
+  // switching axes or tools must never leave a partial IFC draft behind.
+  const rollbackActiveGesture = () => {
+    const previous = gesture;
+    gesture = null;
+    if (!previous) return false;
+    if (previous.mode === "scale" && previous.baseScale)
+      props.onScalePreview(previous.baseScale);
+    else
+      props.onPreview(previous.base);
+    return true;
+  };
+
+  // Switching tools/axes invalidates the gesture's original coordinate frame.
   createEffect(() => {
     props.mode; axis(); scaleAxis();
+    const wasActive = rollbackActiveGesture();
     contacts.clear();
-    gesture = null;
     setActive(false);
+    if (wasActive) setAnnouncement("Gesture interrupted by tool change. Previous draft restored.");
     setLabel(props.mode === "rotate" ? "Twist two fingers to rotate around IFC world Z." :
       props.mode === "scale" ? "Pinch with two fingers to scale validated IFC geometry (" + scaleAxis().toUpperCase() + ")." :
       "Slide two fingers vertically to move along world " + axis().toUpperCase() + ".");
@@ -82,18 +97,15 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       const entries = [...contacts.entries()];
       const first = entries[0]!, second = entries[1]!;
       gesture = {ids: [first[0], second[0]], start: [first[1], second[1]],
-        base: props.pose(), baseScale: props.scale(), bucket: 0, lastDelta: props.mode === "scale" ? 1 : 0};
+        base: props.pose(), baseScale: props.scale(), mode: props.mode,
+        bucket: 0, lastDelta: props.mode === "scale" ? 1 : 0};
       setActive(true);
       setAnnouncement("Two-finger editing preview active.");
       cue();
     } else if (contacts.size > 2) {
       // A third touch is ambiguous. Restore the pre-gesture draft, not a
       // partially changed preview, and require every finger to lift first.
-      if (gesture) {
-        if (props.mode === "scale" && gesture.baseScale) props.onScalePreview(gesture.baseScale);
-        else props.onPreview(gesture.base);
-      }
-      gesture = null;
+      rollbackActiveGesture();
       setActive(false);
       setAnnouncement("Gesture cancelled: use exactly two fingers.");
     }
@@ -146,10 +158,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     if (!contacts.has(event.pointerId)) return;
     event.preventDefault();
     contacts.delete(event.pointerId);
-    if (gesture) {
-      if (props.mode === "scale" && gesture.baseScale) props.onScalePreview(gesture.baseScale);
-      else props.onPreview(gesture.base);
-      gesture = null;
+    if (rollbackActiveGesture()) {
       setAnnouncement("Interrupted gesture reverted to the previous preview.");
     }
     setActive(false);
