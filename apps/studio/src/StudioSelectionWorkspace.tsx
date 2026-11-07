@@ -202,7 +202,16 @@ export function StudioSelectionWorkspace(
     try {
       editSession = viewport()!.beginFurnitureEdit(props.controller.furniturePlacement(id), setViewportDraft,
         undefined, setViewportScaleDraft);
-      editSession.setMode(editMode());
+      if (editMode() === "scale") {
+        // Availability is only authoritative after prepareFurnitureEditing has loaded IFC.
+        const support = props.controller.furnitureScaleStatus(id);
+        if (!support.supported) {
+          setEditMode("translate");
+          editSession.setMode("translate");
+          setTransformMessage("Scale unavailable: " + support.reason + " Move and Rotate remain available.");
+          tactile("error");
+        } else editSession.setMode("scale");
+      } else editSession.setMode(editMode());
       setEditingFurniture(true);
       if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);
       if (transformModal()) {
@@ -216,15 +225,8 @@ export function StudioSelectionWorkspace(
   };
   const startMobileFurnitureEdit = (mode: "translate" | "rotate" | "scale") => {
     if (!["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "") || !viewport()) return;
-    if (mode === "scale") {
-      const selected = selectedCanonicalId();
-      const support = selected ? props.controller.furnitureScaleStatus(selected) : null;
-      if (!support?.supported) {
-        setActionError(support?.reason ?? "Select an IFC object with supported scale geometry.");
-        tactile("error");
-        return;
-      }
-    }
+    // Scale eligibility cannot be known before asynchronous IFC preparation.
+    // The edit-ready callback validates it; invalid scale falls back to Move.
     setEditMode(mode);
     setMobileContextOpen(false);
     setMobileProjectOpen(false);
@@ -440,17 +442,12 @@ export function StudioSelectionWorkspace(
           <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
-            <button type="button" disabled={!props.controller.furnitureScaleStatus(selectedCanonicalId()!).supported}
-              aria-describedby={!props.controller.furnitureScaleStatus(selectedCanonicalId()!).supported ? "teldra-mobile-scale-explanation" : undefined}
-              title={(() => { const support = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
-                return support.supported ? "Scale mapped IFC geometry" : support.reason; })()}
+            <button type="button" aria-describedby="teldra-mobile-scale-explanation"
+              title="Validate mapped IFC geometry for scaling"
               onClick={() => startMobileFurnitureEdit("scale")}>Scale</button>
-            <Show when={(() => {const support = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
-              return support.supported ? null : support.reason; })()}>
-              {(reason) => <p id="teldra-mobile-scale-explanation" class="teldra-studio-selection-workspace__mobile-scale-unavailable">
-                Scale unavailable: {reason()}
-              </p>}
-            </Show>
+            <p id="teldra-mobile-scale-explanation" class="teldra-studio-selection-workspace__mobile-scale-unavailable">
+              Scale is validated against IFC geometry before editing.
+            </p>
           </Show>
           <button type="button" onClick={() => setMobileContextOpen(false)}>Close menu</button>
         </div>
