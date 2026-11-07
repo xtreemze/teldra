@@ -6,7 +6,7 @@ import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit
 import { transformShortcut, numericFurniturePose, numericFurnitureScale, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
-import { signalMobileFeedback } from "./mobile-feedback";
+import { signalMobileFeedback, signalMobileSound } from "./mobile-feedback";
 import { MobileTransformPad } from "./MobileTransformPad";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
@@ -39,9 +39,12 @@ export function StudioSelectionWorkspace(
   const [mobileProjectOpen, setMobileProjectOpen] = createSignal(false);
   const [mobileContextOpen, setMobileContextOpen] = createSignal(false);
   const [mobileHapticsEnabled, setMobileHapticsEnabled] = createSignal(true);
+  const [mobileSoundEnabled, setMobileSoundEnabled] = createSignal(false);
   const [gestureGuideOpen, setGestureGuideOpen] = createSignal(false);
-  const tactile = (kind: "select" | "menu" | "edit" | "applied" | "error") =>
+  const tactile = (kind: "select" | "menu" | "edit" | "applied" | "error") => {
     signalMobileFeedback(kind, mobileHapticsEnabled());
+    signalMobileSound(kind, mobileSoundEnabled());
+  };
   const [viewport, setViewport] = createSignal<TwinViewportHandle>();
   const [viewportDraft, setViewportDraft] = createSignal<FurnitureWorldPose>();
   const [viewportScaleDraft, setViewportScaleDraft] = createSignal<FurnitureGeometryScale>();
@@ -348,6 +351,10 @@ export function StudioSelectionWorkspace(
           <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
           <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
           <button type="button" aria-pressed={mobileHapticsEnabled()} onClick={() => setMobileHapticsEnabled(!mobileHapticsEnabled())}>Haptics {mobileHapticsEnabled() ? "on" : "off"}</button>
+          <button type="button" aria-pressed={mobileSoundEnabled()} onClick={() => {
+            setMobileSoundEnabled(!mobileSoundEnabled());
+            if (mobileSoundEnabled()) signalMobileSound("select", true);
+          }}>Sounds {mobileSoundEnabled() ? "on" : "off"}</button>
           <button type="button" aria-expanded={gestureGuideOpen()} aria-controls="teldra-mobile-gesture-guide"
             onClick={() => setGestureGuideOpen(!gestureGuideOpen())}>Touch gesture guide</button>
           <Show when={gestureGuideOpen()}>
@@ -429,6 +436,7 @@ export function StudioSelectionWorkspace(
           translationSnap={translationSnap()} rotationSnap={rotationSnap()}
           onPreview={previewTouchTransform} onScalePreview={previewTouchScale}
           hapticsEnabled={mobileHapticsEnabled()} onHapticsChange={setMobileHapticsEnabled}
+          soundEnabled={mobileSoundEnabled()} onSoundChange={setMobileSoundEnabled}
           scaleAvailable={(() => {
             const selected = selectedCanonicalId();
             return selected ? props.controller.furnitureScaleStatus(selected).supported : false;
