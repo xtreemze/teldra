@@ -37,3 +37,24 @@ test("scale gizmo mode supports local XYZ factors and cancel restores the source
   await page.getByRole("button",{name:"Cancel",exact:true}).click();
   await expect(page.getByTestId("gizmo-scale")).toHaveText("1,1,1");
 });
+
+
+test("a persisted upright IFC affine shear preserves pickability and can be reset", async ({page}) => {
+  const errors: string[] = [];
+  page.on("pageerror",error=>errors.push(error.message));
+  await page.goto(story);
+  await expect(page.getByTestId("gizmo-status")).toHaveText("ready");
+  const before = JSON.parse(await page.getByTestId("gizmo-pickpoint").textContent() ?? "null");
+  expect(before).not.toBeNull();
+  await page.getByRole("button",{name:"Project affine shear",exact:true}).click();
+  await expect(page.getByTestId("gizmo-affine")).toHaveText("projected");
+  const after = JSON.parse(await page.getByTestId("gizmo-pickpoint").textContent() ?? "null");
+  expect(after).not.toBeNull();
+  await page.getByRole("button",{name:"Reset affine",exact:true}).click();
+  await expect(page.getByTestId("gizmo-affine")).toHaveText("source");
+  const restored = JSON.parse(await page.getByTestId("gizmo-pickpoint").textContent() ?? "null");
+  expect(restored).not.toBeNull();
+  expect(restored.clientX).toBeCloseTo(before.clientX,2);
+  expect(restored.clientY).toBeCloseTo(before.clientY,2);
+  expect(errors).toEqual([]);
+});
