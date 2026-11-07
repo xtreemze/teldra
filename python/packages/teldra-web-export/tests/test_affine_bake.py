@@ -63,9 +63,7 @@ def _values(doc, binary, accessor_index: int) -> np.ndarray:
     offset = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
     return np.frombuffer(
         binary, dtype=dtype, count=accessor["count"] * size, offset=offset
-    ).reshape(
-        (-1, size)
-    )
+    ).reshape((-1, size))
 
 
 def _placement(matrix, *, identity="chair", guid=CHAIR_GUID):
@@ -73,10 +71,22 @@ def _placement(matrix, *, identity="chair", guid=CHAIR_GUID):
 
 
 AFFINE = [
-    1.5, 0.5, 0, 0,
-    0.3, 1.2, 0, 0,
-    0, 0, 2, 0,
-    2, -1, 0.5, 1,
+    1.5,
+    0.5,
+    0,
+    0,
+    0.3,
+    1.2,
+    0,
+    0,
+    0,
+    0,
+    2,
+    0,
+    2,
+    -1,
+    0.5,
+    1,
 ]
 IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
 
