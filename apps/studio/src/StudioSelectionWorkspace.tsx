@@ -70,6 +70,8 @@ export function StudioSelectionWorkspace(
   };
 
   const selectCanonicalId = (canonicalId: string | null) => {
+    // An onPick fired when the held pointer is released must not close its menu.
+    if (canonicalId === props.controller.selectedCanonicalId && mobileContextOpen()) return;
     if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); }
     props.controller.selectCanonicalId(canonicalId);
     if (canonicalId !== null) {
@@ -253,7 +255,10 @@ export function StudioSelectionWorkspace(
       pending = null;
     };
     const pointerDown = (event: PointerEvent) => {
-      if ((event.pointerType !== "touch" && event.pointerType !== "pen") ||
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      // Any second pointer converts the gesture to navigation, not long press.
+      if (pending) cancelHold();
+      if (!window.matchMedia("(max-width: 48rem)").matches ||
           !event.isPrimary || event.button !== 0 || editingFurniture() ||
           !(event.target instanceof HTMLCanvasElement) ||
           !event.target.classList.contains("teldra-twin-viewport__canvas")) return;
@@ -386,7 +391,7 @@ export function StudioSelectionWorkspace(
                     type="button"
                     aria-pressed={selectedCanonicalId() === device.id}
                     onClick={() => selectCanonicalId(device.id)}
-                    onContextMenu={(event) => {event.preventDefault();selectCanonicalId(device.id);openMobileContext();}}
+                    onContextMenu={(event) => {if (!window.matchMedia("(max-width: 48rem)").matches) return;event.preventDefault();selectCanonicalId(device.id);openMobileContext();}}
                   >
                     <span>{device.name}</span>
                     <code>{device.id}</code>
@@ -398,7 +403,7 @@ export function StudioSelectionWorkspace(
           <Show when={devices().length === 0}><p class="teldra-studio-selection-workspace__hint">No matching devices.</p></Show>
           <h3>Building <span class="teldra-studio-selection-workspace__count">{buildingRefs().length}</span></h3>
           <ul class="teldra-studio-selection-workspace__device-list" aria-label="Building objects">
-            <For each={buildingRefs()}>{(ref) => <li><button type="button" aria-pressed={selectedCanonicalId() === ref.id} onClick={() => selectCanonicalId(ref.id)} onContextMenu={(event) => {event.preventDefault();selectCanonicalId(ref.id);openMobileContext();}}><span>{ref.name ?? ref.kind}</span><small>{ref.kind}</small></button></li>}</For>
+            <For each={buildingRefs()}>{(ref) => <li><button type="button" aria-pressed={selectedCanonicalId() === ref.id} onClick={() => selectCanonicalId(ref.id)} onContextMenu={(event) => {if (!window.matchMedia("(max-width: 48rem)").matches) return;event.preventDefault();selectCanonicalId(ref.id);openMobileContext();}}><span>{ref.name ?? ref.kind}</span><small>{ref.kind}</small></button></li>}</For>
           </ul>
           <Show when={buildingRefs().length === 0}><p class="teldra-studio-selection-workspace__hint">No matching building items.</p></Show>
         </section>
