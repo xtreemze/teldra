@@ -302,6 +302,21 @@ it("commits geometry scale with pose as one IFC undo step and validates source-b
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
   expect(controller.redo()).toBe(true);
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[2,1.5,0.8]});
+  const shearedPose={position:[2,3,1] as const,yawRadians:Math.PI/4};
+  expect(()=>controller.transformFurniture("chair",shearedPose,[2,1,1]))
+    .toThrow(/verified affine/);
+  let validated=0;
+  controller.setAffineProjectionValidator((id,matrix)=>{
+    expect(id).toBe("chair");
+    expect(matrix).toHaveLength(16);
+    validated++;
+  });
+  controller.transformFurniture("chair",shearedPose,[2,1,1]);
+  expect(validated).toBe(1);
+  expect(controller.furniturePose("chair").yawRadians).toBeCloseTo(Math.PI/4);
+  expect(controller.undo()).toBe(true);
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[2,1.5,0.8]});
+  controller.setAffineProjectionValidator(null);
 });
 
 
