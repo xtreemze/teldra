@@ -6,6 +6,7 @@ import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit
 import { transformShortcut, numericFurniturePose, numericFurnitureScale, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
+import { MobileTransformPad } from "./MobileTransformPad";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
 import {
@@ -36,6 +37,8 @@ export function StudioSelectionWorkspace(
   const [viewportScaleDraft, setViewportScaleDraft] = createSignal<FurnitureGeometryScale>();
   const [editingFurniture, setEditingFurniture] = createSignal(false);
   const [editMode, setEditMode] = createSignal<"translate" | "rotate" | "scale">("translate");
+  const [translationSnap, setTranslationSnap] = createSignal(0);
+  const [rotationSnap, setRotationSnap] = createSignal(0);
   const [editRequest, setEditRequest] = createSignal(0);
   const [transformModal, setTransformModal] = createSignal<TransformModal | null>(null);
   const [transformMessage, setTransformMessage] = createSignal("");
@@ -128,6 +131,35 @@ export function StudioSelectionWorkspace(
       editSession.setPose(next);
       setViewportDraft(next);
     }
+  };
+  const previewTouchTransform = (pose: FurnitureWorldPose) => {
+    if (!editSession) return;
+    try {
+      editSession.setPose(pose);
+      setViewportDraft(pose);
+      setActionError("");
+    } catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
+  };
+  const previewTouchScale = (scale: FurnitureGeometryScale) => {
+    if (!editSession) return;
+    try {
+      editSession.setScale(scale);
+      setViewportScaleDraft(scale);
+      setActionError("");
+    } catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
+  };
+  const applyTouchTransform = () => {
+    if (!furnitureControls?.apply()) {
+      setActionError("Transform was not applied. Check the inspector for the IFC validation error.");
+      return;
+    }
+    setTransformMessage("IFC transform updated. Save the project to retain it.");
+  };
+  const cancelTouchTransform = () => {
+    furnitureControls?.cancel();
+    stopFurnitureEdit();
+    setEditRequest(0);
+    setTransformMessage("Touch transform cancelled. IFC placement unchanged.");
   };
   const furnitureEditingChanged = (editing: boolean) => {
     if (!editing) { stopFurnitureEdit(); setEditRequest(0); return; }
@@ -262,6 +294,17 @@ export function StudioSelectionWorkspace(
           <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
         </div>
       </Show>
+      <Show when={editingFurniture() && selectedBuildingRef()?.kind === "furniture"}>
+        <MobileTransformPad mode={editMode()}
+          pose={() => viewportDraft() ?? props.controller.furniturePose(selectedCanonicalId()!)}
+          scale={() => viewportScaleDraft() ?? (() => {
+            const state = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
+            return state.supported ? state.scale : null;
+          })()}
+          translationSnap={translationSnap()} rotationSnap={rotationSnap()}
+          onPreview={previewTouchTransform} onScalePreview={previewTouchScale}
+          onApply={applyTouchTransform} onCancel={cancelTouchTransform} />
+      </Show>
       <section class="teldra-studio-selection-workspace__viewport">
         <TwinViewport
           manifest={props.manifest}
@@ -310,7 +353,7 @@ export function StudioSelectionWorkspace(
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
             onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
             editMode={editMode()} editRequest={editRequest()} viewportDraft={viewportDraft()} viewportScaleDraft={viewportScaleDraft()}
-            onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
+            onSnapChange={(metres, radians) => { setTranslationSnap(metres); setRotationSnap(radians); editSession?.setSnap(metres, radians); }}
             onPreview={(pose) => { if (pose) { editSession?.setPose(pose); setViewportDraft(pose); } else { setViewportDraft(undefined); projectPlacements(); } }}
             onScalePreview={(scale) => { if (scale) { editSession?.setScale(scale); setViewportScaleDraft(scale); } else { setViewportScaleDraft(undefined); projectPlacements(); } }}
             onScaleUnavailable={reason => setTransformMessage("Scale (S) is not available: " + reason)} />
