@@ -7,6 +7,11 @@ const bytes = new TextEncoder().encode(fixture);
 const guid = "16W6mYG0DO8hR8U$bz6FSv";
 
 describe("IFC furniture placement", () => {
+  it("rejects moving a proxy that fills a hosted opening",async()=>{
+    const api=new IfcAPI();await api.Init();
+    const hosted=fixture.replace("IFCFURNITURE(","IFCBUILDINGELEMENTPROXY(").replace("ENDSEC;\nEND-ISO-10303-21;", "#99990=IFCOPENINGELEMENT('1Ku0EdV$X7qxV8_lKszoFq',$,'Opening',$,$,#154,$,$,.OPENING.);\n#99991=IFCRELFILLSELEMENT('31lGOMRir8fONp6JFdxBYF',$,$,$,#99990,#149);\nENDSEC;\nEND-ISO-10303-21;");
+    expect(()=>writeFurniturePose(api,new TextEncoder().encode(hosted),guid,{position:[2,3,0],yawRadians:0})).toThrow("host-aware");
+  });
   it("writes an independent placement, preserves identity, and survives export/reopen", async () => {
     const api = new IfcAPI(); await api.Init();
     const before = readFurniturePose(api, bytes, guid);
