@@ -11,7 +11,7 @@ export interface IfcFurnitureAdapter {
 }
 type PoseCommand = CanonicalCommand<"ifc.furniture.pose", { readonly ifcGlobalId: string; readonly position: readonly [number, number, number]; readonly yawRadians: number }>;
 type ScaleCommand = CanonicalCommand<"ifc.furniture.geometry-scale", { readonly ifcGlobalId: string; readonly scale: FurnitureGeometryScale }>;
-type TransformCommand = CanonicalCommand<"ifc.furniture.transform", { readonly ifcGlobalId: string; readonly pose: FurnitureWorldPose; readonly scale: FurnitureGeometryScale }>;
+type TransformCommand = CanonicalCommand<"ifc.furniture.transform", { readonly ifcGlobalId: string; readonly position: readonly [number,number,number]; readonly yawRadians: number; readonly scale: FurnitureGeometryScale }>;
 type RestoreCommand = CanonicalCommand<"ifc.restore", { readonly snapshot: string }>;
 type IfcCommand = PoseCommand | ScaleCommand | TransformCommand | RestoreCommand;
 interface IfcState { readonly bytes: Uint8Array }
@@ -34,7 +34,7 @@ export class IfcFurnitureEditor {
           ? adapter.writeScale?.(state.bytes.slice(), command.payload.ifcGlobalId, command.payload.scale)
           : command.kind === "ifc.furniture.transform"
             ? adapter.writeScale?.(
-                adapter.write(state.bytes.slice(), command.payload.ifcGlobalId, command.payload.pose),
+                adapter.write(state.bytes.slice(), command.payload.ifcGlobalId, { position: command.payload.position, yawRadians: command.payload.yawRadians }),
                 command.payload.ifcGlobalId, command.payload.scale)
             : snapshots.get(command.payload.snapshot);
       if (!next) throw new Error("IFC history snapshot is unavailable.");
@@ -57,7 +57,7 @@ export class IfcFurnitureEditor {
     this.#sequence++;
     this.#processor.execute({ id: "ifc-transform:" + this.#sequence, commands: [{
       id: "ifc-transform-command:" + this.#sequence, kind: "ifc.furniture.transform",
-      authority: "canonical-ifc", payload: { ifcGlobalId, pose, scale },
+      authority: "canonical-ifc", payload: { ifcGlobalId, position: pose.position, yawRadians: pose.yawRadians, scale },
     }] });
   }
   scale(ifcGlobalId: string, scale: FurnitureGeometryScale): void {
