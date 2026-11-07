@@ -16,6 +16,7 @@ function GizmoHarness() {
   let runtime: BabylonTwinRuntime | undefined;
   let session: FurnitureEditSession | undefined;
   const [pose, setPose] = createSignal(JSON.stringify(origin));
+  const [scale, setScale] = createSignal("1,1,1");
   const [status, setStatus] = createSignal("loading");
   const [drag, setDrag] = createSignal("idle");
   const [point, setPoint] = createSignal("pending");
@@ -26,8 +27,14 @@ function GizmoHarness() {
       runtime.start();
       const p = runtime.projectNode("ifc:fixture-wall:body");
       setPoint(JSON.stringify(p));
-      session = runtime.beginFurnitureEdit({canonicalId: "wall:fixture", original: origin, current: origin},
-        value => { setPose(JSON.stringify(value)); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body"))); }, value => setDrag(value ? "dragging" : "ended"));
+      session = runtime.beginFurnitureEdit({
+        canonicalId: "wall:fixture", original: origin, current: origin,
+        sourceScale: [1,1,1], currentScale: [1,1,1],
+      }, value => {
+        setPose(JSON.stringify(value)); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body")));
+      }, value => setDrag(value ? "dragging" : "ended"), value => {
+        setScale(value.join(",")); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body")));
+      });
       setStatus("ready");
     } catch (error) { setStatus(`error: ${String(error)}`); }
   })(); });
@@ -35,8 +42,11 @@ function GizmoHarness() {
   return <div style={{width:"640px", "overflow-wrap":"anywhere"}}><canvas data-testid="gizmo-canvas" ref={canvas} width="640" height="400" style={{width: "640px", height: "400px"}} />
     <button onClick={() => session?.setMode("translate")}>Translate</button>
     <button onClick={() => session?.setMode("rotate")}>Rotate</button>
+    <button onClick={() => session?.setMode("scale")}>Scale</button>
+    <button onClick={() => { session?.setScale([1.5,1,0.75]); setScale("1.5,1,0.75"); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body"))); }}>Set scale XYZ</button>
     <button onClick={() => { session?.cancel(); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body"))); }}>Cancel</button>
     <output data-testid="gizmo-status">{status()}</output><output data-testid="gizmo-pose">{pose()}</output>
+    <output data-testid="gizmo-scale">{scale()}</output>
     <output data-testid="gizmo-drag">{drag()}</output><output data-testid="gizmo-pickpoint">{point()}</output></div>;
 }
 const meta = {title: "Studio/FurnitureGizmoDiagnostic", component: GizmoHarness, parameters: {layout: "fullscreen"}} satisfies Meta<typeof GizmoHarness>;
