@@ -572,7 +572,7 @@ export async function openBrowserTeldraProject(
     const sourceEntry = storage.archive.entries.find((entry) => entry.path === SCENE_SOURCE_IFC_PATH) ?? buildingEntry;
     let adapterPromise: Promise<import("@teldra/application").IfcFurnitureAdapter> | undefined;
     const createAdapter = () => adapterPromise ??= (async () => {
-      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale }, wasm] = await Promise.all([
+      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions }, wasm] = await Promise.all([
         import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url"),
       ]);
       const api = new IfcAPI(); await api.Init(() => wasm.default, true);
@@ -582,6 +582,8 @@ export async function openBrowserTeldraProject(
         readScale: (bytes: Uint8Array, id: string) => readFurnitureGeometryScale(api, bytes, id),
         writeScale: (bytes: Uint8Array, id: string, scale: import("@teldra/application").FurnitureGeometryScale) =>
           writeFurnitureGeometryScale(api, bytes, id, scale),
+        readSourceDimensions: (bytes: Uint8Array, id: string) =>
+          readFurnitureSourceDimensions(api, bytes, id),
       };
     })();
     if (sceneResource?.scene.placements.length && sourceEntry && buildingEntry) {
