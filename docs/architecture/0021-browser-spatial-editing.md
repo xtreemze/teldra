@@ -63,3 +63,35 @@ remaining acceptance in issue #80, with release gates #37 and #71-#75.
 
 
 The canvas fills the workspace. Scene search, inspector, project actions, orientation, camera, layers and appearance controls float within its bounds. Compact screens scroll toolbars horizontally and use mutually exclusive scene/inspector panels. Texture visibility and light gain are disposable view settings; light gain preserves each source-preview light ratio. Source-preview lighting is interactive raster lighting, not source photorenderer parity or path tracing.
+
+
+## Blender / Bonsai-style navigation and transform shortcuts
+
+The canvas is keyboard-focusable. Studio borrows Blender/Bonsai input
+patterns while keeping IFC authoring authority in application commands.
+
+- **G** moves selected supported IFC furniture; **R** rotates it. After G,
+  **X**, **Y** or **Z** constrain numeric translation to an IFC-world axis.
+  Rotation of upright IFC furniture is Z-only, entered in degrees.
+- Enter a signed finite decimal delta (for example G → X → 0.5 → Enter)
+  or a rotation angle (R → Z → 45 → Enter). **Backspace** corrects numbers.
+  **Enter** commits using the IFC application command; **Escape** discards
+  the draft. Pointer gizmos and inspector fields synchronize during editing.
+- **S** does not apply a Babylon-only scale: the current IFC placement
+  contract contains no geometry or dimension scaling. Bonsai itself warns
+  against IFC object-mode scaling. Issue #82 specifies IFC-backed scale
+  authoring before any saved scale gizmo is enabled.
+- **MMB** drag orbits, **Shift+MMB** pans, wheel zooms. Left-drag orbit and
+  right-drag pan remain supported. Numpad 1/3/7 show front/right/top views,
+  5 toggles projection, 2/4/6/8 orbit, Shift+numpad pans, and numpad
+  decimal frames selection. **Home** frames scene, Shift+Home resets view;
+  F/Shift+F fit scene/selection. **Ctrl/Command+S** saves; Ctrl/Command+Z
+  and Ctrl/Command+Shift+Z operate canonical undo/redo.
+- Shortcuts require canvas focus and never intercept form input. IFC4 metre,
+  upright and independent-placement restrictions still apply. Gizmos cannot
+  dispatch Home Assistant physical controls.
+
+References: Blender transform modal map and numeric input documentation,
+plus [Bonsai IFC hotkeys](https://docs.bonsaibim.org/reference/general/hotkeys.html).
+This is browser-adapted tooling, not a complete imitation of Blender's
+free-pointer modal modeling.
