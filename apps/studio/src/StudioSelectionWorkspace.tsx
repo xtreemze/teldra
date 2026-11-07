@@ -435,6 +435,21 @@ export function StudioSelectionWorkspace(
           })()}
           translationSnap={translationSnap()} rotationSnap={rotationSnap()}
           onPreview={previewTouchTransform} onScalePreview={previewTouchScale}
+          hapticsEnabled={mobileHapticsEnabled()} onHapticsChange={setMobileHapticsEnabled}
+          scaleAvailable={(() => {
+            const selected = selectedCanonicalId();
+            return selected ? props.controller.furnitureScaleStatus(selected).supported : false;
+          })()}
+          onModeChange={mode => {
+            if (mode === "scale") {
+              const state = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
+              if (!state.supported) { setActionError(state.reason); tactile("error"); return; }
+            }
+            setEditMode(mode);
+            editSession?.setMode(mode);
+            if (mode === "translate") editSession?.setAxisConstraint(null);
+            tactile("edit");
+          }}
           onApply={applyTouchTransform} onCancel={cancelTouchTransform} />
       </Show>
       <section class="teldra-studio-selection-workspace__viewport">
