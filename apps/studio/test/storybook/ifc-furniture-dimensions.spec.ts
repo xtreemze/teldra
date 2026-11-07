@@ -1,10 +1,21 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-const story = "/iframe.html?id=studio-ifcfurnituredimensions--editable-sh3d-nominal-size&viewMode=story";
+/** Resolve Storybook's own generated IDs, which split digits in export names. */
+async function openStory(page: Page, fragment: string): Promise<void> {
+  const response = await page.request.get("/index.json");
+  expect(response.ok()).toBe(true);
+  const data = await response.json() as {
+    entries: Record<string, {title: string; name: string}>;
+  };
+  const matching = Object.entries(data.entries).find(([id, entry]) =>
+    entry.title === "Studio/IfcFurnitureDimensions" && id.includes(fragment));
+  if (!matching) throw new Error("Missing Storybook furniture dimensions story: " + fragment);
+  await page.goto("/iframe.html?id=" + matching[0] + "&viewMode=story");
+}
 
 test("editable SH3D nominal dimensions preview mapped scale and remain cancellable", async ({page}) => {
-  await page.goto(story);
+  await openStory(page, "editable");
   await page.getByRole("button",{name:"Edit placement",exact:true}).click();
   await expect(page.getByLabel("Nominal width (m)",{exact:true})).toHaveValue("0.5");
   await expect(page.getByLabel("Nominal depth (m)",{exact:true})).toHaveValue("0.5");
@@ -31,7 +42,7 @@ test("editable SH3D nominal dimensions preview mapped scale and remain cancellab
 });
 
 test("native IFC without SH3D source provenance retains scale factor editor only", async ({page}) => {
-  await page.goto("/iframe.html?id=studio-ifcfurnituredimensions--missing-source-provenance&viewMode=story");
+  await openStory(page, "missing");
   await page.getByRole("button",{name:"Edit placement",exact:true}).click();
   await expect(page.getByTestId("nominal-dimensions-unavailable")).toBeVisible();
   await expect(page.getByLabel("Scale X",{exact:true})).toHaveValue("1");
