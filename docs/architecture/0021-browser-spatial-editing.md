@@ -8,6 +8,13 @@ commits world-metre XYZ and Z yaw; Cancel restores the committed pose. Scaling,
 wall/topology changes, non-metre IFC, tilted or dependent placement hierarchies are
 rejected or not offered. Source furniture material/geometry remains unchanged.
 
+Studio now exposes an **Edit transform** action in the viewport project toolbar for a selected
+IFC furniture item. It validates supported IFC geometry before attaching Move/Rotate
+Gizmos. The inspector remains the accessible precision-input, snap, Apply and Cancel
+surface. **Scale is not enabled** until an IFC-backed geometry/dimension command and
+validated derived-scene reconciliation exist (tracked in #82). A Babylon-only scale
+preview must not be presented as a saved architectural edit.
+
 Canonical device placement is optional IFC-world metre/Z-up position and a normalized
 quaternion. Device placement is authored data, not a physical smart-home command.
 No Home Assistant command is dispatched by selecting or dragging an object.
