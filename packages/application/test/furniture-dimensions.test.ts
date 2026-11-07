@@ -9,8 +9,10 @@ describe("IFC-backed SH3D nominal dimensions", () => {
     expect(nominalDimensionsForScale(source, sourceScale, current))
       .toEqual([0.75, 0.4, 2.4]);
     expect(source).toEqual([0.5, 0.8, 1.6]);
-    expect(scaleForNominalDimensions(source, sourceScale, [0.75, 0.4, 2.4]))
-      .toEqual([3, 0.5, 2.25]);
+    const restored = scaleForNominalDimensions(source, sourceScale, [0.75, 0.4, 2.4]);
+    expect(restored[0]).toBeCloseTo(3);
+    expect(restored[1]).toBeCloseTo(0.5);
+    expect(restored[2]).toBeCloseTo(2.25);
   });
 
   it("handles repeated editing without multiplying dimensions twice", () => {
