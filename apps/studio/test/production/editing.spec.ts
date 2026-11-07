@@ -39,3 +39,38 @@ test("Pages routes and compact onboarding remain usable without direct file acce
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  const a11y=await new AxeBuilder({page}).analyze();expect(a11y.violations).toEqual([]);
 });
+
+test("Blender G/R modal keys create canonical IFC edits; S cannot apply a mesh-only scale", async ({page}) => {
+ await page.goto("./?demo=sample");
+ await page.getByRole("button",{name:"Try demo",exact:true}).click();
+ await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ await page.getByRole("list",{name:"Building objects",exact:true}).getByRole("button",{name:/^Chair/}).click();
+ const canvas=page.getByTestId("twin-canvas");
+ await canvas.focus();
+ await page.keyboard.press("g");
+ await page.keyboard.press("x");
+ await page.keyboard.type("0.75");
+ await expect(page.getByLabel("Position X (m)",{exact:true})).toHaveValue("1.75");
+ await page.keyboard.press("Enter");
+ await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeEnabled();
+ await canvas.focus();
+ await page.keyboard.press("r");
+ await page.keyboard.press("x");
+ await expect(page.getByTestId("transform-shortcut-status")).toContainText("world Z");
+ await page.keyboard.press("z");
+ await page.keyboard.type("45");
+ await expect(page.getByLabel("Rotation (degrees)",{exact:true})).toHaveValue("45");
+ await page.keyboard.press("Enter");
+ await canvas.focus();
+ await page.keyboard.press("s");
+ await expect(page.getByTestId("transform-shortcut-status")).toContainText("not available");
+ await page.keyboard.press("ControlOrMeta+z");
+ await page.keyboard.press("ControlOrMeta+z");
+ await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+ await page.keyboard.press("g");
+ await page.keyboard.press("z");
+ await page.keyboard.press("1");
+ await page.keyboard.press("Escape");
+ await expect(page.getByTestId("transform-shortcut-status")).toContainText("cancelled");
+ await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+});
