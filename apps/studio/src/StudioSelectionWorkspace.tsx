@@ -367,7 +367,9 @@ export function StudioSelectionWorkspace(
       }
       event.preventDefault();
       event.stopPropagation();
-      workspaceRoot.querySelector<HTMLButtonElement>('[data-testid="mobile-scene-trigger"]')?.focus();
+      workspaceRoot.querySelector<HTMLButtonElement>(editingFurniture()
+        ? '[data-testid="mobile-project-trigger"]'
+        : '[data-testid="mobile-scene-trigger"]')?.focus();
     };
     const closeOnCanvas = (event: PointerEvent) => {
       if (!compact() || editingFurniture() || !(event.target instanceof HTMLCanvasElement) ||
@@ -397,7 +399,7 @@ export function StudioSelectionWorkspace(
         <output aria-live="polite">{dirty() ? "Unsaved changes" : "Saved"}</output>
         <Show when={editingFurniture()}><button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel"
           onClick={() => setInspectorOpen(!inspectorOpen())}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
-        <button type="button" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
+        <button type="button" data-testid="mobile-project-trigger" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
           onClick={() => {setMobileProjectOpen(!mobileProjectOpen()); setMobileContextOpen(false);}}>Project</button>
       </div>
       <Show when={mobileProjectOpen()}>
