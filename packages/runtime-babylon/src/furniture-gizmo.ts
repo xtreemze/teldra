@@ -13,9 +13,9 @@ export interface FurniturePlacement {
   original: FurnitureWorldPose;
   current: FurnitureWorldPose;
   /** Source GLB geometry scale as represented in the source IFC mapping target. */
-  sourceScale?: GeometryScale;
+  sourceScale?: GeometryScale | undefined;
   /** Current canonical IFC mapped-geometry scale. */
-  currentScale?: GeometryScale;
+  currentScale?: GeometryScale | undefined;
 }
 export interface ScenePlacement { canonicalId: string; matrix: readonly number[] }
 export interface FurnitureEditSession {
