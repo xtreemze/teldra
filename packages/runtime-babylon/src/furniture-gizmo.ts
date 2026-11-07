@@ -222,6 +222,8 @@ export class FurnitureGizmoBridge {
     this.assertStaticAffineMeshes(meshes);
     for(const mesh of meshes) {
       const source=this.baseWorld.get(mesh)??mesh.computeWorldMatrix(true);
+      if(source.determinant()<=1e-9)
+        throw new Error("Mirrored or singular source GLB geometry requires regeneration.");
       const s=new Vector3(),r=new Quaternion(),p=new Vector3();
       if(!source.decompose(s,r,p)) throw new Error("Source GLB mesh hierarchy requires vertex regeneration.");
       const reconstructed=Matrix.Compose(s,r,p).asArray();
@@ -253,6 +255,10 @@ export class FurnitureGizmoBridge {
       return true;
     });
     this.assertStaticAffineMeshes(meshes);
+    for (const mesh of meshes) {
+      if (this.baseWorld.get(mesh)!.determinant() <= 1e-9)
+        throw new Error("Mirrored or singular source GLB geometry requires regeneration.");
+    }
     const root = new TransformNode("teldra-affine-root:" + canonicalId, this.scene);
     const pre = new TransformNode("teldra-affine-prerotation:" + canonicalId, this.scene);
     pre.parent = root;
