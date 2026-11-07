@@ -187,8 +187,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
                 onInput={event => updateScale(index(), event.currentTarget.valueAsNumber)} /></label>
             }</For>
           </fieldset>
-          <Show when={dimensionStatus()}>{dimensions =>
-            <Show when={dimensions().supported && dimensions()} fallback={
+          <Show when={dimensionStatus().supported} fallback={
               <p class="teldra-studio-selection-workspace__hint" data-testid="nominal-dimensions-unavailable">
                 Source nominal dimensions unavailable; use the IFC scale factors above.
               </p>
@@ -198,17 +197,16 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
                 <For each={["Nominal width (m)", "Nominal depth (m)", "Nominal height (m)"]}>{(label, index) =>
                   <label>{label}
                     <input type="number" min="0.000001" max="1000" step="any"
-                      value={dimensionStatus().supported ? (dimensionStatus() as {current: readonly number[]}).current[index()] : undefined}
+                      value={(() => { const state = dimensionStatus(); return state.supported ? state.current[index()] : undefined; })()}
                       onChange={event => updateDimension(index(), event.currentTarget.valueAsNumber)} />
                   </label>
                 }</For>
                 <p id="teldra-nominal-dimensions-description" class="teldra-studio-selection-workspace__hint">
-                  Original SH3D dimensions are preserved; these values derive the IFC mapped-instance scale.
-                  They represent source-authored nominal sizes, not measured mesh bounds.
+                  Source width, depth and height are preserved in IFC provenance. Editing these nominal values
+                  changes only the IFC mapped-instance scale, not the original source dimensions or mesh.
                 </p>
               </fieldset>
-            </Show>
-          }</Show>
+          </Show>
         </Show>
         <button type="submit">Apply placement</button><button type="button" onClick={cancel}>Cancel</button>
       </form>
