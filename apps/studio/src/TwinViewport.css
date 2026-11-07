@@ -73,7 +73,7 @@
  .teldra-view-controls__panel { top: 9.4rem; }
  .teldra-view-controls__panel--appearance { left: 13.5rem; }
  .teldra-view-controls__panel--appearance .teldra-view-controls__panel-content { left: auto; right: 0; width: min(22rem,calc(100vw - 1rem)); }
- .teldra-twin-viewport > label { bottom: 12.5rem; max-width: 11rem; }
+ .teldra-twin-viewport > label { bottom: 6.5rem; left: .5rem; right: auto; max-width: 11rem; }
 }
 /* Standalone viewports have an explicit size; workspace embedding fills its host. */
 .teldra-twin-viewport { width: min(80rem, calc(100vw - 2rem)); height: clamp(28rem, calc(100dvh - 4rem), 70rem); overflow: hidden; }

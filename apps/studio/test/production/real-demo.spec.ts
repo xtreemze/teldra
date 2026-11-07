@@ -29,6 +29,9 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await page.getByRole("button",{name:"Inspector",exact:true}).click();
  await expect(page.getByRole("button",{name:"Scene",exact:true})).toHaveAttribute("aria-expanded","false");
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ const gizmo=(await page.getByRole("group",{name:"3D orientation gizmo",exact:true}).boundingBox())!;
+ const visibility=(await page.getByText("Show hidden source content",{exact:true}).boundingBox())!;
+ expect(visibility.x+visibility.width).toBeLessThanOrEqual(gizmo.x);
  await page.screenshot({path:testInfo.outputPath("real-home-mobile.png")});
  expect(errors).toEqual([]);
 });

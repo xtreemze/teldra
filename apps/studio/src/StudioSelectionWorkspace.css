@@ -63,7 +63,7 @@
 .teldra-studio-selection-workspace__properties > section { padding: .85rem; border: 1px solid #425868; border-radius: .65rem; }
 .teldra-studio-selection-workspace__properties h2 { font-size: .9rem; }
 .teldra-studio-selection-workspace__properties[hidden], .teldra-studio-selection-workspace__scene-panel[hidden] { display: none; }
-.teldra-studio-selection-workspace__selection > p:first-of-type { display: none; }
+.teldra-studio-selection-workspace__selection > p:has([data-testid="workspace-selected-canonical-id"]) { display: none; }
 .teldra-studio-selection-workspace__device-list { max-height: 25vh; }
 @media(max-width: 48rem) {
  .teldra-studio-selection-workspace__project-actions { top: 3rem; left: .5rem; right: .5rem; max-width: none; width: auto; flex-wrap: wrap; }
