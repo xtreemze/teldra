@@ -45,7 +45,7 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
-  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number; floorInspectionMaterials: number; floorUnlitMaterials: number };
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number; floorInspectionMaterials: number; floorUnlitMaterials: number; activeGroundMeshes: number };
   renderStats(): { backend: BabylonBackend; reverseDepth: boolean; nearPlane: number; farPlane: number; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
@@ -457,6 +457,11 @@ export async function createBabylonTwinRuntime(
           (mesh.material as StandardMaterial).diffuseTexture?.isReady() === true).length,
         floorInspectionMaterials: floorInspector.materialCount,
         floorUnlitMaterials: floorInspector.activeCount,
+        // Include merged/batched physical meshes, not just unbatched source parts:
+        // a visible coplanar ground plane can occlude valid room textures.
+        activeGroundMeshes: physicalMeshes.filter(mesh =>
+          mesh.isEnabled() && mesh.isVisible &&
+          identityByMesh.get(mesh)?.canonicalId === "presentation:sh3d-visual").length,
         lightingProfile,
         localLightSources: scene.lights.filter(light=>light.name.startsWith("sh3d-local-")).length,
         meshParts: loadedMeshParts,
