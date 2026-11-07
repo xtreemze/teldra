@@ -84,6 +84,22 @@ texture detail that the source image does not contain. Verify the visual effect
 on actual 21D material assets on both WebGL and WebGPU before declaring
 photometric parity.
 
+**Floor texture inspection:** Studio's Appearance menu offers an explicitly
+unlit, reversible floor-texture view. For imported SH3D room surfaces with a
+bound diffuse texture, it temporarily disables lighting on the derived Babylon
+StandardMaterial. All material color factors, UVs, source texture bytes, source
+lighting metadata and IFC/project state remain untouched; toggling off or
+restoring source appearance reinstates the original lighting flags. This mode
+is a diagnostic/authoring aid, not a correction to physical indoor illumination
+or a claim that the normal renderer has been fixed.
+
+The published 21D reference has 13 textured floor parts and 3 distinct
+embedded floor images. Read-only audit `tools/diagnostics/audit_21d_floor.py`
+checks actual source Kd/Ka, image brightness, UV variation, and normals.
+Run after resolving Git LFS with the Python workspace dependencies. Real-demo
+browser tests also assert that all 13 floor textures remain bound and GPU-ready
+after Babylon's Phong projection.
+
 
 ## Viewport navigation and layers
 
