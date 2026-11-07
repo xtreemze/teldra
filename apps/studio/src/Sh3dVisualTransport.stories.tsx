@@ -16,7 +16,7 @@ function SourceAppearanceHarness() {
       inspect();
     }} />
     <button type="button" onClick={inspect}>Inspect source assets</button>
-    <output data-testid="source-asset-summary">{summary()}</output>
+    <output style={{display: "block", "overflow-wrap": "anywhere", "max-width": "min(100%, 48rem)"}} data-testid="source-asset-summary">{summary()}</output>
   </>;
 }
 

@@ -104,6 +104,8 @@ def parse_home_xml(payload: bytes | str) -> Sh3dHome:
         rooms=rooms,
         cameras=cameras,
         unsupported_elements=unsupported,
+        preview_light_color=_environment_color(root, "lightColor", 0xD0D0D0),
+        preview_sky_color=_environment_color(root, "skyColor", 0xCCE4FC),
     )
 
 
@@ -340,3 +342,13 @@ def _boolean(node: ElementTree.Element, name: str, *, default: bool) -> bool:
     raise Sh3dFormatError(
         f'{node.tag} attribute "{name}" must be "true" or "false", got "{value}".'
     )
+
+
+def _environment_color(root: ElementTree.Element, name: str, default: int) -> int:
+    environment = root.find("environment")
+    if environment is None or environment.get(name) is None:
+        return default
+    value = environment.get(name)
+    if fullmatch(r"[0-9a-fA-F]{1,8}", value) is None:
+        raise Sh3dFormatError(f"environment {name} must be hexadecimal.")
+    return int(value, 16) & 0xFFFFFF

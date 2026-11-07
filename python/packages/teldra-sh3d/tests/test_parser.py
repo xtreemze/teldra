@@ -129,3 +129,12 @@ def test_group_children_keep_absolute_source_placement_and_shelf_identity() -> N
     assert home.furniture[0].x_m == 1
     assert home.furniture[0].y_m == 2
     assert home.unsupported_elements == ()
+
+
+def test_environment_colors_preserve_preview_lighting() -> None:
+    home = parse_home_xml('<home><environment lightColor="00777777" skyColor="00CCE4FC"/></home>')
+    assert home.preview_light_color == 0x777777
+    assert home.preview_sky_color == 0xCCE4FC
+    assert parse_home_xml("<home/>").preview_light_color == 0xD0D0D0
+    with pytest.raises(Sh3dFormatError, match="hexadecimal"):
+        parse_home_xml('<home><environment lightColor="invalid"/></home>')

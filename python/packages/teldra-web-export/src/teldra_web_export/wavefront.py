@@ -68,6 +68,8 @@ def export_wavefront_scene(
     *,
     building_sha256: str,
     source_bindings: dict[str, tuple[str, str]] | None = None,
+    preview_lighting: dict | None = None,
+    source_layers: dict[str, dict] | None = None,
 ) -> dict:
     """SH3D OBJ coordinates are centimetres, right-handed Y-up (X, elevation, Y)."""
     obj_path = obj_path.resolve()
@@ -350,12 +352,14 @@ def export_wavefront_scene(
             canonical_id, global_id = source_bindings[source_key]
             identity.update(canonicalId=canonical_id, ifcGlobalId=global_id)
             source_keys_with_visuals.add(source_key)
+        source_layer = (source_layers or {}).get(matches[0]) if matches else None
         doc["nodes"].append(
             {
                 "name": name,
                 "mesh": mesh_index,
                 "extras": {
                     "teldra": identity,
+                    **({"teldraSourceLayer": source_layer} if source_layer else {}),
                     "teldraSourceVisibility": {"hidden": "teldraHidden_" in name},
                 },
             }
@@ -370,6 +374,10 @@ def export_wavefront_scene(
         )
 
     binary.extend(b"\0" * (-len(binary) % 4))
+    if preview_lighting is not None:
+        if not doc["nodes"]:
+            raise ValueError("Source lighting requires a visual scene.")
+        doc["nodes"][0]["extras"]["teldraSourceLighting"] = preview_lighting
     doc["buffers"] = [{"byteLength": len(binary)}]
     payload = json.dumps(doc, separators=(",", ":")).encode()
     payload += b" " * (-len(payload) % 4)

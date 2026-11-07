@@ -28,7 +28,7 @@ test("shares canonical selection between viewport and device inspector without d
   await expect(page.getByTestId("project-dirty-state")).toHaveCount(0);
 
   await page
-    .getByRole("button", { name: /Living room floor lamp/ })
+    .getByRole("list", { name: "Devices", exact: true }).getByRole("button", { name: /Living room floor lamp/ })
     .click();
 
   await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText(

@@ -100,6 +100,7 @@ def convert(
             obj = (visual_export / receipt["obj"]).resolve()
             if not obj.is_relative_to(visual_export.resolve()):
                 raise ValueError("Visual export OBJ escapes its directory.")
+            level_names = {level.source.source_id: level.name for level in home.levels}
             report["visualScene"] = export_wavefront_scene(
                 obj,
                 staging / "building.glb",
@@ -107,6 +108,19 @@ def convert(
                 building_sha256=hashlib.sha256(
                     (staging / "building.ifc").read_bytes()
                 ).hexdigest(),
+                preview_lighting={
+                    "profile": "sh3d-preview-v1",
+                    "lightColor": home.preview_light_color,
+                    "skyColor": home.preview_sky_color,
+                },
+                source_layers={
+                    record.source.key: {
+                        "levelId": record.level_id,
+                        "levelName": level_names[record.level_id],
+                    }
+                    for record in (*home.walls, *home.rooms, *home.furniture)
+                    if record.level_id in level_names
+                },
                 source_bindings={
                     source_key: (canonical[global_id], global_id)
                     for source_key, global_id in imported.source_to_global_id.items()
@@ -134,7 +148,7 @@ def convert(
             report["warnings"] = list(imported.warnings) + [
                 "The native visual scene is derived presentation geometry, not IFC architectural truth.",
                 "Source Phong parameters are retained; ICC-tagged textures are color-managed to sRGB.",
-                "Original images remain in source.sh3d; lighting is runtime-specific.",
+                "Original images remain in source.sh3d; interactive source lighting is projected, not photo-rendered.",
             ]
             report["visualProducer"] = receipt
             # Keep every original source record and embedded asset recoverable.

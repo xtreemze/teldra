@@ -53,3 +53,16 @@ pnpm test
 ```
 
 The bootstrap intentionally does not add Babylon.js, deck.gl, React, IfcOpenShell, or Blender dependencies yet. The first merge establishes the authority and projection boundaries those implementations must obey.
+
+
+## Browser Studio
+
+Launch [Teldra Studio](https://xtreemze.github.io/teldra/studio/) and choose **Try demo**
+or open a local `.teldra` project. Studio supports spatial navigation, category/level
+visibility, canonical device editing and upright IFC4 furniture move/rotate drafts
+with Apply/Cancel, undo/redo and save. Direct file replacement is available in supporting
+browsers; other browsers and the demo download an edited copy. Local home files stay local.
+
+Run `pnpm --filter @teldra/studio dev` for development. Build the combined Pages tree with
+`pnpm pages:build` and verify production paths with `pnpm --filter @teldra/studio pages:test`.
+See [the editing contract and measured limitations](docs/architecture/0021-browser-spatial-editing.md).

@@ -1,15 +1,22 @@
+import { Camera } from "@babylonjs/core/Cameras/camera";
+import { cameraState, orientCamera, syncProjection, zoomCamera, panCamera, fitCamera, isMeshInteractable, stopCameraMotion, OneShotLoad, SceneLayers, type ViewState, type ViewDirection, type ViewProjection } from "./view-controls.js";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { WebGPUEngine } from "@babylonjs/core/Engines/webgpuEngine";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
+import { SceneInstrumentation } from "@babylonjs/core/Instrumentation/sceneInstrumentation";
 import { LoadAssetContainerAsync } from "@babylonjs/core/Loading/sceneLoader";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { Scene } from "@babylonjs/core/scene";
-import type { Material } from "@babylonjs/core/Materials/material";
+import { Material } from "@babylonjs/core/Materials/material";
+import { applySourceLighting } from "./source-lighting.js";
 import { sourceMaterialProjection } from "./source-material.js";
+import { FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
+import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
   parseSceneManifest,
@@ -32,8 +39,24 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
-  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean };
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string };
+  renderStats(): { backend: BabylonBackend; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
+  batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
+  applyScenePlacements(placements: readonly ScenePlacement[]): void;
+  beginFurnitureEdit(placement: FurniturePlacement, onPreview: (pose: FurnitureWorldPose) => void,
+    onDragState?: (dragging: boolean) => void): FurnitureEditSession;
   setHiddenSourceContentVisible(visible: boolean): void;
+  layers(): ReturnType<SceneLayers["list"]>;
+  setLayerVisible(id: string, visible: boolean): void;
+  viewState(): ViewState | null;
+  onViewChanged(listener: (state: ViewState) => void): () => void;
+  orient(direction: ViewDirection): void;
+  orbit(horizontal: number, vertical: number): void;
+  setProjection(projection: ViewProjection): void;
+  zoom(factor: number): void;
+  pan(right: number, up: number): void;
+  fit(canonicalId?: string): boolean;
+  resetView(): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
@@ -47,6 +70,8 @@ export interface BabylonTwinRuntime {
 export interface BabylonTwinRuntimeOptions {
   antialias?: boolean;
   attachDefaultCamera?: boolean;
+  /** Experimental: merge compatible opaque parts while preserving face identity. */
+  batchOpaqueParts?: boolean;
 }
 
 let loadersRegistered = false;
@@ -60,11 +85,13 @@ export async function createBabylonTwinRuntime(
   const manifestByNodeKey = indexSceneManifest(manifest);
   const identityByMesh = new WeakMap<AbstractMesh, TwinRenderIdentity>();
   const meshByNodeKey = new Map<string, AbstractMesh>();
+  const meshesByCanonicalId = new Map<string, AbstractMesh[]>();
   const { engine, backend } = await createEngine(
     canvas,
     options.antialias ?? true,
   );
   const scene = new Scene(engine);
+  const instrumentation = new SceneInstrumentation(scene);
   scene.useRightHandedSystem = true;
 
   const normalizeCanvasTabOrder = () => {
@@ -80,9 +107,41 @@ export async function createBabylonTwinRuntime(
 
   let defaultCamera: ArcRotateCamera | undefined;
   let loadedMeshParts = 0;
+  let lightingProfile = "preview";
+  let previewLight: HemisphericLight | undefined;
   const sourceMaterials = new Map<Material, Material>();
   const sourceHiddenMeshes = new Set<AbstractMesh>();
-  let sourceHiddenVisible = false;
+  let layers = new SceneLayers();
+  const loadGate = new OneShotLoad();
+  let renderMeshes: AbstractMesh[] = [];
+  let physicalMeshes: AbstractMesh[] = [];
+  const batchesByMesh = new Map<AbstractMesh, MeshBatch>();
+  const batchByPart = new Map<AbstractMesh, MeshBatch>();
+  const furniture = new FurnitureGizmoBridge(scene, Matrix.FromArray(manifest.scene.canonicalToScene),
+    id => meshesByCanonicalId.get(id) ?? []);
+  let projectedPlacementIds = new Set<string>();
+  const viewListeners = new Set<(state: ViewState) => void>();
+  const pickSubscriptions = new Set<() => void>();
+  let disposed = false;
+  let started = false;
+  let loading = false;
+  const frameSamples: number[] = [];
+  const renderFrame = () => {
+    const start = performance.now();
+    scene.render();
+    frameSamples.push(performance.now() - start);
+    if (frameSamples.length > 120) frameSamples.shift();
+  };
+  let lastView = "";
+  scene.onBeforeRenderObservable.add(() => {
+    if (defaultCamera) syncProjection(defaultCamera, engine.getRenderWidth() / engine.getRenderHeight());
+  });
+  scene.onAfterRenderObservable.add(() => {
+    if (!defaultCamera || !viewListeners.size) return;
+    const state = cameraState(defaultCamera);
+    const key = JSON.stringify([state.alpha, state.beta, state.radius, state.target, state.projection]);
+    if (key !== lastView) { lastView = key; for (const listener of viewListeners) listener(state); }
+  });
 
   if (options.attachDefaultCamera ?? true) {
     defaultCamera = new ArcRotateCamera(
@@ -97,9 +156,15 @@ export async function createBabylonTwinRuntime(
     scene.cameraToUseForPointers = defaultCamera;
     defaultCamera.attachControl(canvas, true);
     normalizeCanvasTabOrder();
-    defaultCamera.lowerRadiusLimit = 0.25;
+    defaultCamera.lowerRadiusLimit = 0.01;
+    defaultCamera.lowerBetaLimit = 0.001;
+    defaultCamera.upperBetaLimit = Math.PI - 0.001;
+    defaultCamera.wheelDeltaPercentage = 0.1;
+    defaultCamera.pinchDeltaPercentage = 0.01;
+    defaultCamera.panningSensibility = 100;
+    defaultCamera.inputs.removeByType("ArcRotateCameraKeyboardMoveInput");
 
-    new HemisphericLight(
+    previewLight = new HemisphericLight(
       "teldra-preview-light",
       new Vector3(0, 1, 0),
       scene,
@@ -110,11 +175,14 @@ export async function createBabylonTwinRuntime(
 
   const resolvePickedMesh = (
     pickedMesh: AbstractMesh | null | undefined,
+    faceId = -1,
   ): TwinRenderIdentity | null => {
     if (pickedMesh === null || pickedMesh === undefined) {
       return null;
     }
 
+    const batch = batchesByMesh.get(pickedMesh);
+    if (batch) return batch.identityForFace(faceId);
     return (
       identityByMesh.get(pickedMesh) ??
       resolveTwinIdentity(pickedMesh, manifestByNodeKey)
@@ -140,15 +208,14 @@ export async function createBabylonTwinRuntime(
       return null;
     }
 
-    return resolvePickedMesh(
-      scene.pick(
+    const picked = scene.pick(
         localX,
         localY,
-        (mesh) => identityByMesh.has(mesh),
+        (mesh) => isMeshInteractable(mesh) && identityByMesh.has(mesh),
         false,
         scene.cameraToUseForPointers ?? undefined,
-      )?.pickedMesh,
-    );
+      );
+    return resolvePickedMesh(picked?.pickedMesh, picked?.faceId);
   };
 
   const projectNodeToClient = (
@@ -171,7 +238,9 @@ export async function createBabylonTwinRuntime(
 
     // First establish a real surface point using a world-space ray. This
     // separates mesh/CPU-picking readiness from screen-coordinate conversion.
-    const center = mesh.getBoundingInfo().boundingSphere.centerWorld;
+    const sourceCenter = mesh.getBoundingInfo().boundingSphere.centerWorld;
+    const batch = batchByPart.get(mesh);
+    const center = batch ? Vector3.TransformCoordinates(sourceCenter, batch.mesh.computeWorldMatrix(true)) : sourceCenter;
     const origin = camera.globalPosition;
     const direction = center.subtract(origin);
     if (direction.lengthSquared() <= Number.EPSILON) {
@@ -181,7 +250,8 @@ export async function createBabylonTwinRuntime(
 
     const surfacePick = scene.pickWithRay(
       new Ray(origin, direction),
-      (candidate) => identityByMesh.get(candidate)?.nodeKey === nodeKey,
+      (candidate) => isMeshInteractable(candidate) && (identityByMesh.get(candidate)?.nodeKey === nodeKey ||
+        batchesByMesh.get(candidate)?.parts.some(part => part.identity.nodeKey === nodeKey) === true),
       false,
     );
     const surfacePoint = surfacePick?.pickedPoint;
@@ -189,6 +259,7 @@ export async function createBabylonTwinRuntime(
     if (surfacePoint === null || surfacePoint === undefined) {
       return null;
     }
+    if (resolvePickedMesh(surfacePick?.pickedMesh, surfacePick?.faceId)?.nodeKey !== nodeKey) return null;
 
     const renderWidth = engine.getRenderWidth();
     const renderHeight = engine.getRenderHeight();
@@ -218,10 +289,56 @@ export async function createBabylonTwinRuntime(
   return {
     backend,
     manifest,
+    batchingStats() {
+      const groups = new Map<string, number>();
+      const canonicalGroups = new Map<string, number>();
+      let eligibleParts = 0;
+      for (const mesh of renderMeshes) {
+        const identity = identityByMesh.get(mesh);
+        const material = mesh.material;
+        if (!identity || !mesh.isEnabled() || !mesh.isVisible || !material ||
+          mesh.skeleton || mesh.morphTargetManager || mesh.getClassName() !== "Mesh" ||
+          mesh.subMeshes.length !== 1 || material.needAlphaBlendingForMesh(mesh) || material.needAlphaTesting()) continue;
+        const source = mesh.metadata?.gltf?.extras?.teldraSourceLayer;
+        const key = JSON.stringify([identity.canonicalId, identity.nodeKey, material.uniqueId,
+          source?.levelId ?? null, sourceHiddenMeshes.has(mesh)]);
+        groups.set(key, (groups.get(key) ?? 0) + 1);
+        const canonicalKey = JSON.stringify([identity.canonicalId, material.uniqueId, source?.levelId ?? null, sourceHiddenMeshes.has(mesh)]);
+        canonicalGroups.set(canonicalKey, (canonicalGroups.get(canonicalKey) ?? 0) + 1);
+        eligibleParts++;
+      }
+      const candidates = [...groups.values()].filter(count => count > 1);
+      return {eligibleParts, candidateGroups: candidates.length,
+        possibleDrawCallReduction: candidates.reduce((total, count) => total + count - 1, 0),
+        sameCanonicalPotentialReduction: [...canonicalGroups.values()].reduce((total, count) => total + Math.max(0, count - 1), 0)};
+    },
+    applyScenePlacements(placements) {
+      for (const placement of placements) {
+        if (!meshesByCanonicalId.has(placement.canonicalId)) {
+          throw new Error(`No render parts for ${placement.canonicalId}.`);
+        }
+        if (placement.matrix.length !== 16 || !placement.matrix.every(Number.isFinite) ||
+          Math.abs(Matrix.FromArray(placement.matrix).determinant()) < 1e-12) throw new Error("Invalid scene placement matrix.");
+      }
+      const next = new Set(placements.map(placement => placement.canonicalId));
+      for (const id of projectedPlacementIds) if (!next.has(id)) furniture.applyMatrix({canonicalId: id, matrix: Matrix.Identity().asArray()});
+      for (const placement of placements) furniture.applyMatrix(placement);
+      projectedPlacementIds = next;
+    },
+    beginFurnitureEdit: (placement, onPreview, onDragState) => furniture.begin(placement, onPreview, onDragState),
+    renderStats() {
+      const sorted = [...frameSamples].sort((a, b) => a - b);
+      const percentile = (p: number) => sorted.length ? sorted[Math.ceil(p * sorted.length) - 1]! : null;
+      return { backend, width: engine.getRenderWidth(), height: engine.getRenderHeight(),
+        hardwareScaling: engine.getHardwareScalingLevel(), fps: engine.getFps(),
+        activeMeshes: scene.getActiveMeshes().length, drawCalls: instrumentation.drawCallsCounter.current,
+        sampleCount: sorted.length, cpuFrameMsP50: percentile(0.5), cpuFrameMsP95: percentile(0.95) };
+    },
     assetSummary() {
       return {
+        lightingProfile,
         meshParts: loadedMeshParts,
-        visibleMeshParts: loadedMeshParts - (sourceHiddenVisible ? 0 : sourceHiddenMeshes.size),
+        visibleMeshParts: renderMeshes.filter(mesh => layers.isVisible(mesh)).length,
         hiddenSourceParts: sourceHiddenMeshes.size,
         sourcePhongMaterials: new Set([...sourceMaterials]
           .filter(([source, projected]) => source !== projected)
@@ -231,71 +348,189 @@ export async function createBabylonTwinRuntime(
       };
     },
     setHiddenSourceContentVisible(visible: boolean) {
-      sourceHiddenVisible = visible;
-      for (const mesh of sourceHiddenMeshes) mesh.setEnabled(visible);
+      layers.setHiddenVisible(visible);
     },
 
+    layers: () => layers.list(),
+    setLayerVisible: (id, visible) => layers.setVisible(id, visible),
+    viewState: () => defaultCamera ? cameraState(defaultCamera) : null,
+    onViewChanged(listener) {
+      viewListeners.add(listener);
+      if (defaultCamera) listener(cameraState(defaultCamera));
+      return () => { viewListeners.delete(listener); };
+    },
+    orbit(horizontal, vertical) {
+      if (!defaultCamera) return;
+      stopCameraMotion(defaultCamera);
+      defaultCamera.alpha += horizontal;
+      defaultCamera.beta = Math.max(0.001, Math.min(Math.PI - 0.001, defaultCamera.beta + vertical));
+    },
+    orient(direction) { if (defaultCamera) orientCamera(defaultCamera, direction); },
+    setProjection(projection) {
+      if (defaultCamera) defaultCamera.mode = projection === "orthographic" ? Camera.ORTHOGRAPHIC_CAMERA : Camera.PERSPECTIVE_CAMERA;
+    },
+    zoom(factor) { if (defaultCamera) zoomCamera(defaultCamera, factor); },
+    pan(right, up) { if (defaultCamera) panCamera(defaultCamera, right, up); },
+    fit(canonicalId) {
+      return defaultCamera ? fitCamera(defaultCamera, physicalMeshes.filter(mesh =>
+        !canonicalId || identityByMesh.get(mesh)?.canonicalId === canonicalId)) : false;
+    },
+    resetView() {
+      if (!defaultCamera) return;
+      defaultCamera.mode = Camera.PERSPECTIVE_CAMERA;
+      orientCamera(defaultCamera, "isometric");
+      fitCamera(defaultCamera, physicalMeshes);
+    },
     async load(glbUrl: string): Promise<void> {
-      const container = glbUrl.startsWith("blob:")
-        ? await LoadAssetContainerAsync(glbUrl, scene, {
-            pluginExtension: ".glb",
-          })
-        : await LoadAssetContainerAsync(glbUrl, scene);
-      container.addAllToScene();
-
-      const renderMeshes = container.meshes.filter(
-        (mesh) => mesh.getTotalVertices() > 0,
-      );
-      loadedMeshParts = renderMeshes.length;
-      const loadedBuildingNodeKeys = new Set<string>();
-
-      for (const mesh of renderMeshes) {
-        if (mesh.metadata?.gltf?.extras?.teldraSourceVisibility?.hidden === true) {
-          sourceHiddenMeshes.add(mesh);
-          mesh.setEnabled(sourceHiddenVisible);
+      if (disposed) throw new Error("Cannot load a disposed Babylon runtime.");
+      loadGate.begin();
+      loading = true;
+      if (started) engine.stopRenderLoop();
+      let container: Awaited<ReturnType<typeof LoadAssetContainerAsync>> | undefined;
+      const stagedMaterials = new Map<Material, Material>();
+      const stagedHidden = new Set<AbstractMesh>();
+      const stagedLayers = new SceneLayers();
+      const stagedIdentities = new Map<AbstractMesh, TwinRenderIdentity>();
+      const stagedBatches: MeshBatch[] = [];
+      const initialLights = new Set(scene.lights);
+      const initialAmbient = scene.ambientColor.clone();
+      const initialClear = scene.clearColor.clone();
+      try {
+        container = glbUrl.startsWith("blob:")
+          ? await LoadAssetContainerAsync(glbUrl, scene, {
+              pluginExtension: ".glb",
+            })
+          : await LoadAssetContainerAsync(glbUrl, scene);
+        if (disposed) {
+          throw new Error("Cannot load a disposed Babylon runtime.");
         }
-        if (mesh.material !== null) {
-          let projected = sourceMaterials.get(mesh.material);
-          if (projected === undefined) {
-            projected = sourceMaterialProjection(mesh.material, scene);
-            sourceMaterials.set(mesh.material, projected);
+        const meshes = container.meshes.filter(
+          (mesh) => mesh.getTotalVertices() > 0,
+        );
+        const loadedBuildingNodeKeys = new Set<string>();
+
+        for (const mesh of meshes) {
+          if (mesh.metadata?.gltf?.extras?.teldraSourceVisibility?.hidden === true) {
+            stagedHidden.add(mesh);
+
           }
-          mesh.material = projected;
-        }
-        mesh.isPickable = true;
-        mesh.computeWorldMatrix(true);
+          if (mesh.material !== null) {
+            let projected = stagedMaterials.get(mesh.material);
+            if (projected === undefined) {
+              projected = sourceMaterialProjection(mesh.material, scene);
+              stagedMaterials.set(mesh.material, projected);
+            }
+            mesh.material = projected;
+          }
+          mesh.isPickable = true;
+          mesh.computeWorldMatrix(true);
 
-        const identity = resolveTwinIdentity(mesh, manifestByNodeKey);
-        if (identity !== null) {
+          const identity = resolveTwinIdentity(mesh, manifestByNodeKey);
+          stagedLayers.add(mesh, identity?.canonicalId ?? "presentation:unknown", stagedHidden.has(mesh));
+          if (identity !== null) {
+            stagedIdentities.set(mesh, identity);
+            if (identity.ifcGlobalId !== undefined) {
+              loadedBuildingNodeKeys.add(identity.nodeKey);
+            }
+          }
+        }
+
+        const missingBuildingNodeKeys = manifest.nodes
+          .filter((node) => node.kind === "building")
+          .map((node) => node.nodeKey)
+          .filter((nodeKey) => !loadedBuildingNodeKeys.has(nodeKey));
+
+        if (missingBuildingNodeKeys.length > 0) {
+          throw new BabylonIdentityError(
+            "Loaded GLB is missing manifest building identities: " +
+              missingBuildingNodeKeys.join(", "),
+          );
+        }
+
+        if (options.batchOpaqueParts) {
+          const groups = new Map<string, BatchPart[]>();
+          for (const [mesh, identity] of stagedIdentities) {
+            const material = mesh.material;
+            if (!(mesh instanceof Mesh) || mesh.getClassName() !== "Mesh" || !material || material.fillMode !== Material.TriangleFillMode || mesh.skeleton ||
+                mesh.morphTargetManager || mesh.animations.length || mesh.instances.length || mesh.hasThinInstances ||
+                mesh.isUnIndexed || mesh.infiniteDistance || mesh.billboardMode !== 0 || mesh.actionManager || !mesh.isVisible || mesh.visibility <= 0 || mesh.subMeshes.length !== 1 ||
+                material.needAlphaBlendingForMesh(mesh) || material.needAlphaTesting()) continue;
+            let animatedParent = false;
+            for (let parent = mesh.parent; parent; parent = parent.parent) if (parent.animations.length) animatedParent = true;
+            if (animatedParent) continue;
+            const source = mesh.metadata?.gltf?.extras?.teldraSourceLayer;
+            const key = JSON.stringify([identity.canonicalId, material.uniqueId, source?.levelId ?? null,
+              stagedHidden.has(mesh), mesh.sideOrientation, mesh.layerMask, mesh.renderingGroupId,
+              mesh.receiveShadows, mesh.visibility, mesh.alphaIndex, mesh.hasVertexAlpha, mesh.useVertexColors,
+              mesh.applyFog, [...mesh.getVerticesDataKinds()].sort()]);
+            const parts = groups.get(key) ?? [];
+            parts.push({mesh, identity}); groups.set(key, parts);
+          }
+          for (const parts of groups.values()) {
+            const batch = createMeshBatch(parts);
+            if (!batch) continue;
+            stagedLayers.addBatch(batch.mesh, parts.map(part => part.mesh));
+            stagedBatches.push(batch);
+          }
+        }
+        const batchedParts = new Set(stagedBatches.flatMap(batch => batch.parts.map(part => part.mesh)));
+        const physical = [...meshes.filter(mesh => !batchedParts.has(mesh as Mesh)), ...stagedBatches.map(batch => batch.mesh)];
+
+        const lighting = meshes.map(mesh => mesh.metadata?.gltf?.extras?.teldraSourceLighting)
+          .find(value => value !== undefined);
+        const hasSourceLighting = applySourceLighting(lighting, scene);
+        if (hasSourceLighting) previewLight?.setEnabled(false);
+        container.addAllToScene();
+        await scene.whenReadyAsync();
+        if (disposed) throw new Error("Cannot complete loading a disposed Babylon runtime.");
+        if (defaultCamera && physical.length) fitCamera(defaultCamera, physical);
+        renderFrame();
+        // Publish only after validation, readiness, and the initial frame succeed.
+        layers = stagedLayers;
+        renderMeshes = meshes;
+        physicalMeshes = physical;
+        loadedMeshParts = meshes.length;
+        for (const mesh of stagedHidden) sourceHiddenMeshes.add(mesh);
+        for (const [source, projected] of stagedMaterials) sourceMaterials.set(source, projected);
+        for (const [mesh, identity] of stagedIdentities) {
           identityByMesh.set(mesh, identity);
           meshByNodeKey.set(identity.nodeKey, mesh);
-          if (identity.ifcGlobalId !== undefined) {
-            loadedBuildingNodeKeys.add(identity.nodeKey);
+          if (!batchedParts.has(mesh as Mesh)) {
+            const parts = meshesByCanonicalId.get(identity.canonicalId) ?? [];
+            parts.push(mesh); meshesByCanonicalId.set(identity.canonicalId, parts);
           }
         }
+        for (const batch of stagedBatches) {
+          batchesByMesh.set(batch.mesh, batch);
+          const identity = batch.parts[0]!.identity;
+          identityByMesh.set(batch.mesh, identity);
+          for (const part of batch.parts) batchByPart.set(part.mesh, batch);
+          const parts = meshesByCanonicalId.get(identity.canonicalId) ?? [];
+          parts.push(batch.mesh); meshesByCanonicalId.set(identity.canonicalId, parts);
+        }
+        if (hasSourceLighting) {
+          previewLight?.dispose();
+          previewLight = undefined;
+          lightingProfile = "sh3d-preview-v1";
+        }
+      } catch (error) {
+        for (const batch of stagedBatches) batch.mesh.dispose(false, false);
+        container?.dispose();
+        for (const [source, projected] of stagedMaterials) {
+          if (source !== projected) projected.dispose(false, false);
+        }
+        if (!disposed) {
+          previewLight?.setEnabled(true);
+          for (const light of [...scene.lights]) if (!initialLights.has(light)) light.dispose();
+          scene.ambientColor = initialAmbient;
+          scene.clearColor = initialClear;
+        }
+        throw error;
+      } finally {
+        loading = false;
+        loadGate.finish();
+        if (started && !disposed) engine.runRenderLoop(renderFrame);
       }
-
-      const missingBuildingNodeKeys = manifest.nodes
-        .filter((node) => node.kind === "building")
-        .map((node) => node.nodeKey)
-        .filter((nodeKey) => !loadedBuildingNodeKeys.has(nodeKey));
-
-      if (missingBuildingNodeKeys.length > 0) {
-        container.dispose();
-        throw new BabylonIdentityError(
-          "Loaded GLB is missing manifest building identities: " +
-            missingBuildingNodeKeys.join(", "),
-        );
-      }
-
-      if (defaultCamera !== undefined && renderMeshes.length > 0) {
-        defaultCamera.zoomOn(renderMeshes.filter(mesh => mesh.isEnabled()));
-      }
-
-      // A resolved load is a renderer-readiness boundary: camera framing,
-      // world matrices, materials, and the first pickable frame are ready.
-      await scene.whenReadyAsync();
-      scene.render();
     },
 
     projectNode(nodeKey: string): BabylonClientPoint | null {
@@ -307,23 +542,43 @@ export async function createBabylonTwinRuntime(
     },
 
     onPick(listener): () => void {
-      const handleClick = (event: MouseEvent) => {
-        listener(pickAtClient(event.clientX, event.clientY));
+      let down: {x: number; y: number} | undefined;
+      let dragged = false;
+      const pointerDown = (event: PointerEvent) => { down = {x: event.clientX, y: event.clientY}; dragged = event.button !== 0 || furniture.isInteracting(); };
+      const pointerMove = (event: PointerEvent) => {
+        if (down && Math.hypot(event.clientX - down.x, event.clientY - down.y) > 5) dragged = true;
       };
+      const cancel = () => { dragged = true; down = undefined; };
+      const handleClick = (event: MouseEvent) => {
+        if (!dragged) listener(pickAtClient(event.clientX, event.clientY));
+        down = undefined;
+      };
+      canvas.addEventListener("pointerdown", pointerDown);
+      canvas.addEventListener("pointermove", pointerMove);
+      canvas.addEventListener("pointercancel", cancel);
 
       canvas.addEventListener("click", handleClick);
 
-      return () => {
+      const unsubscribe = () => {
         canvas.removeEventListener("click", handleClick);
+        canvas.removeEventListener("pointerdown", pointerDown);
+        canvas.removeEventListener("pointermove", pointerMove);
+        canvas.removeEventListener("pointercancel", cancel);
+        pickSubscriptions.delete(unsubscribe);
       };
+      pickSubscriptions.add(unsubscribe);
+      return unsubscribe;
     },
 
     start(): void {
-      engine.runRenderLoop(() => scene.render());
+      if (disposed || started) return;
+      started = true;
+      if (!loading) engine.runRenderLoop(renderFrame);
       normalizeCanvasTabOrder();
     },
 
     stop(): void {
+      started = false;
       engine.stopRenderLoop();
     },
 
@@ -332,7 +587,13 @@ export async function createBabylonTwinRuntime(
     },
 
     dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      for (const unsubscribe of pickSubscriptions) unsubscribe();
+      viewListeners.clear();
       tabIndexObserver.disconnect();
+      furniture.dispose();
+      instrumentation.dispose();
       scene.dispose();
       engine.dispose();
     },

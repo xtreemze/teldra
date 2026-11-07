@@ -33,4 +33,7 @@ test("loads the GLB and resolves a picked render node to canonical identity", as
 
   await expect(selection).not.toHaveText("unattempted");
   await expect(selection).toHaveText("wall:fixture");
+  await page.getByRole("button", {name: "Fit selection", exact: true}).click();
+  await expect(page.getByText("Selection framed", {exact: true})).toBeVisible();
+  await expect(selection).toHaveText("wall:fixture");
 });

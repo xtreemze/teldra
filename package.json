@@ -21,7 +21,8 @@
     "storybook:test": "nx run-many -t storybook:test --parallel=1",
     "typecheck": "nx run-many -t typecheck",
     "test": "pnpm architecture:test && pnpm asset-interchange:test && pnpm toolchain:test && nx run-many -t test",
-    "ci": "pnpm schema:check && pnpm architecture:check && pnpm quality:check && pnpm release:check && pnpm toolchain:check && pnpm typecheck && pnpm test"
+    "ci": "pnpm schema:check && pnpm architecture:check && pnpm quality:check && pnpm release:check && pnpm toolchain:check && pnpm typecheck && pnpm test",
+    "pages:build": "pnpm --filter @teldra/site verify && pnpm --filter @teldra/studio build && node tools/site/measure-studio.mjs && node tools/site/assemble-pages.mjs && node tools/site/verify-pages.mjs"
   },
   "devDependencies": {
     "json-schema-to-typescript": "16.0.0",

@@ -4,6 +4,12 @@ import {
   openProjectPersistence,
   openTeldraArchive,
   replaceTeldraTwin,
+  replaceTeldraBuilding,
+  readScenePlacementOverrides,
+  type ScenePlacementOverride,
+  type SceneProvenance,
+  SCENE_PLACEMENT_OVERRIDES_PATH,
+  SCENE_SOURCE_IFC_PATH,
   sha256Bytes,
   type OpenTeldraArchive,
   type ProjectStorageAdapter,
@@ -13,7 +19,7 @@ import {
   parseSceneManifest,
   type TeldraSceneManifest,
 } from "@teldra/scene-manifest";
-import { StudioProjectController } from "./StudioProjectController";
+import { StudioProjectController, validateIfcScenePlacements, type StudioBuildingData } from "./StudioProjectController";
 
 export interface BrowserWritableFile {
   write(data: Uint8Array): Promise<void>;
@@ -22,6 +28,7 @@ export interface BrowserWritableFile {
 }
 
 export interface BrowserTeldraFileHandle {
+  readonly saveMode?: "direct" | "download";
   readonly name: string;
   getFile(): Promise<Blob>;
   createWritable(): Promise<BrowserWritableFile>;
@@ -71,9 +78,11 @@ export interface BrowserAssetUrlFactory {
 export interface BrowserStudioScene {
   readonly manifest: TeldraSceneManifest;
   readonly glbUrl: string;
+  readonly placements: readonly ScenePlacementOverride[];
 }
 
 export interface BrowserStudioProject {
+  readonly saveMode?: "direct" | "download";
   readonly fileName: string;
   readonly projectKey: string;
   readonly controller: StudioProjectController;
@@ -212,6 +221,7 @@ export class BrowserTeldraFileStorage
   readonly #recoveryStore: BrowserRecoveryStore;
   readonly #projectKey: string;
   #archive: OpenTeldraArchive;
+  #scene?: SceneProvenance;
   #revision = 0;
   #lockOwner: string | null = null;
   #releaseWebLock: (() => void) | null = null;
@@ -230,7 +240,7 @@ export class BrowserTeldraFileStorage
     this.#projectKey = [
       "teldra",
       handle.name,
-      archive.manifest.building.sha256,
+      archive.manifest.derived?.find((artifact) => artifact.path === SCENE_SOURCE_IFC_PATH)?.sha256 ?? archive.manifest.building.sha256,
     ].join(":");
   }
 
@@ -248,6 +258,8 @@ export class BrowserTeldraFileStorage
   get archive(): OpenTeldraArchive {
     return this.#archive;
   }
+
+  configureScene(scene: SceneProvenance): void { this.#scene = scene; }
 
   get projectKey(): string {
     return this.#projectKey;
@@ -373,11 +385,13 @@ export class BrowserTeldraFileStorage
       this.#archive,
       project.canonical,
     );
+    const building = project.derived as StudioBuildingData | undefined;
+    const combined = building === undefined ? replacement : await replaceTeldraBuilding(replacement.archive, building.bytes, building.scene, building.placements);
     const stageId = `browser-stage:${++this.#stageSequence}`;
     this.#staged.set(stageId, {
       stored: structuredClone(project),
-      bytes: replacement.bytes,
-      archive: replacement.archive,
+      bytes: combined.bytes,
+      archive: combined.archive,
     });
     return stageId;
   }
@@ -449,10 +463,14 @@ export class BrowserTeldraFileStorage
     twin: TwinProject,
     revision: number,
   ): StoredProject<TwinProject> {
+    const building = this.#archive.entries.find((entry) => entry.path === this.#archive.manifest.building.path);
+    const override = this.#archive.entries.find((entry) => entry.path === SCENE_PLACEMENT_OVERRIDES_PATH);
+    const placements = override ? (JSON.parse(new TextDecoder().decode(override.bytes)) as { placements: ScenePlacementOverride[] }).placements : [];
     return {
       revision,
       fingerprint: canonicalTwinFingerprint(twin),
       canonical: structuredClone(twin),
+      ...(this.#scene && building ? { derived: { bytes: building.bytes.slice(), placements, scene: this.#scene } satisfies StudioBuildingData } : {}),
     };
   }
 
@@ -549,13 +567,34 @@ export async function openBrowserTeldraProject(
       storage.archive,
       assetUrlFactory,
     );
+    if (sceneResource) storage.configureScene(sceneResource.scene.manifest);
+    const buildingEntry = storage.archive.entries.find((entry) => entry.path === storage.archive.manifest.building.path);
+    const sourceEntry = storage.archive.entries.find((entry) => entry.path === SCENE_SOURCE_IFC_PATH) ?? buildingEntry;
+    let adapterPromise: Promise<import("@teldra/application").IfcFurnitureAdapter> | undefined;
+    const createAdapter = () => adapterPromise ??= (async () => {
+      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose }, wasm] = await Promise.all([
+        import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url"),
+      ]);
+      const api = new IfcAPI(); await api.Init(() => wasm.default, true);
+      return { read: (bytes: Uint8Array, id: string) => readFurniturePose(api, bytes, id),
+        write: (bytes: Uint8Array, id: string, pose: import("@teldra/application").FurnitureWorldPose) => writeFurniturePose(api, bytes, id, pose) };
+    })();
+    if (sceneResource?.scene.placements.length && sourceEntry && buildingEntry) {
+      validateIfcScenePlacements(await createAdapter(), sourceEntry.bytes, buildingEntry.bytes, sceneResource.scene.placements);
+    }
     const controller = new StudioProjectController(
       opened.primary.canonical,
       opened.session,
+      sceneResource && buildingEntry ? {
+        bytes: buildingEntry.bytes.slice(), scene: sceneResource.scene.manifest, placements: sceneResource.scene.placements,
+        sourceBytes: (sourceEntry ?? buildingEntry).bytes.slice(),
+        createAdapter,
+      } : undefined,
     );
 
     return {
       fileName: handle.name,
+      saveMode: handle.saveMode ?? "direct",
       projectKey: storage.projectKey,
       controller,
       ...(sceneResource === null ? {} : { scene: sceneResource.scene }),
@@ -650,11 +689,13 @@ async function resolveBrowserStudioScene(
     );
   }
 
+  const overrides = await readScenePlacementOverrides(archive, manifest);
   const glbUrl = assetUrlFactory.create(glb.bytes, "model/gltf-binary");
   return {
     scene: {
       manifest,
       glbUrl,
+      placements: overrides?.placements ?? [],
     },
     dispose: () => assetUrlFactory.revoke(glbUrl),
   };

@@ -10,7 +10,7 @@ import {
   type ProjectStorageAdapter,
   type StoredProject,
 } from "@teldra/project-format";
-import { StudioProjectController } from "./StudioProjectController";
+import { StudioProjectController, validateIfcScenePlacements } from "./StudioProjectController";
 
 class MemoryStorage implements ProjectStorageAdapter<TwinProject> {
   primary: StoredProject<TwinProject> | null;
@@ -213,4 +213,43 @@ describe("StudioProjectController", () => {
     expect(controller.dirty).toBe(true);
   });
 
+  it("orders IFC and twin edits in one history and saves both", async () => {
+    const twin = structuredClone(fixture);
+    const guid = "16W6mYG0DO8hR8U$bz6FSv";
+    twin.building.refs.push({ id: "chair", ifcGlobalId: guid, kind: "furniture" });
+    const storage = new MemoryStorage({ revision: 0, fingerprint: canonicalTwinFingerprint(twin), canonical: twin });
+    const opened = await openProjectPersistence(storage, assertTwinIntegrity, "mixed", "test:mixed");
+    const codec = new TextEncoder(), decoder = new TextDecoder();
+    const initial = { position: [1, -1, 0] as [number,number,number], yawRadians: 0 };
+    const controller = new StudioProjectController(twin, opened.session, {
+      bytes: codec.encode(JSON.stringify(initial)), sourceBytes: codec.encode(JSON.stringify(initial)), placements: [],
+      scene: { source: { buildingPath: "building.ifc", buildingSha256: "a".repeat(64) }, scene: { assetPath: "scene.glb", assetSha256: "b".repeat(64) }, nodes: [{ canonicalId: "chair", ifcGlobalId: guid }] },
+      createAdapter: async () => ({ read: (bytes) => JSON.parse(decoder.decode(bytes)), write: (_bytes, _id, pose) => codec.encode(JSON.stringify(pose)) }),
+    });
+    await controller.prepareFurnitureEditing("chair");
+    controller.renameDevice(deviceId, "Changed lamp");
+    controller.placeFurniture("chair", { position: [2, 3, 1], yawRadians: Math.PI / 2 });
+    expect(controller.placementOverrides[0]?.matrix[12]).toBeCloseTo(1);
+    controller.undo(); expect(controller.furniturePose("chair")).toEqual(initial);
+    controller.undo(); expect(controller.dirty).toBe(false);
+    controller.redo(); controller.redo();
+    await controller.save();
+    expect(controller.dirty).toBe(false);
+    expect(storage.primary?.canonical.devices.find((d) => d.id === deviceId)?.name).toBe("Changed lamp");
+    const data = storage.primary?.derived as { bytes: Uint8Array };
+    expect(JSON.parse(decoder.decode(data.bytes)).position).toEqual([2, 3, 1]);
+    controller.undo(); expect(controller.dirty).toBe(true);
+    controller.redo(); expect(controller.dirty).toBe(false);
+  });
+
+});
+
+
+it("rejects a rendered placement that contradicts authoritative IFC poses", () => {
+  const decoder = new TextDecoder(), encoder = new TextEncoder();
+  const source = {position: [0,0,0] as const, yawRadians: 0};
+  const current = {position: [2,0,0] as const, yawRadians: 0};
+  const adapter = {read: (bytes: Uint8Array) => JSON.parse(decoder.decode(bytes)), write: (bytes: Uint8Array) => bytes};
+  expect(() => validateIfcScenePlacements(adapter, encoder.encode(JSON.stringify(source)), encoder.encode(JSON.stringify(current)),
+    [{canonicalId: "chair", ifcGlobalId: "16W6mYG0DO8hR8U$bz6FSv", matrix: [1,0,0,0,0,1,0,0,0,0,1,0,3,0,0,1]}])).toThrow("does not match");
 });
