@@ -46,9 +46,13 @@ def _json_bytes(value: Any) -> bytes:
 
 def _valid_path(path: str) -> bool:
     parts = path.split("/")
-    return bool(path) and not path.startswith("/") and "\\" not in path and (
-        all(part not in ("", ".", "..") for part in parts)
-    ) and ":" not in path
+    return (
+        bool(path)
+        and not path.startswith("/")
+        and "\\" not in path
+        and (all(part not in ("", ".", "..") for part in parts))
+        and ":" not in path
+    )
 
 
 def _read_archive(payload: bytes) -> dict[str, bytes]:
@@ -100,7 +104,9 @@ def _direction(value: Any, expected: tuple[float, float, float]) -> None:
 
 def _source_shape(entity: Any) -> tuple[Any, np.ndarray]:
     if entity is None or entity.is_a() not in (
-        "IfcFurniture", "IfcLightFixture", "IfcBuildingElementProxy"
+        "IfcFurniture",
+        "IfcLightFixture",
+        "IfcBuildingElementProxy",
     ):
         raise WebSceneExportError(
             "Only mapped IFC furniture, light fixtures and proxies can rebake."
@@ -120,9 +126,8 @@ def _source_shape(entity: Any) -> tuple[Any, np.ndarray]:
         raise WebSceneExportError("Mapped source geometry is missing.")
     source = item.MappingSource
     origin = source.MappingOrigin
-    if (
-        not origin.is_a("IfcAxis2Placement3D")
-        or not np.allclose(origin.Location.Coordinates, (0, 0, 0), atol=1e-8, rtol=0)
+    if not origin.is_a("IfcAxis2Placement3D") or not np.allclose(
+        origin.Location.Coordinates, (0, 0, 0), atol=1e-8, rtol=0
     ):
         raise WebSceneExportError("Mapped geometry origin must be identity.")
     _direction(origin.Axis, (0, 0, 1))
@@ -136,13 +141,10 @@ def _source_shape(entity: Any) -> tuple[Any, np.ndarray]:
     ):
         raise WebSceneExportError("This rebaker supports only original IFC triangulated geometry.")
     target = item.MappingTarget
-    if (
-        target.is_a() not in (
-            "IfcCartesianTransformationOperator3D",
-            "IfcCartesianTransformationOperator3DnonUniform",
-        )
-        or not np.allclose(target.LocalOrigin.Coordinates, (0, 0, 0), atol=1e-8, rtol=0)
-    ):
+    if target.is_a() not in (
+        "IfcCartesianTransformationOperator3D",
+        "IfcCartesianTransformationOperator3DnonUniform",
+    ) or not np.allclose(target.LocalOrigin.Coordinates, (0, 0, 0), atol=1e-8, rtol=0):
         raise WebSceneExportError("Unsupported mapped-instance transformation target.")
     _direction(target.Axis1, (1, 0, 0))
     _direction(target.Axis2, (0, 1, 0))
@@ -179,9 +181,7 @@ def _verify_ifc_delta(source: Any, current: Any, placement: dict[str, Any]) -> N
     source_geom, source_scale = _source_shape(before)
     current_geom, current_scale = _source_shape(after)
     if not _same_tessellation(source_geom, current_geom):
-        raise WebSceneExportError(
-            "Source IFC triangulated geometry changed and cannot be rebased."
-        )
+        raise WebSceneExportError("Source IFC triangulated geometry changed and cannot be rebased.")
     ratio = current_scale / source_scale
     scaled = not np.allclose(ratio, [1, 1, 1], atol=1e-8, rtol=0)
     declared = placement.get("scale")
@@ -192,9 +192,7 @@ def _verify_ifc_delta(source: Any, current: Any, placement: dict[str, Any]) -> N
         or len(declared) != 3
         or not np.allclose(declared, ratio, atol=1e-6, rtol=0)
     ):
-        raise WebSceneExportError(
-            "Placement ratio differs from canonical IFC mapped geometry."
-        )
+        raise WebSceneExportError("Placement ratio differs from canonical IFC mapped geometry.")
     try:
         original_pose = np.asarray(
             ifcopenshell.util.placement.get_local_placement(before.ObjectPlacement), dtype=float
@@ -208,9 +206,7 @@ def _verify_ifc_delta(source: Any, current: Any, placement: dict[str, Any]) -> N
         raise WebSceneExportError(
             "Cannot read the canonical IFC source/current placements."
         ) from error
-    if not np.isfinite(expected).all() or not np.allclose(
-        recorded, expected, atol=1e-6, rtol=1e-6
-    ):
+    if not np.isfinite(expected).all() or not np.allclose(recorded, expected, atol=1e-6, rtol=1e-6):
         raise WebSceneExportError("Placement matrix does not match source/current canonical IFC.")
 
 
@@ -301,9 +297,7 @@ def rebake_static_teldra_archive(source_archive: bytes) -> StaticArchiveRebakeRe
             new_derived.append(item)
     new_project["derived"] = new_derived
     output_entries = {
-        key: value
-        for key, value in entries.items()
-        if key not in (_RECONCILIATION, _ORIGINAL_IFC)
+        key: value for key, value in entries.items() if key not in (_RECONCILIATION, _ORIGINAL_IFC)
     }
     output_entries[scene_path] = baked.glb
     output_entries["scene.manifest.json"] = new_scene_bytes
