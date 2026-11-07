@@ -166,7 +166,10 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     try {
       const requested=[...status.current] as [number,number,number];
       requested[index]=value;
-      const scale=props.controller.furnitureScaleForMeasuredSize(props.canonicalId,bounds.size,requested);
+      // Inspector precision is 12 significant digits; avoid exposing binary
+      // representation noise (e.g. 1.4999999999999998) as an authored factor.
+      const scale=props.controller.furnitureScaleForMeasuredSize(props.canonicalId,bounds.size,requested)
+        .map(value=>Number(value.toPrecision(12))) as [number,number,number];
       props.onScalePreview?.(scale);
       setScaleDraft([...scale]);setInvalidMeasuredIndex(null);setInvalidDimensionIndex(null);setError("");
     } catch(error) {
