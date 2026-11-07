@@ -12,6 +12,8 @@ export interface ScenePlacement { canonicalId: string; matrix: readonly number[]
 export interface FurnitureEditSession {
   setPose(pose: FurnitureWorldPose): void;
   setMode(mode: "translate" | "rotate"): void;
+  /** Constrain pointer handles to an IFC-world axis when the scene frame is axis-aligned. */
+  setAxisConstraint(axis: "x" | "y" | "z" | null): boolean;
   setSnap(translationMetres: number, rotationRadians: number): void;
   cancel(): void;
   detach(): void;
@@ -132,6 +134,22 @@ export class FurnitureGizmoBridge {
         last = JSON.stringify(pose);
       },
       setMode(mode) { manager.positionGizmoEnabled = mode === "translate"; manager.rotationGizmoEnabled = mode === "rotate"; },
+      setAxisConstraint(axis) {
+        const gizmos = [position.xGizmo, position.yGizmo, position.zGizmo];
+        if (axis === null) {
+          for (const gizmo of gizmos) gizmo.isEnabled = true;
+          return true;
+        }
+        const unit = axis === "x" ? Vector3.Right() : axis === "y" ? Vector3.Up() : Vector3.Forward();
+        const mapped = Vector3.TransformNormal(unit, this.canonicalToScene).normalize();
+        const components = [Math.abs(mapped.x), Math.abs(mapped.y), Math.abs(mapped.z)];
+        const target = components.indexOf(Math.max(...components));
+        // An arbitrary rotated frame cannot be represented by axis-aligned
+        // Babylon handles; leave the full gizmo rather than mislabel an axis.
+        if (components[target]! < 1 - 1e-5) return false;
+        for (let i = 0; i < gizmos.length; i++) gizmos[i]!.isEnabled = i === target;
+        return true;
+      },
       setSnap(translation, angle) {
         if (![translation, angle].every(value => Number.isFinite(value) && value >= 0)) throw new Error("Invalid gizmo snap.");
         position.snapDistance = translation; rotation.snapDistance = angle;
