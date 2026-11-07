@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
+import goldenIfc from "../../../fixtures/projects/golden-home/building.ifc?raw";
+import { IfcAPI } from "web-ifc";
+import { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale } from "@teldra/ifc-edit";
 import { canonicalTwinFingerprint } from "@teldra/application";
 import {
   assertTwinIntegrity,
@@ -7,6 +10,7 @@ import {
 } from "@teldra/domain";
 import {
   openProjectPersistence,
+  encodeStoredZip, openTeldraArchive, readScenePlacementOverrides, replaceTeldraBuilding, sha256Bytes,
   type ProjectStorageAdapter,
   type StoredProject,
 } from "@teldra/project-format";
@@ -298,4 +302,89 @@ it("commits geometry scale with pose as one IFC undo step and validates source-b
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
   expect(controller.redo()).toBe(true);
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[2,1.5,0.8]});
+});
+
+
+it("roundtrips a real IFC4 mapped-instance scale through the canonical .teldra archive", async () => {
+  const guid = "16W6mYG0DO8hR8U$bz6FSv";
+  const originalLine = "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,$,$,$);";
+  const changedLine = "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,#304,$,$);";
+  if (!goldenIfc.includes(originalLine)) throw new Error("IFC golden furniture fixture has changed.");
+  const representation = [
+    "#300=IFCREPRESENTATIONMAP(#10,#64);",
+    "#301=IFCCARTESIANTRANSFORMATIONOPERATOR3D($,$,#7,1.,$);",
+    "#302=IFCMAPPEDITEM(#300,#301);",
+    "#303=IFCSHAPEREPRESENTATION(#12,'Body','MappedRepresentation',(#302));",
+    "#304=IFCPRODUCTDEFINITIONSHAPE($,$,(#303));",
+  ].join("\n");
+  const sourceIfc = goldenIfc.replace(originalLine, changedLine)
+    .replace("\nENDSEC;\nEND-ISO-10303-21;", "\n" + representation + "\nENDSEC;\nEND-ISO-10303-21;");
+  const encoder = new TextEncoder();
+  const sourceBytes = encoder.encode(sourceIfc);
+  const api = new IfcAPI();
+  await api.Init();
+  const adapter = {
+    read: (bytes: Uint8Array, id: string) => readFurniturePose(api, bytes, id),
+    write: (bytes: Uint8Array, id: string, pose: {position: readonly [number,number,number];yawRadians:number}) =>
+      writeFurniturePose(api, bytes, id, pose),
+    readScale: (bytes: Uint8Array, id: string) => readFurnitureGeometryScale(api, bytes, id),
+    writeScale: (bytes: Uint8Array, id: string, scale: readonly [number,number,number]) =>
+      writeFurnitureGeometryScale(api, bytes, id, scale),
+  };
+  const twin = structuredClone(fixture);
+  twin.building.refs.push({id:"chair",ifcGlobalId:guid,kind:"furniture",name:"Chair"});
+  const buildingHash = await sha256Bytes(sourceBytes);
+  const twinBytes = encoder.encode(JSON.stringify(twin));
+  const glb = new Uint8Array([5,6,7,8]);
+  const glbHash = await sha256Bytes(glb);
+  const manifest = {
+    formatVersion: "0.1.0",
+    building: {path:"building.ifc",sha256:buildingHash},
+    twin: {path:"twin.json",sha256:await sha256Bytes(twinBytes)},
+    derived: [],
+  };
+  const originalArchive = await openTeldraArchive(encodeStoredZip([
+    {path:"project.json",bytes:encoder.encode(JSON.stringify(manifest))},
+    {path:"building.ifc",bytes:sourceBytes},
+    {path:"twin.json",bytes:twinBytes},
+    {path:"scene.glb",bytes:glb},
+  ]));
+  const scene = {
+    source:{buildingPath:"building.ifc",buildingSha256:buildingHash},
+    scene:{assetPath:"scene.glb",assetSha256:glbHash},
+    nodes:[{canonicalId:"chair",ifcGlobalId:guid}],
+  };
+  const storage = new MemoryStorage({revision:0,fingerprint:canonicalTwinFingerprint(twin),canonical:twin});
+  const opened = await openProjectPersistence(storage,assertTwinIntegrity,"roundtrip-scale","test:real-ifc-scale");
+  const controller = new StudioProjectController(twin,opened.session,{
+    bytes:sourceBytes,sourceBytes,placements:[],scene,createAdapter:async()=>adapter,
+  });
+  await controller.prepareFurnitureEditing("chair");
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
+  controller.transformFurniture("chair",{position:[2,3,1],yawRadians:0},[1.25,1.5,0.8]);
+  expect(controller.history.undoDepth).toBe(1);
+  await controller.save();
+  const persisted = storage.primary?.derived as {
+    bytes:Uint8Array;
+    placements:readonly import("@teldra/project-format").ScenePlacementOverride[];
+  } | undefined;
+  if (!persisted) throw new Error("Scaled canonical IFC was not staged for persistence.");
+  const stored = await replaceTeldraBuilding(originalArchive,persisted.bytes,scene,persisted.placements);
+  const reopenedArchive = await openTeldraArchive(stored.bytes);
+  const reconciled = await readScenePlacementOverrides(reopenedArchive,scene);
+  expect(reconciled?.version).toBe(2);
+  expect(reconciled?.placements[0]?.scale).toEqual([1.25,1.5,0.8]);
+  const reopenedIfc = reopenedArchive.entries.find(entry=>entry.path==="building.ifc")?.bytes;
+  if (!reopenedIfc) throw new Error("Reopened .teldra has no canonical building.");
+  expect(readFurnitureGeometryScale(api,sourceBytes,guid)).toEqual([1,1,1]);
+  expect(readFurnitureGeometryScale(api,reopenedIfc,guid)).toEqual([1.25,1.5,0.8]);
+  const pose = readFurniturePose(api,reopenedIfc,guid);
+  expect(pose.position).toEqual([2,3,1]);
+  validateIfcScenePlacements(adapter,sourceBytes,reopenedIfc,reconciled!.placements);
+  expect(reopenedArchive.manifest.building.sha256).toBe(await sha256Bytes(reopenedIfc));
+  controller.undo();
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
+  controller.redo();
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1.25,1.5,0.8]});
+  await opened.session.close();
 });
