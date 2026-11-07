@@ -3,6 +3,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import { Scene } from "@babylonjs/core/scene";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { FurnitureGizmoBridge, furnitureSceneDelta } from "../src/furniture-gizmo";
@@ -25,9 +26,13 @@ describe("IFC furniture projection", () => {
     const engine = new NullEngine(), scene = new Scene(engine);
     try {
       const mesh = CreateBox("furniture", {}, scene);
+      mesh.material = new StandardMaterial("source",scene);
       mesh.position.copyFrom(Vector3.TransformCoordinates(Vector3.FromArray(original.position), C));
       const bridge = new FurnitureGizmoBridge(scene, C, id => id === "chair" ? [mesh] : []);
+      const measuredSource = bridge.measureSourceGeometry("chair",original);
+      expect(measuredSource.size).toEqual([1,1,1]);
       bridge.apply({canonicalId: "chair", original, current});
+      expect(bridge.measureSourceGeometry("chair",original)).toEqual(measuredSource);
       const expected = Vector3.TransformCoordinates(Vector3.FromArray(current.position), C);
       expect(mesh.position.asArray()).toEqual(expected.asArray().map(value => expect.closeTo(value, 5)));
       bridge.apply({canonicalId: "chair", original, current: original});
