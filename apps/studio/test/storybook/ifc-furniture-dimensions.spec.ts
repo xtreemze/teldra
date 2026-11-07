@@ -32,6 +32,16 @@ test("editable SH3D nominal dimensions preview mapped scale and remain cancellab
   await expect(page.getByTestId("committed-scale")).toHaveText("1,1,1");
 
   await page.getByRole("button",{name:"Edit placement",exact:true}).click();
+  await page.getByLabel("Nominal width (m)",{exact:true}).fill("-1");
+  await page.getByLabel("Nominal width (m)",{exact:true}).press("Tab");
+  await expect(page.getByLabel("Nominal width (m)",{exact:true})).toHaveAttribute("aria-invalid","true");
+  await expect(page.getByRole("alert")).toContainText("Nominal dimensions");
+  await page.getByRole("button",{name:"Apply placement",exact:true}).click();
+  await expect(page.getByTestId("committed-scale")).toHaveText("1,1,1");
+  await expect(page.getByLabel("Nominal width (m)",{exact:true})).toBeVisible();
+  await page.getByLabel("Nominal width (m)",{exact:true}).fill("0.5");
+  await page.getByLabel("Nominal width (m)",{exact:true}).press("Tab");
+  await expect(page.getByLabel("Nominal width (m)",{exact:true})).toHaveAttribute("aria-invalid","false");
   await page.getByLabel("Nominal depth (m)",{exact:true}).fill("0.75");
   await page.getByLabel("Nominal depth (m)",{exact:true}).press("Tab");
   await page.getByRole("button",{name:"Apply placement",exact:true}).click();
