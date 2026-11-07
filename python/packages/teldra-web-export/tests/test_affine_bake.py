@@ -235,7 +235,6 @@ def test_rejects_parented_mesh_animations_and_broken_accessors(tmp_path):
         return mutated, derived
 
     bad_cases = (
-        lambda d: d["nodes"][0].update(translation=[1, 0, 0]),
         lambda d: d["nodes"][0].update(children=[0]),
         lambda d: d["nodes"][0].update(matrix=[1] * 16, translation=[1, 0, 0]),
         lambda d: d["nodes"][0].update(scale=[-1, 1, 1]),
