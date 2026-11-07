@@ -36,6 +36,7 @@ export function sourceMaterialProjection(material: Material, scene: Scene): Mate
   const power = scalar("Ns", 0);
   const alpha = scalar("d", 1, 1);
   const projected = new StandardMaterial(`${material.name}:source-phong`, scene);
+  projected.maxSimultaneousLights = 8;
   projected.diffuseColor = diffuse;
   projected.ambientColor = ambient;
   projected.specularColor = specular;

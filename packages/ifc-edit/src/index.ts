@@ -1,4 +1,4 @@
-import { IfcAPI, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM } from "web-ifc";
+import { IfcAPI, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM } from "web-ifc";
 
 /** IFC world coordinates in metres, Z up; rotation is about world Z. */
 export interface FurniturePose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
@@ -19,10 +19,12 @@ function model<T>(api: IfcAPI, bytes: Uint8Array, run: (id: number) => T): T {
   } finally { api.CloseModel(id); }
 }
 function find(api: IfcAPI, modelID: number, guid: string): Line {
-  const ids = api.GetLineIDsWithType(modelID, IFCFURNITURE);
   const found: Line[] = [];
-  for (let i = 0; i < ids.size(); i++) { const line = api.GetLine(modelID, ids.get(i)) as Line; if (line.GlobalId?.value === guid) found.push(line); }
-  if (found.length !== 1) throw new Error("Expected exactly one matching IfcFurniture GlobalId.");
+  for (const type of [IFCFURNITURE, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY]) {
+    const ids = api.GetLineIDsWithType(modelID, type);
+    for (let i=0;i<ids.size();i++) { const line=api.GetLine(modelID,ids.get(i)) as Line; if(line.GlobalId?.value===guid) found.push(line); }
+  }
+  if(found.length!==1) throw new Error("Expected one supported IFC furniture, fixture or proxy GlobalId.");
   const furniture = found[0]!;
   const placementId = furniture.ObjectPlacement?.value;
   const placements = api.GetLineIDsWithType(modelID, IFCLOCALPLACEMENT);

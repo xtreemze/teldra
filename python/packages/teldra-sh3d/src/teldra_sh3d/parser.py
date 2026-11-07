@@ -162,6 +162,8 @@ def _parse_furniture(node: ElementTree.Element, ordinal: int) -> Sh3dFurniture:
         wall_binding=wall_binding,
         power=_float(node, "power", default=0.5) if kind == "light" else None,
         light_sources=light_sources,
+        visible=_boolean(node, "visible", default=True),
+        model_mirrored=_boolean(node, "modelMirrored", default=False),
     )
 
 

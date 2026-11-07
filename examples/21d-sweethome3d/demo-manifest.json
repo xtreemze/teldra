@@ -1,11 +1,11 @@
 {
   "name": "21D Sweet Home 3D",
   "file": "21D-demo.teldra",
-  "sha256": "11c6eeabf35bd7d01e5c1a71f5a9c199e0ca92d635d52c051ac789b59db817a3",
-  "bytes": 55967121,
+  "sha256": "3f885450ec2f7517209bb595c73ba5cd669e8c0a478e5c99b709992db3ca5ff4",
+  "bytes": 68731813,
   "sourceSha256": "cf8bda595744221beb8aafc2abb119ab4bd6e581f48d8b95dcf3fa7f55e0e8e7",
   "meshParts": 9512,
   "materials": 467,
   "embeddedImages": 208,
-  "packaging": "ZIP deflate; all uncompressed entries byte-identical to verified complete conversion"
+  "packaging": "ZIP deflate; native furniture IFC tessellation and imported lamp/window sources"
 }

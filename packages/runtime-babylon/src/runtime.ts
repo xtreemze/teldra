@@ -16,9 +16,10 @@ import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import type { BaseTexture } from "@babylonjs/core/Materials/Textures/baseTexture";
 import { Material } from "@babylonjs/core/Materials/material";
-import { applySourceLighting } from "./source-lighting.js";
+import { SelectionOutline } from "./selection-outline.js";
+import { applySourceLighting, assignSourceLights, applySourceLightPlacements } from "./source-lighting.js";
 import { sourceMaterialProjection } from "./source-material.js";
-import { FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
+import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
@@ -42,7 +43,7 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
-  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string };
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number };
   renderStats(): { backend: BabylonBackend; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
@@ -65,6 +66,7 @@ export interface BabylonTwinRuntime {
   setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number}): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
+  setSelection(canonicalId: string | null): void;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
   onPick(listener: (identity: TwinRenderIdentity | null) => void): () => void;
   start(): void;
@@ -98,6 +100,8 @@ export async function createBabylonTwinRuntime(
   );
   const scene = new Scene(engine);
   const instrumentation = new SceneInstrumentation(scene);
+  const selectionOutline = new SelectionOutline(scene);
+  let selectionId: string | null = null;
   scene.useRightHandedSystem = true;
 
   const normalizeCanvasTabOrder = () => {
@@ -132,6 +136,7 @@ export async function createBabylonTwinRuntime(
   const furniture = new FurnitureGizmoBridge(scene, Matrix.FromArray(manifest.scene.canonicalToScene),
     id => meshesByCanonicalId.get(id) ?? []);
   let projectedPlacementIds = new Set<string>();
+  let committedPlacements: readonly ScenePlacement[] = [];
   const viewListeners = new Set<(state: ViewState) => void>();
   const pickSubscriptions = new Set<() => void>();
   let disposed = false;
@@ -140,6 +145,7 @@ export async function createBabylonTwinRuntime(
   const frameSamples: number[] = [];
   const renderFrame = () => {
     const start = performance.now();
+    selectionOutline.update(selectionId ? meshesByCanonicalId.get(selectionId) ?? [] : []);
     scene.render();
     frameSamples.push(performance.now() - start);
     if (frameSamples.length > 120) frameSamples.shift();
@@ -390,8 +396,25 @@ export async function createBabylonTwinRuntime(
       for (const id of projectedPlacementIds) if (!next.has(id)) furniture.applyMatrix({canonicalId: id, matrix: Matrix.Identity().asArray()});
       for (const placement of placements) furniture.applyMatrix(placement);
       projectedPlacementIds = next;
+      committedPlacements = placements;
+      applySourceLightPlacements(scene, placements, Matrix.FromArray(manifest.scene.canonicalToScene));
+      assignSourceLights(scene, physicalMeshes);
     },
-    beginFurnitureEdit: (placement, onPreview, onDragState, onScalePreview) => furniture.begin(placement, onPreview, onDragState, onScalePreview),
+    beginFurnitureEdit(placement, onPreview, onDragState, onScalePreview) {
+      const frame=Matrix.FromArray(manifest.scene.canonicalToScene);
+      let draftPose=placement.current, draftScale=placement.currentScale ?? [1,1,1] as const;
+      const updateLights=()=>{
+        const ratio=placement.sourceScale ? draftScale.map((value,i)=>value/placement.sourceScale![i]!) as [number,number,number] : [1,1,1] as const;
+        const delta=furnitureSceneDelta(Matrix.Identity(),placement.original,draftPose,ratio).asArray();
+        applySourceLightPlacements(scene,[...committedPlacements.filter(item=>item.canonicalId!==placement.canonicalId),{canonicalId:placement.canonicalId,matrix:delta}],frame);
+      };
+      const session=furniture.begin(placement, pose=>{draftPose=pose;updateLights();onPreview(pose);},
+        dragging=>{if(!dragging)assignSourceLights(scene,physicalMeshes);onDragState?.(dragging);},
+        scale=>{draftScale=scale;updateLights();onScalePreview?.(scale);});
+      return {...session,setPose(pose){session.setPose(pose);draftPose=pose;updateLights();},
+        setScale(scale){session.setScale(scale);draftScale=scale;updateLights();},
+        cancel(){session.cancel();applySourceLightPlacements(scene,committedPlacements,frame);assignSourceLights(scene,physicalMeshes);}};
+    },
     renderStats() {
       const sorted = [...frameSamples].sort((a, b) => a - b);
       const percentile = (p: number) => sorted.length ? sorted[Math.ceil(p * sorted.length) - 1]! : null;
@@ -403,6 +426,7 @@ export async function createBabylonTwinRuntime(
     assetSummary() {
       return {
         lightingProfile,
+        localLightSources: scene.lights.filter(light=>light.name.startsWith("sh3d-local-")).length,
         meshParts: loadedMeshParts,
         visibleMeshParts: renderMeshes.filter(mesh => layers.isVisible(mesh)).length,
         hiddenSourceParts: sourceHiddenMeshes.size,
@@ -576,6 +600,7 @@ export async function createBabylonTwinRuntime(
         const hasSourceLighting = applySourceLighting(lighting, scene);
         if (hasSourceLighting) previewLight?.setEnabled(false);
         container.addAllToScene();
+        if(hasSourceLighting)assignSourceLights(scene,physical);
         await scene.whenReadyAsync();
         if (disposed) throw new Error("Cannot complete loading a disposed Babylon runtime.");
         if (defaultCamera && physical.length) fitCamera(defaultCamera, physical);
@@ -632,6 +657,7 @@ export async function createBabylonTwinRuntime(
       return projectNodeToClient(nodeKey);
     },
 
+    setSelection(canonicalId){selectionId=canonicalId;},
     pick(clientX: number, clientY: number): TwinRenderIdentity | null {
       return pickAtClient(clientX, clientY);
     },
@@ -689,6 +715,7 @@ export async function createBabylonTwinRuntime(
       tabIndexObserver.disconnect();
       releaseBlenderPointer?.();
       furniture.dispose();
+      selectionOutline.dispose();
       instrumentation.dispose();
       scene.dispose();
       engine.dispose();
