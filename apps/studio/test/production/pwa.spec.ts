@@ -44,3 +44,59 @@ test("installed Studio can reopen the sample project with no network", async ({ 
   await expect(page.getByTestId("browser-project-file")).toBeVisible();
   await context.setOffline(false);
 });
+
+test("offline workers serve the current shell and retained previous lazy assets", async ({ page, context }) => {
+  await page.goto("./?launch=file");
+  await page.evaluate(async () => { await navigator.serviceWorker.ready; });
+  await page.reload();
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+
+  // A second window can still request a hashed bundle from the preceding build.
+  const expectedIcon = await page.evaluate(async () =>
+    (await fetch(new URL("./icons/icon.svg", location.href))).text());
+  await page.evaluate(async () => {
+    const previous = await caches.open("teldra-studio-shell-legacy-test");
+    await previous.put(new URL("./assets/old-editor-chunk.js", location.href),
+      new Response("export const editorVersion = 'old';", {
+        headers: { "Content-Type": "text/javascript" },
+      }));
+    // Same-path assets must come from the current release, never a prior build.
+    await previous.put(new URL("./icons/icon.svg", location.href),
+      new Response("<svg>stale icon</svg>", { headers: { "Content-Type": "image/svg+xml" } }));
+  });
+
+  await context.setOffline(true);
+  try {
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Open .teldra" })).toBeVisible();
+    const content = await page.evaluate(async () =>
+      (await fetch(new URL("./assets/old-editor-chunk.js", location.href))).text());
+    expect(content).toBe("export const editorVersion = 'old';");
+    const icon = await page.evaluate(async () =>
+      (await fetch(new URL("./icons/icon.svg", location.href))).text());
+    expect(icon).toBe(expectedIcon);
+    await context.setOffline(false);
+    await page.goto("./third-party-notices.html");
+    await expect(page.getByRole("heading", { name: "Third-party notices" })).toBeVisible();
+  } finally {
+    await context.setOffline(false);
+  }
+});
+
+test("narrow installed iOS-style header keeps project opening and install guidance reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17 Mobile/15E148 Safari/604.1",
+    });
+  });
+  await page.goto("./?launch=file");
+  const add = page.getByRole("button", { name: "Add Teldra Studio to Home Screen" });
+  await expect(add).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open .teldra" })).toBeVisible();
+  expect(await page.evaluate(() =>
+    document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await add.click();
+  await expect(page.getByText("In Safari, open Share and choose Add to Home Screen.")).toBeVisible();
+});

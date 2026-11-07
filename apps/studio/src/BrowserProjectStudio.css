@@ -82,3 +82,11 @@ body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: 
     border-radius: .5rem; background: #17212d; box-shadow: 0 .4rem 1rem #0005;
   }
 }
+
+@media (max-width: 23rem) {
+  .teldra-browser-studio__masthead { gap: .35rem; }
+  .teldra-browser-studio__masthead > div:first-child { min-width: 0; gap: 0; }
+  .teldra-browser-studio__eyebrow { font-size: .72rem; letter-spacing: .025em; }
+  .teldra-pwa-controls__button { min-width: 2.5rem; justify-content: center; }
+  .teldra-pwa-controls__label { display: none; }
+}

@@ -41,9 +41,14 @@ the interactive network response. Local `.teldra` documents stay user-owned and
 are never copied to the public application cache.
 
 Service worker cache names change with build content, keeping upgrades atomic.
-The old worker continues serving an open editing session until the user chooses
-**Update**. When a canonical project has unsaved changes, the update action
-requires saving or discarding them before reload. The service worker does not
+Once a worker controls Studio, navigation uses its cached HTML to avoid mixing
+newly deployed markup with old hashed renderer/IFC bundles. After user-accepted
+activation, the newly active worker retains the immediately preceding app-shell
+cache so older open tabs can request their lazy code offline; it looks up
+current-release assets before older versions. On later upgrades, older caches
+are pruned to bound storage. The old worker continues serving an open editing
+session until the user chooses **Update**. When a canonical project has unsaved
+changes, the update action requires saving or discarding them before reload. The service worker does not
 intercept Home Assistant traffic, cross-origin requests, non-GET operations,
 range requests, or local blob URLs.
 
