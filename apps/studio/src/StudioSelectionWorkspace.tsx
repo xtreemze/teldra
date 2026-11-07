@@ -5,6 +5,7 @@ import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit
 import { transformShortcut, numericFurniturePose, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
+import { MobileTransformPad } from "./MobileTransformPad";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
 import {
@@ -34,6 +35,8 @@ export function StudioSelectionWorkspace(
   const [viewportDraft, setViewportDraft] = createSignal<FurnitureWorldPose>();
   const [editingFurniture, setEditingFurniture] = createSignal(false);
   const [editMode, setEditMode] = createSignal<"translate" | "rotate">("translate");
+  const [translationSnap, setTranslationSnap] = createSignal(0);
+  const [rotationSnap, setRotationSnap] = createSignal(0);
   const [editRequest, setEditRequest] = createSignal(0);
   const [transformModal, setTransformModal] = createSignal<TransformModal | null>(null);
   const [transformMessage, setTransformMessage] = createSignal("");
@@ -114,6 +117,27 @@ export function StudioSelectionWorkspace(
       editSession.setPose(next);
       setViewportDraft(next);
     }
+  };
+  const previewTouchTransform = (pose: FurnitureWorldPose) => {
+    if (!editSession) return;
+    try {
+      editSession.setPose(pose);
+      setViewportDraft(pose);
+      setActionError("");
+    } catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
+  };
+  const applyTouchTransform = () => {
+    if (!furnitureControls?.apply()) {
+      setActionError("Transform was not applied. Check the inspector for the IFC validation error.");
+      return;
+    }
+    setTransformMessage("IFC placement updated. Save the project to retain it.");
+  };
+  const cancelTouchTransform = () => {
+    furnitureControls?.cancel();
+    stopFurnitureEdit();
+    setEditRequest(0);
+    setTransformMessage("Touch transform cancelled. IFC placement unchanged.");
   };
   const furnitureEditingChanged = (editing: boolean) => {
     if (!editing) { stopFurnitureEdit(); setEditRequest(0); return; }
@@ -236,6 +260,12 @@ export function StudioSelectionWorkspace(
           <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
         </div>
       </Show>
+      <Show when={editingFurniture() && selectedBuildingRef()?.kind === "furniture"}>
+        <MobileTransformPad mode={editMode()} pose={() => viewportDraft() ??
+          props.controller.furniturePose(selectedCanonicalId()!)}
+          translationSnap={translationSnap()} rotationSnap={rotationSnap()}
+          onPreview={previewTouchTransform} onApply={applyTouchTransform} onCancel={cancelTouchTransform} />
+      </Show>
       <section class="teldra-studio-selection-workspace__viewport">
         <TwinViewport
           manifest={props.manifest}
@@ -283,7 +313,7 @@ export function StudioSelectionWorkspace(
         <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
             onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
-            editRequest={editRequest()} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
+            editRequest={editRequest()} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => { setTranslationSnap(metres); setRotationSnap(radians); editSession?.setSnap(metres, radians); }}
             onPreview={(pose) => { if (pose) { editSession?.setPose(pose); setViewportDraft(pose); } else { setViewportDraft(undefined); projectPlacements(); } }} />
         </>}</Show>
 
