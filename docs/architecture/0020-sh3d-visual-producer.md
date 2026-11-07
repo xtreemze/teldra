@@ -100,6 +100,12 @@ Run after resolving Git LFS with the Python workspace dependencies. Real-demo
 browser tests also assert that all 13 floor textures remain bound and GPU-ready
 after Babylon's Phong projection.
 
+To compare GPU pipelines on the same device, Studio recognizes the view-only
+`?renderer=webgl` query flag. It skips WebGPU device selection, preserving the
+project and imported materials, and reports the selected backend in viewport
+status. Without the flag, normal WebGPU-first selection remains unchanged.
+This is a diagnostic/fallback path rather than proof that WebGL is correct.
+
 
 ## Viewport navigation and layers
 
