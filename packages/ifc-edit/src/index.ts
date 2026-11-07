@@ -244,7 +244,7 @@ export function readFurnitureSourceDimensions(
       throw new Error("Unsupported SH3D dimension coordinate frame.");
     const readLength = (name: string): number => {
       const value = source.get(name)?.NominalValue;
-      if (value?.type !== IFCREAL || typeof value.value !== "number" ||
+      if (typeof value?.value !== "number" ||
           !Number.isFinite(value.value) || value.value <= 0 || value.value > 1000)
         throw new Error("Invalid or missing SH3D source dimension: " + name);
       return value.value;
