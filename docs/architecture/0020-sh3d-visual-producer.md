@@ -184,3 +184,23 @@ becomes black under trilinear filtering, inspect GPU mipmap generation and
 sampling behavior. If it does not, investigate occlusion or normal shader
 response rather than applying arbitrary diffuse/emissive compensation. A
 recognizable pattern cannot be guaranteed at arbitrarily small pixel footprints.
+
+
+### Read-only surface identification
+
+Studio's desktop and mobile View → Appearance panels include an opt-in **Identify
+visible surface** action. It arms one canvas pointer-up and reports the
+nearest Babylon CPU ray-pick result at that screen coordinate: canonical
+identity (including possibly a non-room occluder), mesh/material name, diffuse
+image name/readiness, sampler mode/anisotropy, UV, world normal, camera
+intersection distance and Phong Kd. On mobile the View sheet closes while
+armed so the user can tap a dark area, then reopen it to inspect the result.
+
+This tool does not modify selection, materials, geometry, lighting or saved
+project data. It is **not** a GPU framebuffer color probe; CPU ray picking can
+differ from rasterized pixels where surfaces exactly overlap, transparency is
+present, or depth ordering differs. When diagnosing black floors, compare the
+same point at two camera distances and note whether its canonical identity or
+texture changes. If they do, inspect occlusion/depth ordering. If identity
+and source texture remain identical, investigate texture sampling and
+material/light evaluation rather than mesh visibility.
