@@ -355,13 +355,18 @@ export function StudioSelectionWorkspace(
   onMount(() => {
     const compact = () => window.matchMedia("(max-width: 48rem)").matches;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (!compact() || event.key !== "Escape" || event.defaultPrevented || editingFurniture()) return;
+      if (!compact() || event.key !== "Escape" || event.defaultPrevented) return;
+      // Project/context menus close before the underlying IFC Escape handler can cancel a draft.
       if (mobileProjectOpen()) setMobileProjectOpen(false);
       else if (mobileContextOpen()) setMobileContextOpen(false);
-      else if (sceneOpen()) closeMobileSheet("scene");
-      else if (inspectorOpen()) closeMobileSheet("inspector");
-      else return;
+      else {
+        if (editingFurniture()) return; // Editor Escape retains its existing Cancel contract.
+        if (sceneOpen()) closeMobileSheet("scene");
+        else if (inspectorOpen()) closeMobileSheet("inspector");
+        else return;
+      }
       event.preventDefault();
+      event.stopPropagation();
       workspaceRoot.querySelector<HTMLButtonElement>('[data-testid="mobile-scene-trigger"]')?.focus();
     };
     const closeOnCanvas = (event: PointerEvent) => {
@@ -373,11 +378,11 @@ export function StudioSelectionWorkspace(
       if (mobileContextOpen()) setMobileContextOpen(false);
     };
     window.addEventListener("keydown", keydown, true);
-    window.addEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", closeOnEscape, true);
     workspaceRoot.addEventListener("pointerdown", closeOnCanvas, true);
     onCleanup(() => {
       window.removeEventListener("keydown", keydown, true);
-      window.removeEventListener("keydown", closeOnEscape);
+      window.removeEventListener("keydown", closeOnEscape, true);
       workspaceRoot.removeEventListener("pointerdown", closeOnCanvas, true);
     });
   });
