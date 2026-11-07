@@ -33,6 +33,7 @@ export function StudioSelectionWorkspace(
   const [viewportDraft, setViewportDraft] = createSignal<FurnitureWorldPose>();
   const [editingFurniture, setEditingFurniture] = createSignal(false);
   const [editMode, setEditMode] = createSignal<"translate" | "rotate">("translate");
+  const [editRequest, setEditRequest] = createSignal(0);
   let editSession: FurnitureEditSession | undefined;
 
   const refreshSelection = () =>
@@ -54,7 +55,7 @@ export function StudioSelectionWorkspace(
   };
 
   const selectCanonicalId = (canonicalId: string | null) => {
-    if (canonicalId !== props.controller.selectedCanonicalId) stopFurnitureEdit();
+    if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); }
     props.controller.selectCanonicalId(canonicalId);
     if (canonicalId !== null) {setInspectorOpen(true); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}
     refreshSelection();
@@ -97,13 +98,14 @@ export function StudioSelectionWorkspace(
     projectPlacements();
   };
   const furnitureEditingChanged = (editing: boolean) => {
-    if (!editing) { stopFurnitureEdit(); return; }
-    setEditingFurniture(true);
+    if (!editing) { stopFurnitureEdit(); setEditRequest(0); return; }
     const id = selectedCanonicalId();
-    if (!id || !viewport()) return;
+    if (!id || !viewport()) { setActionError("The 3D viewport is not ready for furniture editing."); return; }
     try {
       editSession = viewport()!.beginFurnitureEdit(props.controller.furniturePlacement(id), setViewportDraft);
       editSession.setMode(editMode());
+      setEditingFurniture(true);
+      setActionError("");
     } catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
   };
   createEffect(() => { selectionVersion(); viewport(); projectPlacements(); });
@@ -118,6 +120,16 @@ export function StudioSelectionWorkspace(
         <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}>Undo</button>
         <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}>Redo</button>
         <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+        <Show when={selectedBuildingRef()?.kind === "furniture"}>
+          <Show when={!editingFurniture()} fallback={
+            <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
+              <button type="button" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); }}>Move</button>
+              <button type="button" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
+            </div>
+          }>
+            <button type="button" disabled={!viewport()} title={viewport() ? "Manipulate selected furniture with 3D gizmos" : "3D scene is still loading"} onClick={() => { setInspectorOpen(true); setEditRequest((request) => request + 1); }}>Edit transform</button>
+          </Show>
+        </Show>
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
         <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
       </div>
@@ -167,12 +179,8 @@ export function StudioSelectionWorkspace(
         <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}>
         <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
-            onEditingChange={furnitureEditingChanged} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
+            onEditingChange={furnitureEditingChanged} editRequest={editRequest()} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
             onPreview={(pose) => { if (pose) editSession?.setPose(pose); else projectPlacements(); }} />
-          <Show when={editingFurniture()}><div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
-            <button type="button" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); }}>Move</button>
-            <button type="button" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
-          </div></Show>
         </>}</Show>
 
         <section

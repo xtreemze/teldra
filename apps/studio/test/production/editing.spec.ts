@@ -6,7 +6,11 @@ test("Pages demo edits IFC furniture, saves atomically, and reopens with the sam
  await page.goto("./?demo=sample");await page.getByRole("button",{name:"Try demo",exact:true}).click();
  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
  const chair=()=>page.getByRole("list",{name:"Building objects",exact:true}).getByRole("button",{name:/^Chair/});
- await chair().click();await page.getByRole("button",{name:"Edit placement",exact:true}).click();
+ await chair().click();await page.getByRole("button",{name:"Edit transform",exact:true}).click();
+ await expect(page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Move"})).toHaveAttribute("aria-pressed","true");
+ await page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Rotate"}).click();
+ await expect(page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Rotate"})).toHaveAttribute("aria-pressed","true");
+ await page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Move"}).click();
  const x=page.getByLabel("Position X (m)",{exact:true});await expect(x).toHaveValue("1");
  await page.getByLabel("Position snap (m, 0 off)",{exact:true}).fill("0.25");await x.fill("1.76");await page.getByLabel("Rotation (degrees)",{exact:true}).fill("45");
  await page.getByRole("button",{name:"Apply placement",exact:true}).click();
