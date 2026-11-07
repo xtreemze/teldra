@@ -71,6 +71,8 @@ def _read_archive(payload: bytes) -> dict[str, bytes]:
             ):
                 raise WebSceneExportError("Teldra archive contains duplicate or unsafe paths.")
             return {item.filename: zip_file.read(item.filename) for item in records}
+    except WebSceneExportError:
+        raise
     except (zipfile.BadZipFile, OSError, EOFError, RuntimeError) as error:
         raise WebSceneExportError("Cannot read the source Teldra archive.") from error
 
