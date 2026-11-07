@@ -20,6 +20,7 @@ import { SelectionOutline } from "./selection-outline.js";
 import { applySourceLighting, assignSourceLights, applySourceLightPlacements } from "./source-lighting.js";
 import { sourceMaterialProjection } from "./source-material.js";
 import { applyPreviewShadowDetail, SH3D_EDITING_SHADOW_DETAIL } from "./preview-shadow-detail.js";
+import { FloorTextureInspector } from "./floor-texture-inspector.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
@@ -132,8 +133,9 @@ export async function createBabylonTwinRuntime(
   let renderMeshes: AbstractMesh[] = [];
   const lightBases = new Map<import("@babylonjs/core/Lights/light").Light, number>();
   let texturesEnabled = true, lightGain = 1, shadowDetail = 0, floorTextureInspection = false;
-  // Preserve each imported floor material's original renderer-only lighting flag.
-  const floorSourceMaterials = new Map<StandardMaterial, boolean>();
+  // Preserve original renderer materials while giving floor imagery a genuine
+  // emissive, light-independent inspection path.
+  const floorInspector = new FloorTextureInspector();
   const materialTextures = new Map<Material, BaseTexture | null>();
 
   let physicalMeshes: AbstractMesh[] = [];
@@ -445,8 +447,8 @@ export async function createBabylonTwinRuntime(
         roomTexturesBound: roomTexturesBound.length,
         roomTexturesReady: roomTexturesBound.filter(mesh =>
           (mesh.material as StandardMaterial).diffuseTexture?.isReady() === true).length,
-        floorInspectionMaterials: floorSourceMaterials.size,
-        floorUnlitMaterials: [...floorSourceMaterials.keys()].filter(material => material.disableLighting).length,
+        floorInspectionMaterials: floorInspector.materialCount,
+        floorUnlitMaterials: floorInspector.activeCount,
         lightingProfile,
         localLightSources: scene.lights.filter(light=>light.name.startsWith("sh3d-local-")).length,
         meshParts: loadedMeshParts,
@@ -497,12 +499,17 @@ export async function createBabylonTwinRuntime(
     },
     appearance: () => ({texturesEnabled, lightGain, shadowDetail, floorTextureInspection}),
     setAppearance(settings) {
-      if (settings.floorTextureInspection !== undefined) {
+      if (settings.floorTextureInspection === true && !texturesEnabled &&
+          settings.texturesEnabled !== true) {
+        throw new Error("Enable textures before inspecting floor images.");
+      }
+      if (settings.texturesEnabled === false) {
+        floorInspector.setEnabled(false);
+        floorTextureInspection = false;
+      }
+      if (settings.floorTextureInspection !== undefined && settings.texturesEnabled !== false) {
+        floorInspector.setEnabled(settings.floorTextureInspection);
         floorTextureInspection = settings.floorTextureInspection;
-        for (const [material, original] of floorSourceMaterials) {
-          // View-only inspection; no source color, UV or project mutation.
-          material.disableLighting = floorTextureInspection ? true : original;
-        }
       }
       if (settings.shadowDetail !== undefined) {
         applyPreviewShadowDetail(scene, settings.shadowDetail);
@@ -671,8 +678,8 @@ export async function createBabylonTwinRuntime(
         for (const [mesh, identity] of stagedIdentities) {
           if (/^(sh3d:)?room:/.test(identity.canonicalId) &&
               mesh.material instanceof StandardMaterial && mesh.material.diffuseTexture &&
-              !floorSourceMaterials.has(mesh.material)) {
-            floorSourceMaterials.set(mesh.material, mesh.material.disableLighting);
+              mesh.material.diffuseTexture) {
+            floorInspector.register(mesh.material);
           }
         }
         if (hasSourceLighting) {
@@ -765,6 +772,7 @@ export async function createBabylonTwinRuntime(
       releaseBlenderPointer?.();
       furniture.dispose();
       selectionOutline.dispose();
+      floorInspector.restore();
       instrumentation.dispose();
       scene.dispose();
       engine.dispose();

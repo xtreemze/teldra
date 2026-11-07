@@ -84,14 +84,18 @@ texture detail that the source image does not contain. Verify the visual effect
 on actual 21D material assets on both WebGL and WebGPU before declaring
 photometric parity.
 
-**Floor texture inspection:** Studio's Appearance menu offers an explicitly
-unlit, reversible floor-texture view. For imported SH3D room surfaces with a
-bound diffuse texture, it temporarily disables lighting on the derived Babylon
-StandardMaterial. All material color factors, UVs, source texture bytes, source
-lighting metadata and IFC/project state remain untouched; toggling off or
-restoring source appearance reinstates the original lighting flags. This mode
-is a diagnostic/authoring aid, not a correction to physical indoor illumination
-or a claim that the normal renderer has been fixed.
+**Floor texture inspection:** Studio's Appearance menu offers a reversible,
+self-illuminated floor-texture preview. For imported SH3D room surfaces with a
+bound diffuse texture, it binds that same source image to the derived Babylon
+StandardMaterial's **emissive** texture channel, sets emissive color to white,
+enables emissive illumination and disables incoming lights. Merely setting
+`disableLighting=true` previously left the room floors dark and was an
+invalid diagnostic. The original emissive texture, emissive color, illumination
+and lighting flags are restored exactly when inspection is disabled. All diffuse
+colors, UVs, source image bytes, light metadata and IFC/project state remain
+unchanged. Turning textures off automatically exits inspection. This mode
+diagnoses source albedo independent of scene lights: it does not correct the
+normal renderer's indoor illumination.
 
 The published 21D reference has 13 textured floor parts and 3 distinct
 embedded floor images. Read-only audit `tools/diagnostics/audit_21d_floor.py`
