@@ -149,6 +149,97 @@ def _append_accessor(
     return len(doc["accessors"]) - 1
 
 
+def _node_matrices(doc: Mapping[str, Any]) -> list[np.ndarray]:
+    """Resolve glTF node world matrices without editing the existing hierarchy.
+
+    Cross-identity parents are safe for vertex baking: local mesh coordinates
+    receive W^-1 D W while parents and all unrelated children remain fixed.
+    """
+    nodes = doc.get("nodes", [])
+    if not isinstance(nodes, list) or len(nodes) > _MAX_VERTICES:
+        raise WebSceneExportError("Invalid or oversized source GLB scene graph.")
+    parents: dict[int, int] = {}
+    for parent, node in enumerate(nodes):
+        if not isinstance(node, dict):
+            raise WebSceneExportError("Source GLB node records must be objects.")
+        children = node.get("children", [])
+        if not isinstance(children, list):
+            raise WebSceneExportError("Invalid GLB child relationships.")
+        if any(not isinstance(child, int) for child in children) or len(set(children)) != len(children):
+            raise WebSceneExportError("Invalid GLB node child relationships.")
+        for child in children:
+            if not 0 <= child < len(nodes) or child in parents:
+                raise WebSceneExportError("GLB node has an invalid or shared parent.")
+            parents[child] = parent
+
+    def local(node: Mapping[str, Any]) -> np.ndarray:
+        transform_names = ("translation", "rotation", "scale")
+        if "matrix" in node:
+            if any(key in node for key in transform_names):
+                raise WebSceneExportError("GLB node combines a matrix with TRS fields.")
+            values = node["matrix"]
+            if not isinstance(values, list) or len(values) != 16:
+                raise WebSceneExportError("GLB source node matrix must be 4×4.")
+            result = np.asarray(values, dtype=np.float64).reshape(4, 4, order="F")
+        else:
+            translation = np.asarray(node.get("translation", [0, 0, 0]), dtype=np.float64)
+            scale = np.asarray(node.get("scale", [1, 1, 1]), dtype=np.float64)
+            quaternion = np.asarray(node.get("rotation", [0, 0, 0, 1]), dtype=np.float64)
+            if translation.shape != (3,) or scale.shape != (3,) or quaternion.shape != (4,):
+                raise WebSceneExportError("Invalid source GLB node TRS values.")
+            if not np.isfinite(quaternion).all() or not np.isclose(
+                np.linalg.norm(quaternion), 1, atol=1e-5, rtol=0
+            ):
+                raise WebSceneExportError("GLB node rotation quaternion must be normalized.")
+            x, y, z, w = quaternion
+            rotation = np.array(
+                [
+                    [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                    [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                    [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+                ]
+            )
+            result = np.eye(4)
+            result[:3, :3] = rotation @ np.diag(scale)
+            result[:3, 3] = translation
+        if (
+            not np.isfinite(result).all()
+            or not np.allclose(result[3], [0, 0, 0, 1], atol=1e-7, rtol=0)
+            or np.linalg.det(result[:3, :3]) <= 1e-10
+            or np.linalg.cond(result[:3, :3]) > 1e8
+            or np.max(np.abs(result)) > 1e6
+        ):
+            raise WebSceneExportError("GLB source transforms must be nonsingular and positive.")
+        return result
+
+    frames: list[np.ndarray | None] = [None] * len(nodes)
+    visiting: set[int] = set()
+
+    def world(index: int) -> np.ndarray:
+        existing = frames[index]
+        if existing is not None:
+            return existing
+        if index in visiting:
+            raise WebSceneExportError("Cyclic GLB node hierarchy cannot be baked.")
+        visiting.add(index)
+        result = local(nodes[index])
+        if index in parents:
+            result = world(parents[index]) @ result
+        if (
+            not np.isfinite(result).all()
+            or np.linalg.det(result[:3, :3]) <= 1e-10
+            or np.linalg.cond(result[:3, :3]) > 1e8
+        ):
+            raise WebSceneExportError("Combined source GLB transform cannot be inverted safely.")
+        visiting.remove(index)
+        frames[index] = result
+        return result
+
+    for i in range(len(nodes)):
+        world(i)
+    return [frame for frame in frames if frame is not None]
+
+
 def _placement_matrix(matrix: Sequence[float]) -> np.ndarray:
     if len(matrix) != 16 or not all(
         isinstance(v, (float, int)) and math.isfinite(v) for v in matrix
@@ -200,9 +291,14 @@ def bake_static_furniture_glb(
         raise WebSceneExportError(
             "Animated or skinned scenes require a separate deformation rebaker."
         )
-    if any(name in doc.get("extensionsUsed", []) for name in (
-        "KHR_draco_mesh_compression", "EXT_meshopt_compression", "KHR_mesh_quantization"
-    )):
+    if any(
+        name in doc.get("extensionsUsed", [])
+        for name in (
+            "KHR_draco_mesh_compression",
+            "EXT_meshopt_compression",
+            "KHR_mesh_quantization",
+        )
+    ):
         raise WebSceneExportError("Compressed or quantized mesh accessors require decoding first.")
 
     manifest_nodes = scene_manifest.get("nodes", [])
@@ -228,15 +324,12 @@ def bake_static_furniture_glb(
     if len(doc.get("nodes", [])) > _MAX_VERTICES:
         raise WebSceneExportError("Source GLB contains too many scene nodes.")
 
-    if any(node.get("children") for node in doc.get("nodes", [])):
-        # A flattened native export does not use hierarchy anywhere.
-        raise WebSceneExportError("Parented source GLB nodes require hierarchy-aware regeneration.")
-
+    source_frames = _node_matrices(doc)
     rebuilt = copy.deepcopy(doc)
     binary = bytearray(packed)
     selected: set[tuple[str, str]] = set()
     triangles = 0
-    for node in rebuilt.get("nodes", []):
+    for node_index, node in enumerate(rebuilt.get("nodes", [])):
         tag = node.get("extras", {}).get("teldra", {})
         pair = (tag.get("canonicalId"), tag.get("ifcGlobalId"))
         if pair not in matrices:
@@ -244,17 +337,18 @@ def bake_static_furniture_glb(
         key = tag.get("nodeKey")
         if manifest_by_key.get(key) != pair:
             raise WebSceneExportError("Source GLB identity does not match the scene manifest.")
-        if any(property_name in node for property_name in (
-            "matrix", "translation", "rotation", "scale", "children", "skin", "weights"
-        )):
-            raise WebSceneExportError("Source render node is not flattened static geometry.")
+        if any(key in node for key in ("skin", "weights", "extensions")):
+            raise WebSceneExportError("Skinned or instanced source geometry cannot be baked statically.")
         mesh_index = node.get("mesh")
         if not isinstance(mesh_index, int) or mesh_index >= len(doc["meshes"]) or mesh_index < 0:
             raise WebSceneExportError("Selected source node has no valid GLB mesh.")
         source_mesh = doc["meshes"][mesh_index]
         if source_mesh.get("weights"):
             raise WebSceneExportError("Morphable source mesh cannot be baked statically.")
-        delta = matrices[pair]
+        # Apply the canonical world delta in this mesh's original local frame.
+        # Both its parent hierarchy and other objects remain unchanged.
+        world_frame = source_frames[node_index]
+        delta = np.linalg.inv(world_frame) @ matrices[pair] @ world_frame
         linear = delta[:3, :3]
         normal_matrix = np.linalg.inv(linear).T
         new_mesh = copy.deepcopy(source_mesh)
@@ -305,9 +399,9 @@ def bake_static_furniture_glb(
                 if len(tangents) != len(positions):
                     raise WebSceneExportError("Tangent/position vertex counts differ.")
                 rotated = tangents[:, :3].astype(np.float64) @ linear.T
-                rotated -= (
-                    (rotated * transformed_normals).sum(axis=1)[:, None] * transformed_normals
-                )
+                rotated -= (rotated * transformed_normals).sum(axis=1)[
+                    :, None
+                ] * transformed_normals
                 oriented = _transform_normal(rotated, np.eye(3))
                 if not np.isfinite(tangents[:, 3]).all() or not np.all(
                     np.isclose(np.abs(tangents[:, 3]), 1, atol=1e-5)
