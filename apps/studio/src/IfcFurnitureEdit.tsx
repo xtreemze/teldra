@@ -192,12 +192,12 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
                 Source nominal dimensions unavailable; use the IFC scale factors above.
               </p>
             }>
-              <fieldset class="teldra-ifc-scale-fields" aria-describedby="teldra-nominal-dimensions-description">
+              <fieldset class="teldra-ifc-scale-fields teldra-ifc-nominal-dimensions" aria-describedby="teldra-nominal-dimensions-description">
                 <legend>Authored nominal dimensions (metres)</legend>
                 <For each={["Nominal width (m)", "Nominal depth (m)", "Nominal height (m)"]}>{(label, index) =>
                   <label>{label}
                     <input type="number" min="0.000001" max="1000" step="any"
-                      value={(() => { const state = dimensionStatus(); return state.supported ? state.current[index()] : undefined; })()}
+                      value={(() => { const state = dimensionStatus(); return state.supported ? Number(state.current[index()]!.toPrecision(12)) : undefined; })()}
                       onChange={event => updateDimension(index(), event.currentTarget.valueAsNumber)} />
                   </label>
                 }</For>
