@@ -69,6 +69,21 @@ recoverable in the original source. Sky textures are not yet projected. Existing
 packages without this metadata retain their existing preview lighting and must
 be regenerated with the converter to acquire this profile.
 
+### Studio shadow-detail presentation
+
+The interactive Studio viewport defaults to 65/100 shadow-detail grading when
+`sh3d-preview-v1` is present, applied through Babylon image-processing color
+curves after the source lights and materials. It selectively raises shadow and
+low-midtone visibility without raising highlights, so dark floor texture is
+more legible during editing. The Appearance controls expose 0–100 on desktop
+and mobile. Zero disables the grading, and **Restore source appearance** also
+restores the ungraded source view. This is a reversible, viewport-only
+display policy: it does not alter the source Phong parameters, textures, IFC,
+scene-manifest, lighting profile, or serialized project. It cannot invent
+texture detail that the source image does not contain. Verify the visual effect
+on actual 21D material assets on both WebGL and WebGPU before declaring
+photometric parity.
+
 
 ## Viewport navigation and layers
 
