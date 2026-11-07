@@ -134,7 +134,7 @@ export class FurnitureGizmoBridge {
         last = JSON.stringify(pose);
       },
       setMode(mode) { manager.positionGizmoEnabled = mode === "translate"; manager.rotationGizmoEnabled = mode === "rotate"; },
-      setAxisConstraint(axis) {
+      setAxisConstraint: (axis) => {
         const gizmos = [position.xGizmo, position.yGizmo, position.zGizmo];
         if (axis === null) {
           for (const gizmo of gizmos) gizmo.isEnabled = true;
