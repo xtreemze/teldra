@@ -175,3 +175,44 @@ exploration, safe-area/landscape layouts and performance certification
 remain release tasks under #72. Full-viewport long-press object actions,
 three-finger history and double-tap framing are tracked by #90 and must
 not be represented as part of the isolated pad.
+
+## Full-viewport mobile gesture arbitration
+
+The mobile canvas now uses a single deterministic touch recognizer for
+**long-press object actions**, **double-tap framing of the selected object**
+and **three-finger horizontal project history**. It replaces the previous
+workspace-level independent long-press timer. Scene navigation remains
+Babylon-owned: one finger orbits, two fingers pan and pinch-zoom, and the
+runtime's existing pointer-gizmo interface remains available. The editor
+touch surface is still dedicated to IFC Move/Rotate/Scale previews; camera
+gestures never silently become edits.
+
+The recognizer tracks touch pointer IDs, monotonic event times, movement
+thresholds and cancellation. A long press requires one stationary touch
+for at least 480 ms; a double tap requires two brief taps within 320 ms
+and a 28 CSS-pixel spatial threshold, and only frames when the object is
+already selected. Three touches must begin promptly and move coherently
+at least 80 CSS pixels horizontally with limited vertical movement before
+a single undo (left) or redo (right) intent can be emitted. Late fourth
+fingers, interrupted pointers, mixed input and long drags do not dispatch
+history. Multi-touch motion is intercepted before Babylon pointer camera
+handlers **only while three or more tracked touches are active**; pointer
+release still reaches Babylon so existing camera inputs clean up.
+A capture-phase click guard prevents a second tap, multi-finger gesture
+or long-press release from leaking through the renderer's pick listener.
+
+The workspace gates gesture history on the existing project timeline,
+blocks all gestures during IFC editing or a pending modal, and offers
+equivalent Undo/Redo buttons in Project. A mobile Project-menu guide
+lists gestures and their fallbacks; visible status and best-effort haptic
+feedback accompany recognized actions. These gestures never call the
+Home Assistant command adapters.
+
+Unit and Storybook browser tests verify arbitration, thresholds,
+cancellation, suppression of stray picks, disabled editing behavior and
+the existing camera paths. Browser simulation does **not** certify
+physical three-finger gestures, browser/OS-reserved gestures, iOS Safari,
+Android WebView, TalkBack, VoiceOver, or device vibration. Continue those
+acceptance gates under #72/#90. If a platform reserves three-finger
+history, use the visible Undo/Redo controls rather than intercepting an
+OS accessibility gesture.
