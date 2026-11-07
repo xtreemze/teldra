@@ -210,6 +210,40 @@ export class FurnitureGizmoBridge {
     this.setAffineFactors(group, this.affineFactors(delta));
   }
 
+  /**
+   * Pure preflight for an IFC command. A viewer that cannot project the source
+   * mesh's exact affine transform may never authorize the canonical scale edit.
+   */
+  assertAffineProjectable(canonicalId: string, canonicalDelta: readonly number[]): void {
+    factorUprightFurnitureMatrix(canonicalDelta);
+    const meshes=this.meshesForId(canonicalId);
+    if(!meshes.length) throw new Error("This furniture has no physical render geometry.");
+    if(this.affineGroups.has(canonicalId)) return;
+    this.assertStaticAffineMeshes(meshes);
+    for(const mesh of meshes) {
+      const source=this.baseWorld.get(mesh)??mesh.computeWorldMatrix(true);
+      const s=new Vector3(),r=new Quaternion(),p=new Vector3();
+      if(!source.decompose(s,r,p)) throw new Error("Source GLB mesh hierarchy requires vertex regeneration.");
+      const reconstructed=Matrix.Compose(s,r,p).asArray();
+      if(source.asArray().some((v,i)=>Math.abs(v-reconstructed[i]!)>1e-5*Math.max(1,Math.abs(v))))
+        throw new Error("Source GLB contains non-TRS mesh hierarchy; regeneration required.");
+    }
+  }
+  private assertStaticAffineMeshes(meshes: readonly AbstractMesh[]): void {
+    const selected=new Set(meshes);
+    for(const mesh of meshes) {
+      if(!(mesh instanceof Mesh) || mesh.getClassName()!=="Mesh" ||
+          mesh.skeleton || mesh.morphTargetManager || mesh.animations.length ||
+          mesh.instances.length || mesh.hasThinInstances || mesh.billboardMode ||
+          mesh.infiniteDistance)
+        throw new Error("Animated, skinned or instanced geometry requires source GLB regeneration.");
+      for(let parent=mesh.parent; parent; parent=parent.parent)
+        if(parent.animations.length) throw new Error("Animated parent requires source GLB regeneration.");
+      if(mesh.getChildMeshes(false).some(child=>child.getTotalVertices()>0&&!selected.has(child)))
+        throw new Error("Mixed-identity geometry hierarchy requires source GLB regeneration.");
+    }
+  }
+
   private createAffineGroup(canonicalId: string, meshes: readonly AbstractMesh[]) {
     const parents = new Map<AbstractMesh, Node | null>();
     const selected = new Set(meshes);
@@ -218,19 +252,7 @@ export class FurnitureGizmoBridge {
         if (selected.has(parent as AbstractMesh)) return false;
       return true;
     });
-    for (const mesh of meshes) {
-      if (!(mesh instanceof Mesh) || mesh.getClassName() !== "Mesh" ||
-          mesh.skeleton || mesh.morphTargetManager || mesh.animations.length ||
-          mesh.instances.length || mesh.hasThinInstances || mesh.billboardMode ||
-          mesh.infiniteDistance) {
-        throw new Error("Animated, skinned or instanced geometry requires source GLB regeneration.");
-      }
-      for (let parent = mesh.parent; parent; parent = parent.parent)
-        if (parent.animations.length) throw new Error("Animated parent requires source GLB regeneration.");
-      // Reparenting a cross-identity mesh hierarchy would move unrelated scene content.
-      if (mesh.getChildMeshes(false).some(child => child.getTotalVertices() > 0 && !selected.has(child)))
-        throw new Error("Mixed-identity geometry hierarchy requires source GLB regeneration.");
-    }
+    this.assertStaticAffineMeshes(meshes);
     const root = new TransformNode("teldra-affine-root:" + canonicalId, this.scene);
     const pre = new TransformNode("teldra-affine-prerotation:" + canonicalId, this.scene);
     pre.parent = root;
