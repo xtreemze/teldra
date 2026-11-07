@@ -1,4 +1,4 @@
-import { IfcAPI, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM } from "web-ifc";
+import { IfcAPI, IFCRELFILLSELEMENT, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM } from "web-ifc";
 
 /** IFC world coordinates in metres, Z up; rotation is about world Z. */
 export interface FurniturePose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
@@ -26,6 +26,11 @@ function find(api: IfcAPI, modelID: number, guid: string): Line {
   }
   if(found.length!==1) throw new Error("Expected one supported IFC furniture, fixture or proxy GlobalId.");
   const furniture = found[0]!;
+  const fillings = api.GetLineIDsWithType(modelID, IFCRELFILLSELEMENT);
+  for(let i=0;i<fillings.size();i++) {
+    if((api.GetLine(modelID, fillings.get(i)) as Line).RelatedBuildingElement?.value === furniture.expressID)
+      throw new Error("An element filling an IFC opening requires host-aware editing.");
+  }
   const placementId = furniture.ObjectPlacement?.value;
   const placements = api.GetLineIDsWithType(modelID, IFCLOCALPLACEMENT);
   for (let i = 0; i < placements.size(); i++) {
