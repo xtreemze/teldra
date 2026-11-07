@@ -114,14 +114,25 @@ export class FurnitureGizmoBridge {
       if (!this.baseWorld.has(mesh)) this.baseWorld.set(mesh, mesh.getWorldMatrix().clone());
     }
     const depth = (mesh: AbstractMesh) => { let n = 0; for (let p = mesh.parent; p; p = p.parent) n++; return n; };
+    const projectedWorld = new Map<AbstractMesh, Matrix>();
+    const plans: {mesh: AbstractMesh; position: Vector3; scale: Vector3; rotation: Quaternion}[] = [];
     for (const mesh of [...meshes].sort((a, b) => depth(a) - depth(b))) {
       const world = this.baseWorld.get(mesh)!.multiply(delta);
-      const local = mesh.parent ? world.multiply(mesh.parent.getWorldMatrix().clone().invert()) : world;
+      const parent = mesh.parent;
+      const projectedParent = parent instanceof TransformNode || (parent && "getWorldMatrix" in parent)
+        ? (projectedWorld.get(parent as AbstractMesh) ?? parent.getWorldMatrix()).clone() : null;
+      const local = projectedParent ? world.multiply(projectedParent.invert()) : world;
       const scale = new Vector3(), rotation = new Quaternion(), position = new Vector3();
       if (!local.decompose(scale, rotation, position)) throw new Error("Cannot project furniture placement to this mesh.");
       const reconstructed = Matrix.Compose(scale, rotation, position);
       if (local.asArray().some((value, i) => Math.abs(value - reconstructed.asArray()[i]!) > 1e-4))
         throw new Error("This GLB render part requires regenerated geometry; its affine scale contains shear.");
+      projectedWorld.set(mesh, world);
+      plans.push({mesh, position, scale, rotation});
+    }
+    // Validate all part transforms first; a rejected scale must never leave
+    // half the furniture moved or scaled in the render graph.
+    for (const {mesh, position, scale, rotation} of plans) {
       mesh.position.copyFrom(position); mesh.scaling.copyFrom(scale);
       mesh.rotationQuaternion ??= new Quaternion(); mesh.rotationQuaternion.copyFrom(rotation);
       mesh.computeWorldMatrix(true);
