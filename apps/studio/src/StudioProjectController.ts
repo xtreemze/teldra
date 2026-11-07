@@ -30,6 +30,8 @@ export class StudioProjectController {
   #scaleUnsupported = new Map<string, string>();
   #sourceNominalDimensions = new Map<string, FurnitureSourceDimensions>();
   #dimensionsUnsupported = new Map<string, string>();
+  /** Installed only by a loaded renderer that has inspected physical GLB mesh parts. */
+  #affineProjectionValidator?: (canonicalId: string, canonicalDelta: readonly number[]) => void;
   #undo: ("twin" | "ifc")[] = [];
   #redo: ("twin" | "ifc")[] = [];
   #revision: number;
@@ -210,6 +212,9 @@ export class StudioProjectController {
     if(!baseline) throw new Error("This IFC geometry has no validated source scale.");
     return scaleForNominalDimensions(measuredSource,baseline,requested);
   }
+  setAffineProjectionValidator(validator: ((canonicalId: string, canonicalDelta: readonly number[]) => void) | null): void {
+    this.#affineProjectionValidator = validator ?? undefined;
+  }
   transformFurniture(canonicalId: string, pose: FurnitureWorldPose, scale: FurnitureGeometryScale): void {
     if (!this.#ifc || !this.#sourceScales.has(canonicalId)) throw new Error("This IFC furniture has no safely scalable mapped geometry.");
     this.#assertProjectableScale(canonicalId, pose, scale);
@@ -235,12 +240,15 @@ export class StudioProjectController {
     const ratio = scale.map((value, i) => value / baseline[i]!) as [number, number, number];
     if (ratio.some(v => v <= 0 || v > 1000)) throw new Error("Scaled scene ratio is outside supported bounds.");
     const m = poseDelta(source, pose, ratio);
-    // Babylon Mesh transforms cannot express an arbitrary shear matrix.
-    // Until geometry regeneration is available, reject rather than persist
-    // an IFC-valid change that the unchanged GLB cannot faithfully render.
+    // A lossless two-node Babylon affine factorization can represent the
+    // shear, but only when the loaded physical GLB parts have passed the pure
+    // runtime capability check. Headless clients remain conservative.
     const shear = m[0]!*m[4]! + m[1]!*m[5]!;
-    if (Math.abs(shear) > 1e-6 * Math.max(1, ratio[0]!**2 + ratio[1]!**2))
-      throw new Error("Nonuniform scaling of rotated source geometry requires GLB regeneration; this scene cannot project shear safely.");
+    if (Math.abs(shear) > 1e-6 * Math.max(1, ratio[0]!**2 + ratio[1]!**2)) {
+      if (!this.#affineProjectionValidator)
+        throw new Error("Rotated nonuniform scaling requires a verified affine render projection.");
+      this.#affineProjectionValidator(id, m);
+    }
   }
   get placementOverrides(): readonly ScenePlacementOverride[] {
     const context = this.#building;
