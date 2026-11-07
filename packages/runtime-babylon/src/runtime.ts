@@ -47,7 +47,7 @@ export interface BabylonTwinRuntime {
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
   beginFurnitureEdit(placement: FurniturePlacement, onPreview: (pose: FurnitureWorldPose) => void,
-    onDragState?: (dragging: boolean) => void): FurnitureEditSession;
+    onDragState?: (dragging: boolean) => void, onScalePreview?: (scale: import("./furniture-gizmo.js").GeometryScale) => void): FurnitureEditSession;
   setHiddenSourceContentVisible(visible: boolean): void;
   layers(): ReturnType<SceneLayers["list"]>;
   setLayerVisible(id: string, visible: boolean): void;
@@ -391,7 +391,7 @@ export async function createBabylonTwinRuntime(
       for (const placement of placements) furniture.applyMatrix(placement);
       projectedPlacementIds = next;
     },
-    beginFurnitureEdit: (placement, onPreview, onDragState) => furniture.begin(placement, onPreview, onDragState),
+    beginFurnitureEdit: (placement, onPreview, onDragState, onScalePreview) => furniture.begin(placement, onPreview, onDragState, onScalePreview),
     renderStats() {
       const sorted = [...frameSamples].sort((a, b) => a - b);
       const percentile = (p: number) => sorted.length ? sorted[Math.ceil(p * sorted.length) - 1]! : null;

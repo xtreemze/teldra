@@ -4,7 +4,7 @@ import { stat } from "node:fs/promises";
 import { resolve, dirname, relative, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"../../dist/pages");
-const mime={".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".wasm":"application/wasm",".svg":"image/svg+xml"};
+const mime={".html":"text/html",".js":"text/javascript",".css":"text/css",".json":"application/json",".wasm":"application/wasm",".svg":"image/svg+xml",".webmanifest":"application/manifest+json",".png":"image/png"};
 createServer(async(req,res)=>{try{
  const url=new URL(req.url??"/","http://localhost");
  if(url.pathname==="/teldra"){res.writeHead(302,{location:"/teldra/"}).end();return;}

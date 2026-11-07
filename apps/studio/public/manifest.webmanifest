@@ -1,0 +1,65 @@
+{
+  "id": "./",
+  "name": "Teldra Studio",
+  "short_name": "Teldra",
+  "description": "BIM-backed smart-home digital twin and spatial editor.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101821",
+  "theme_color": "#17212d",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "./?launch=file",
+      "accept": {
+        "application/x-teldra": [
+          ".teldra"
+        ],
+        "application/zip": [
+          ".teldra"
+        ]
+      }
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open Studio",
+      "short_name": "Studio",
+      "url": "./",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

@@ -1,10 +1,12 @@
-import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import {
   openBrowserTeldraProjectWithPicker,
   supportsBrowserTeldraFileAccess,
   type BrowserStudioProject,
 } from "./BrowserTeldraProject";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
+import { openLaunchedProject } from "./PortableProject";
+import { PwaControls } from "./PwaControls";
 import { StudioSelectionWorkspace } from "./StudioSelectionWorkspace";
 import type { TwinViewportHandle } from "./TwinViewport";
 import "./BrowserProjectStudio.css";
@@ -15,6 +17,8 @@ export interface BrowserProjectStudioProps {
   readonly openProject?: () => Promise<BrowserStudioProject>;
   readonly openDemoProject?: () => Promise<BrowserStudioProject>;
   readonly fileAccessSupported?: boolean;
+  readonly launchedFile?: FileSystemFileHandle | null;
+  readonly onLaunchHandled?: () => void;
   readonly onViewportReady?: (handle: TwinViewportHandle) => void;
 }
 
@@ -27,13 +31,14 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     props.fileAccessSupported ??
     (props.openProject !== undefined || supportsBrowserTeldraFileAccess());
 
-  const open = async (demo = false) => {
+  const open = async (demo = false, launchedFile?: FileSystemFileHandle) => {
     setOpening(true);
     setError("");
 
     try {
-      const next =
-        demo && props.openDemoProject !== undefined
+      const next = launchedFile !== undefined
+          ? await openLaunchedProject(launchedFile)
+          : demo && props.openDemoProject !== undefined
           ? await props.openDemoProject()
           : props.openProject === undefined
           ? await openBrowserTeldraProjectWithPicker(
@@ -59,6 +64,14 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     }
   };
 
+  createEffect(() => {
+    const launchedFile = props.launchedFile;
+    if (launchedFile !== undefined && launchedFile !== null) {
+      props.onLaunchHandled?.();
+      void open(false, launchedFile);
+    }
+  });
+
   const protectUnsavedChanges = (event: BeforeUnloadEvent) => {
     if (project()?.controller.dirty) {
       event.preventDefault();
@@ -67,7 +80,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
   };
   onMount(() => {
     window.addEventListener("beforeunload", protectUnsavedChanges);
-    if (props.autoOpenDemo && props.openDemoProject) void open(true);
+    if (props.autoOpenDemo && props.openDemoProject && !props.launchedFile) void open(true);
   });
   onCleanup(() => {
     window.removeEventListener("beforeunload", protectUnsavedChanges);
@@ -85,13 +98,16 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
           <h1>{project() === null ? "Your space, in context." : "Project workspace"}</h1>
           <p>Explore your building and manage its connected devices in one place.</p>
         </div>
-        <button
+        <div class="teldra-browser-studio__masthead-actions">
+        <PwaControls hasUnsavedChanges={() => project()?.controller.dirty ?? false} />
+        <button class="teldra-browser-studio__open"
           type="button"
           onClick={() => void open()}
           disabled={!supported() || opening()}
         >
           {opening() ? "Opening…" : project() === null ? "Open .teldra" : "Open another"}
         </button>
+        </div>
       </header>
 
       <Show when={opening()}><div class="teldra-browser-studio__loading" role="status" aria-live="polite"><strong>Opening 3D workspace</strong><span>{props.downloadProgress || "Verifying project and preparing scene..."}</span></div></Show>
