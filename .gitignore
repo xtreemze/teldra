@@ -24,3 +24,7 @@ test-results/
 *.ktx2
 *.env
 .cache/
+
+# Verified demo files generated from the Git LFS source
+apps/studio/public/21D.teldra
+apps/studio/public/21D.manifest.json

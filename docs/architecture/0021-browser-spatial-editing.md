@@ -27,7 +27,7 @@ same canonical transform, including merged parts. Renderer library batching rema
 opt-in; Studio enables the tested conservative path.
 
 Pages publishes one combined tree: existing project site/onboarding plus `/studio/`.
-The public demo is a 31 KB authored synthetic room. Real home projects are never added
+The public default demo is the owner-authorized complete 21D home (53.4 MiB), prepared from a hash-verified LFS archive. The 31 KB synthetic room remains at `?demo=sample` for focused editing tests. The original SH3D is embedded byte-identically; all conversion assets are retained. The real demo is added
 to the Pages artifact. Local files use direct browser handles when available, or
 upload-to-memory and explicit download copies elsewhere. Browser recovery is local.
 `pnpm pages:build` validates routes/assets and initial Brotli shell/CSS budgets.
@@ -53,3 +53,6 @@ Open release gates: real GPU performance, real Safari/mobile/touch certification
 broader IFC geometry editing, and independent usability evaluation. The 9/10 UX target
 is a target, not a fabricated commercial-certification score. Track current work and
 remaining acceptance in issue #80, with release gates #37 and #71-#75.
+
+
+The canvas fills the workspace. Scene search, inspector, project actions, orientation, camera, layers and appearance controls float within its bounds. Compact screens scroll toolbars horizontally and use mutually exclusive scene/inspector panels. Texture visibility and light gain are disposable view settings; light gain preserves each source-preview light ratio. Source-preview lighting is interactive raster lighting, not source photorenderer parity or path tracing.

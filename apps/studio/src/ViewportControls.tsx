@@ -6,6 +6,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   const layerDefinitions = props.runtime.layers();
   const [layers, setLayers] = createSignal(layerDefinitions);
   const directions = ["+x", "-x", "+y", "-y", "+z", "-z"] as const;
+  const [appearance, setAppearance] = createSignal(props.runtime.appearance());
   const [message, setMessage] = createSignal("");
   const orient = (direction: ViewDirection) => props.runtime.orient(direction);
   const fit = (selection = false) => setMessage(props.runtime.fit(selection ? props.selectedId : undefined)
@@ -39,6 +40,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   });
   return <div class="teldra-view-controls">
     <div class="teldra-view-controls__bar" role="group" aria-label="Camera controls">
+      <button type="button" onClick={() => props.runtime.fitHome()}>Home</button>
       <button type="button" onClick={() => fit()}>Fit scene</button>
       <button type="button" disabled={!props.selectedId} onClick={() => fit(true)}>Fit selection</button>
       <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>
@@ -86,6 +88,12 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     <details class="teldra-view-controls__panel teldra-view-controls__panel--help"><summary>Navigation help</summary><div class="teldra-view-controls__panel-content">
       <p>Drag to orbit; right-drag or Ctrl-drag to pan; scroll to zoom. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
       <p>Focus the 3D view: arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection, Home resets. 1 front, 3 right, 7 top, 5 changes projection.</p>
+    </div></details>
+    <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary>Appearance</summary><div class="teldra-view-controls__panel-content">
+      <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>
+      <label>Light intensity <input aria-label="Light intensity" type="range" min="0.25" max="2" step="0.05" value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
+      <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
+      <p>Source materials, UV maps and source-preview lighting. Adjustments affect this view only.</p>
     </div></details>
     <output class="teldra-view-controls__announcement" aria-live="polite">{message()}</output>
     <output class="teldra-view-controls__diagnostic" data-testid="camera-state" aria-hidden="true">{JSON.stringify(view())}</output>

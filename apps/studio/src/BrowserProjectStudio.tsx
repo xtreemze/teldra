@@ -10,6 +10,8 @@ import type { TwinViewportHandle } from "./TwinViewport";
 import "./BrowserProjectStudio.css";
 
 export interface BrowserProjectStudioProps {
+  readonly autoOpenDemo?: boolean;
+  readonly downloadProgress?: string;
   readonly openProject?: () => Promise<BrowserStudioProject>;
   readonly openDemoProject?: () => Promise<BrowserStudioProject>;
   readonly fileAccessSupported?: boolean;
@@ -63,7 +65,10 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
       event.returnValue = "";
     }
   };
-  onMount(() => window.addEventListener("beforeunload", protectUnsavedChanges));
+  onMount(() => {
+    window.addEventListener("beforeunload", protectUnsavedChanges);
+    if (props.autoOpenDemo && props.openDemoProject) void open(true);
+  });
   onCleanup(() => {
     window.removeEventListener("beforeunload", protectUnsavedChanges);
     const current = project();
@@ -89,6 +94,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
         </button>
       </header>
 
+      <Show when={opening()}><div class="teldra-browser-studio__loading" role="status" aria-live="polite"><strong>Opening 3D workspace</strong><span>{props.downloadProgress || "Verifying project and preparing scene..."}</span></div></Show>
       <Show
         when={supported() || props.openDemoProject !== undefined || project() !== null}
         fallback={

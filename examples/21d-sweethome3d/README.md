@@ -48,3 +48,13 @@ embedded original archive; Studio supplies its own interactive camera/lighting.
 Individual models and textures may be third-party assets. Some source records
 include creator/license strings, but complete provenance and redistribution terms
 have not been verified; no blanket license is asserted for these files.
+
+## Published Studio demo
+
+`21D-demo.teldra` is the complete conversion, losslessly repacked with ZIP deflate
+for delivery (55,967,121 bytes). `demo-manifest.json` pins its SHA-256 and source
+archive identity. Every uncompressed entry matches the verified complete conversion.
+The Pages build checks this receipt before copying the file to `/studio/21D.teldra`.
+Studio opens it automatically; `?demo=sample` retains the small authored test room.
+Run `git lfs pull` before local development/builds. Source-hidden ceiling geometry
+remains available through the hidden-content and level visibility controls.
