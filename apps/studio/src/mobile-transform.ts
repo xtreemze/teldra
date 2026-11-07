@@ -54,6 +54,7 @@ export function touchTransformPose(
   const metres = (midpoint(...start).y - midpoint(...current).y) / PIXELS_PER_METRE;
   const delta = snap > 0 ? Math.round(metres / snap) * snap : metres;
   const position: [number, number, number] = [...base.position];
-  position[{x: 0, y: 1, z: 2}[axis]] += delta;
+  const index = {x: 0, y: 1, z: 2}[axis];
+  position[index] = position[index]! + delta;
   return { pose: {position, yawRadians: base.yawRadians}, delta };
 }
