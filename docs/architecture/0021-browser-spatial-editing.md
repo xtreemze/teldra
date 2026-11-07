@@ -133,34 +133,45 @@ plus [Bonsai IFC hotkeys](https://docs.bonsaibim.org/reference/general/hotkeys.h
 This is browser-adapted tooling, not a complete imitation of Blender's
 free-pointer modal modeling.
 
-## Mobile two-finger transform interaction (feature branch)
+## Mobile two-finger gesture editing
 
-The mobile transform pad appears only during a validated, active IFC furniture
-edit session and starts collapsed to avoid covering the scene. It is deliberately an **isolated touch surface**, not a second
-canvas navigation system: ordinary scene orbit/pan/pinch and Babylon gizmos
-keep their existing event handling. A two-finger vertical slide previews a
-world-X, -Y or -Z translation after selecting an explicit axis; a two-finger
-twist previews upright world-Z yaw in Rotate mode. The pad reads the active
-inspector snapping increments, shows signed metre/degree deltas, and provides
-explicit Apply/Cancel buttons. It is hidden at desktop breakpoints; the normal
-gizmo and numeric editor remain available across viewport sizes.
+Teldra provides a collapsible touch tool on compact screens while an **IFC-
+validated furniture editing session** is active. It starts collapsed so the
+3D scene stays visible. Expanding it exposes touch guidance, axis constraints,
+and a bounded multi-touch preview area. The Babylon scene canvas continues
+to own ordinary orbit, pan, pinch-to-zoom and gizmo pointer gestures. The
+separate editor surface avoids ambiguous camera/geometry gesture ownership.
 
-Finger gestures call the existing validated edit session `setPose` only and
-update the synchronized inspector draft; the existing Apply command is still
-the **only** path that mutates IFC geometry and enters project undo history.
-A cancelled pointer gesture restores its *pre-gesture preview*. An IFC edit
-Cancel restores the committed pose. Ambiguous third touches are ignored.
-This interaction does not dispatch smart-home device commands; Scale is available only for validated IFC mapped geometry, following the canonical geometry command in #82; it remains disabled for unsupported furniture.
+In **Move** mode, select IFC world X, Y or Z and slide two fingers vertically
+to preview an axis translation. **Rotate** mode uses a two-finger twist to
+preview IFC upright world-Z yaw only. **Scale** mode uses a two-finger pinch
+for uniform or individually selected local-X/Y/Z factors, but **only** when
+the IFC adapter confirms a supported, per-instance mapped geometry
+representation. Invalid, overflowing or unsupported scales are never
+emitted. Only the validated `FurnitureEditSession.setScale` preview and
+`StudioProjectController.transformFurniture` canonical commit are permitted;
+mesh-only scaling remains prohibited. The move/rotate gesture output
+also goes through the validated disposable furniture edit session.
 
-Haptic cues use browser Vibration API when available (never assumed on iOS);
-quiet Web Audio cues are **opt-in and disabled by default**. Both respect
-reduced-motion preferences. Visual deltas, explicit controls, accessible labels,
-numeric fields and status messaging carry the interaction when haptics or
-sound are unavailable. Haptics/audio are adjuncts rather than the only cue.
+The pad reads the same move and rotation snaps as the inspector. Numeric
+fields, keyboard shortcuts and Babylon gizmos remain available, synchronized
+and authoritative alternatives. Apply commits one IFC-backed transaction;
+Cancel restores the original project placement and scale. Pointer cancellation
+reverts the current gesture to its baseline **draft**, not to an unrelated
+camera state. An ambiguous third touch invalidates the gesture.
 
-Deterministic gesture-math unit tests and Storybook browser simulation cover
-supported move/twist previews. Real multitouch hardware, TalkBack/VoiceOver,
-iOS Safari touch behavior, high-density small screens, and hardware feedback
-still require device certification under #72. Canvas-wide three-finger history,
-double-tap framing, and long-press object actions require separate interaction
-arbitration work; do not claim they ship with this focused pad.
+**Visual** feedback consists of active-state borders, highlighted axes,
+signed metre/degree/percentage deltas and a polite status announcement.
+Haptic cues are best-effort through the browser Vibration API; quiet Web Audio
+tones are optional and disabled by default. Neither haptics nor sound is
+required to operate the UI. Both are suppressed under reduced-motion
+preferences. Missing device support is an accepted silent fallback.
+
+Unit tests cover world-axis translation, snapping, yaw rotation, scaling
+bounds and invalid pointers. Storybook browser tests cover simulated
+multi-touch pointer sequences, progressive disclosure and accessibility.
+Physical Android/iOS touch, hardware haptics/sonification, screen-reader
+exploration, safe-area/landscape layouts and performance certification
+remain release tasks under #72. Full-viewport long-press object actions,
+three-finger history and double-tap framing are tracked by #90 and must
+not be represented as part of the isolated pad.
