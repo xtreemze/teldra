@@ -218,7 +218,7 @@ export function StudioSelectionWorkspace(
   const startMobileFurnitureEdit = (mode: "translate" | "rotate" | "scale") => {
     if (!["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "") || !viewport()) return;
     // Scale eligibility cannot be known before asynchronous IFC preparation.
-    // The edit-ready callback validates it; invalid scale falls back to Move.
+    // IfcFurnitureEdit rejects unsupported Scale with an explicit error before opening a session.
     setTransformMessage("");
     setEditMode(mode);
     setMobileContextOpen(false);
