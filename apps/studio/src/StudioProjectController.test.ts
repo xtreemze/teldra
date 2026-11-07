@@ -253,3 +253,49 @@ it("rejects a rendered placement that contradicts authoritative IFC poses", () =
   expect(() => validateIfcScenePlacements(adapter, encoder.encode(JSON.stringify(source)), encoder.encode(JSON.stringify(current)),
     [{canonicalId: "chair", ifcGlobalId: "16W6mYG0DO8hR8U$bz6FSv", matrix: [1,0,0,0,0,1,0,0,0,0,1,0,3,0,0,1]}])).toThrow("does not match");
 });
+
+
+it("commits geometry scale with pose as one IFC undo step and validates source-bound scene reconciliation", async () => {
+  const twin = structuredClone(fixture);
+  const guid = "16W6mYG0DO8hR8U$bz6FSv";
+  twin.building.refs.push({id:"chair", ifcGlobalId:guid, kind:"furniture"});
+  const encoder = new TextEncoder(), decoder = new TextDecoder();
+  const original = {pose:{position:[1,-1,0] as [number,number,number], yawRadians:0}, scale:[1,1,1] as [number,number,number]};
+  const decode = (bytes:Uint8Array) => JSON.parse(decoder.decode(bytes)) as typeof original;
+  const adapter = {
+    read: (bytes:Uint8Array) => decode(bytes).pose,
+    write: (bytes:Uint8Array, _guid:string, pose: typeof original.pose) => encoder.encode(JSON.stringify({...decode(bytes),pose})),
+    readScale: (bytes:Uint8Array) => decode(bytes).scale,
+    writeScale: (bytes:Uint8Array, _guid:string, scale:readonly [number,number,number]) =>
+      encoder.encode(JSON.stringify({...decode(bytes),scale})),
+  };
+  const bytes = encoder.encode(JSON.stringify(original));
+  const store = new MemoryStorage({revision:0,fingerprint:canonicalTwinFingerprint(twin),canonical:twin});
+  const opened = await openProjectPersistence(store, assertTwinIntegrity, "mapped-scale", "test:mapped-scale");
+  const controller = new StudioProjectController(twin,opened.session,{
+    bytes,sourceBytes:bytes,placements:[],
+    scene:{source:{buildingPath:"building.ifc",buildingSha256:"a".repeat(64)},
+      scene:{assetPath:"scene.glb",assetSha256:"b".repeat(64)},
+      nodes:[{canonicalId:"chair",ifcGlobalId:guid}]},
+    createAdapter:async()=>adapter,
+  });
+  await controller.prepareFurnitureEditing("chair");
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
+  controller.transformFurniture("chair",{position:[2,3,1],yawRadians:0},[2,1.5,0.8]);
+  expect(controller.history.undoDepth).toBe(1);
+  const [placement] = controller.placementOverrides;
+  expect(placement?.scale).toEqual([2,1.5,0.8]);
+  expect(placement?.matrix[12]).toBeCloseTo(0);
+  expect(placement?.matrix[13]).toBeCloseTo(4.5);
+  const editedBytes = (decode(store.primary?.derived as Uint8Array ?? bytes));
+  expect(editedBytes.scale).toEqual([1,1,1]); // Save is explicit.
+  await controller.save();
+  const persisted = (store.primary?.derived as {bytes:Uint8Array,placements:unknown[]});
+  validateIfcScenePlacements(adapter,bytes,persisted.bytes,controller.placementOverrides);
+  const altered = controller.placementOverrides.map(p=>({...p,scale:[3,1.5,0.8] as [number,number,number]}));
+  expect(()=>validateIfcScenePlacements(adapter,bytes,persisted.bytes,altered)).toThrow(/geometry scale/);
+  expect(controller.undo()).toBe(true);
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
+  expect(controller.redo()).toBe(true);
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[2,1.5,0.8]});
+});
