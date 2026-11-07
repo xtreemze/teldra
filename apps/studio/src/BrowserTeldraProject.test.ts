@@ -449,3 +449,19 @@ describe("browser .teldra project workflow", () => {
   });
 
 });
+
+
+it("keeps the project lock/recovery identity stable when IFC placement is saved", async () => {
+  const {handle} = await makeGoldenArchive();
+  const before = await BrowserTeldraFileStorage.open(handle, new MemoryRecoveryStore());
+  const archive = await openTeldraArchive(new Uint8Array(await (await handle.getFile()).arrayBuffer()));
+  const original = archive.entries.find(entry => entry.path === archive.manifest.building.path)!;
+  const changed = new TextEncoder().encode("changed IFC placement");
+  const sourcePath = "teldra/scene-source.ifc";
+  const manifest = {...archive.manifest, building: {...archive.manifest.building, sha256: await sha256Bytes(changed)},
+    derived: [...(archive.manifest.derived ?? []), {path: sourcePath, sha256: archive.manifest.building.sha256}]};
+  const entries = archive.entries.map(entry => ({...entry, bytes: entry.path === "project.json" ? new TextEncoder().encode(JSON.stringify(manifest)) : entry.path === archive.manifest.building.path ? changed : entry.bytes}));
+  entries.push({path: sourcePath, bytes: original.bytes});
+  const after = await BrowserTeldraFileStorage.open(new MemoryFileHandle(encodeStoredZip(entries)), new MemoryRecoveryStore());
+  expect(after.projectKey).toBe(before.projectKey);
+});

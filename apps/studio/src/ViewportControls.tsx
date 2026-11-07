@@ -74,7 +74,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
         }</For>
       </div>
     </div>
-    <details><summary>Layers</summary><div class="teldra-view-controls__layers">
+    <details class="teldra-view-controls__panel teldra-view-controls__panel--layers"><summary>Layers</summary><div class="teldra-view-controls__panel-content teldra-view-controls__layers">
       <For each={["category", "level"] as const}>{group => <fieldset><legend>{group === "category" ? "Content" : "Levels"}</legend>
         <For each={layerDefinitions.filter(layer => layer.group === group)}>{layer => <label>
           <input type="checkbox" checked={layers().find(current => current.id === layer.id)?.visible ?? true} onChange={event => {
@@ -83,10 +83,10 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
         </label>}</For>
       </fieldset>}</For>
     </div></details>
-    <details><summary>Navigation help</summary>
+    <details class="teldra-view-controls__panel teldra-view-controls__panel--help"><summary>Navigation help</summary><div class="teldra-view-controls__panel-content">
       <p>Drag to orbit; right-drag or Ctrl-drag to pan; scroll to zoom. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
       <p>Focus the 3D view: arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection, Home resets. 1 front, 3 right, 7 top, 5 changes projection.</p>
-    </details>
+    </div></details>
     <output class="teldra-view-controls__announcement" aria-live="polite">{message()}</output>
     <output class="teldra-view-controls__diagnostic" data-testid="camera-state" aria-hidden="true">{JSON.stringify(view())}</output>
   </div>;

@@ -18,11 +18,32 @@ export type RenameTwinDeviceCommand = CanonicalCommand<
   }
 >;
 
-export type TwinEditorCommand = RenameTwinDeviceCommand;
+export type DevicePlacement = NonNullable<TwinProject["devices"][number]["placement"]>;
+export type PlaceTwinDeviceCommand = CanonicalCommand<"twin.device.place", { readonly deviceId: string; readonly placement: DevicePlacement | null }>;
+export type TwinEditorCommand = RenameTwinDeviceCommand | PlaceTwinDeviceCommand;
 
 const resolveTwinEditorCommand: CommandResolver<TwinProject, TwinEditorCommand> =
   () => (state, command) => {
     switch (command.kind) {
+      case "twin.device.place": {
+        const previous = state.devices.find((device) => device.id === command.payload.deviceId);
+        if (!previous) throw new Error(`Cannot place unknown device "${command.payload.deviceId}".`);
+        const placement = command.payload.placement;
+        if (placement !== null) {
+          const q = placement.rotationQuaternion;
+          if (placement.frame !== "ifc-world-metres-z-up" || placement.position.length !== 3 || q.length !== 4 || ![...placement.position, ...q].every(Number.isFinite) || Math.abs(Math.hypot(...q) - 1) > 1e-6) {
+            throw new Error("Device placement requires finite coordinates and a unit quaternion in the IFC world frame.");
+          }
+        }
+        const devices = state.devices.map((device) => {
+          if (device.id !== previous.id) return device;
+          const { placement: _old, ...rest } = device;
+          return placement === null ? rest : { ...rest, placement: structuredClone(placement) };
+        });
+        const next: TwinProject = { ...state, devices };
+        assertTwinIntegrity(next);
+        return { state: next, inverse: { id: `inverse:${command.id}`, kind: "twin.device.place", authority: "canonical-project", payload: { deviceId: previous.id, placement: previous.placement ?? null }, ...(command.correlationId === undefined ? {} : { correlationId: command.correlationId }) } };
+      }
       case "twin.device.rename": {
         const deviceIndex = state.devices.findIndex(
           (device) => device.id === command.payload.deviceId,
@@ -119,6 +140,11 @@ export class TwinEditor {
         },
       ],
     });
+  }
+
+  placeDevice(deviceId: string, placement: DevicePlacement, correlationId?: string): CommandCommit<TwinProject, TwinEditorCommand> {
+    this.#sequence += 1;
+    return this.#processor.execute({ id: `transaction:twin-device-place:${this.#sequence}`, expectedRevision: this.#processor.revision, ...(correlationId === undefined ? {} : { correlationId }), commands: [{ id: `command:twin-device-place:${this.#sequence}`, kind: "twin.device.place", authority: "canonical-project", payload: { deviceId, placement }, ...(correlationId === undefined ? {} : { correlationId }) }] });
   }
 
   undo(): CommandCommit<TwinProject, TwinEditorCommand> | null {

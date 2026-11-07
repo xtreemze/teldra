@@ -99,4 +99,24 @@ describe("TwinEditor", () => {
     expect(editor.history.undoDepth).toBe(0);
     expect(editor.revision).toBe(0);
   });
+  it("places a device through canonical history and restores absence on undo", () => {
+    const editor = new TwinEditor(fixture);
+    const before = canonicalTwinFingerprint(editor.twin);
+    const pose: NonNullable<TwinProject["devices"][number]["placement"]> = { frame: "ifc-world-metres-z-up", position: [1, 2, 3], rotationQuaternion: [0, 0, 0, 1] };
+    editor.placeDevice(deviceId, pose);
+    expect(editor.twin.devices.find((device) => device.id === deviceId)?.placement).toEqual(pose);
+    expect(editor.twin.building).toEqual(fixture.building);
+    editor.undo();
+    expect(canonicalTwinFingerprint(editor.twin)).toBe(before);
+    editor.redo();
+    expect(editor.twin.devices.find((device) => device.id === deviceId)?.placement).toEqual(pose);
+  });
+
+  it("rejects non-finite and non-unit device rotations without committing", () => {
+    const editor = new TwinEditor(fixture);
+    expect(() => editor.placeDevice(deviceId, { frame: "ifc-world-metres-z-up", position: [NaN, 0, 0], rotationQuaternion: [0, 0, 0, 1] })).toThrow();
+    expect(() => editor.placeDevice(deviceId, { frame: "ifc-world-metres-z-up", position: [0, 0, 0], rotationQuaternion: [0, 0, 0, 2] })).toThrow();
+    expect(editor.revision).toBe(0);
+  });
+
 });

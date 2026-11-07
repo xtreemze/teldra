@@ -1,72 +1,53 @@
-.teldra-studio-selection-workspace {
-  display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.8fr);
-  gap: 1rem;
-  align-items: start;
-  width: min(100%, 80rem);
-}
-
-.teldra-studio-selection-workspace__viewport,
-.teldra-studio-selection-workspace__inspector {
-  min-width: 0;
-}
-
-.teldra-studio-selection-workspace__inspector {
-  display: grid;
-  gap: 1rem;
-}
-
-.teldra-studio-selection-workspace__inspector > section,
-.teldra-studio-selection-workspace__selection {
-  padding: 1rem;
-  border: 1px solid var(--teldra-color-border, #6d7278);
-  border-radius: 0.75rem;
-  background: var(--teldra-color-surface, Canvas);
-  color: var(--teldra-color-text, CanvasText);
-}
-
-.teldra-studio-selection-workspace__inspector h2,
-.teldra-studio-selection-workspace__inspector p {
-  margin-block-start: 0;
-}
-
-.teldra-studio-selection-workspace__device-list {
-  display: grid;
-  gap: 0.5rem;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-}
-
-.teldra-studio-selection-workspace__device-list button {
-  display: grid;
-  gap: 0.25rem;
-  width: 100%;
-  min-height: 2.75rem;
-  padding: 0.625rem 0.75rem;
-  text-align: start;
-}
-
-.teldra-studio-selection-workspace__device-list code {
-  font-size: 0.75rem;
-  opacity: 0.72;
-}
-
-.teldra-studio-selection-workspace__device-list button[aria-pressed="true"] {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-
-.teldra-studio-selection-workspace__selection code {
-  overflow-wrap: anywhere;
-}
-
-.teldra-studio-selection-workspace .teldra-project-device-editor {
-  inline-size: auto;
-}
-
-@media (max-width: 52rem) {
-  .teldra-studio-selection-workspace {
-    grid-template-columns: 1fr;
-  }
-}
+.teldra-studio-selection-workspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); gap: .75rem; width: 100%; align-items: start; }
+.teldra-studio-selection-workspace__viewport, .teldra-studio-selection-workspace__inspector { min-width: 0; }
+.teldra-studio-selection-workspace__inspector { display: grid; gap: .65rem; max-height: calc(100vh - 8rem); overflow: auto; padding-right: .15rem; }
+.teldra-studio-selection-workspace__inspector > section, .teldra-studio-selection-workspace__selection { padding: 1rem; border: 1px solid var(--studio-border, #354556); border-radius: .65rem; background: var(--studio-panel, #17212d); color: var(--studio-ink, #e7edf4); }
+.teldra-studio-selection-workspace__inspector h2 { margin: 0 0 .5rem; font-size: .95rem; }
+.teldra-studio-selection-workspace__inspector p { margin-block: .4rem; }
+.teldra-studio-selection-workspace__count { display: inline-block; margin-left: .3rem; padding: .1rem .4rem; border-radius: 1rem; background: #304253; color: #c6d4df; font-size: .7rem; }
+.teldra-studio-selection-workspace__hint { color: var(--studio-muted, #a8b5c4); font-size: .8rem; }
+.teldra-studio-selection-workspace__device-list { display: grid; gap: .35rem; padding: 0; margin: .75rem 0 0; list-style: none; }
+.teldra-studio-selection-workspace__device-list button { display: grid; gap: .2rem; width: 100%; text-align: start; background: #202f3d; border-color: transparent; }
+.teldra-studio-selection-workspace__device-list code { color: #b5c6d3; font-size: .7rem; overflow-wrap: anywhere; }
+.teldra-studio-selection-workspace__device-list button[aria-pressed="true"] { border-color: #79d8cb; background: #24413f; }
+.teldra-studio-selection-workspace__selection { font-size: .85rem; }
+.teldra-studio-selection-workspace__selection code { overflow-wrap: anywhere; color: #bcd5d4; }
+.teldra-studio-selection-workspace .teldra-project-device-editor { inline-size: auto; padding: 1rem; border-color: var(--studio-border, #354556); border-radius: .65rem; background: var(--studio-panel, #17212d); color: var(--studio-ink, #e7edf4); }
+.teldra-studio-selection-workspace .teldra-project-device-editor input { color: #e7edf4; background: #101a24; border: 1px solid #516779; border-radius: .4rem; }
+.teldra-studio-selection-workspace .teldra-project-device-editor__identity, .teldra-studio-selection-workspace .teldra-project-device-editor__status dt { color: #a8b5c4; }
+@media (max-width: 60rem) { .teldra-studio-selection-workspace { grid-template-columns: 1fr; } .teldra-studio-selection-workspace__inspector { max-height: none; overflow: visible; } }
+.teldra-studio-selection-workspace__project-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .4rem; padding: .45rem .6rem; border: 1px solid var(--studio-border, #354556); border-radius: .55rem; background: var(--studio-panel, #17212d); }
+.teldra-studio-selection-workspace__project-actions output { margin-right: auto; color: #a8b5c4; font-size: .8rem; }
+.teldra-studio-selection-workspace__project-actions p { width: 100%; margin: .2rem 0; color: #ffb6a9; }
+.teldra-studio-selection-workspace__inspector h3 { margin: 1rem 0 .35rem; color: #bdcbd7; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; }
+.teldra-studio-selection-workspace__search { display: grid; gap: .35rem; margin-top: .8rem; color: #bdcbd7; font-size: .8rem; }
+.teldra-studio-selection-workspace__search input { width: 100%; min-height: 2.5rem; padding: .5rem .65rem; color: #e7edf4; background: #101a24; border: 1px solid #516779; border-radius: .4rem; }
+.teldra-studio-selection-workspace__device-list { max-height: 14rem; overflow: auto; }
+.teldra-studio-selection-workspace__device-list small { color: #b5c6d3; text-transform: capitalize; }
+.teldra-studio-selection-workspace__details { display: grid; gap: .7rem; margin: .9rem 0 0; }
+.teldra-studio-selection-workspace__details div { display: grid; gap: .2rem; }
+.teldra-studio-selection-workspace__details dt { color: #a8b5c4; font-size: .75rem; }
+.teldra-studio-selection-workspace__details dd { margin: 0; overflow-wrap: anywhere; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Device placement"] p { color: #a8b5c4; font-size: .8rem; line-height: 1.5; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Device placement"] form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Device placement"] label { display: grid; gap: .3rem; color: #bdcbd7; font-size: .75rem; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Device placement"] input { min-width: 0; width: 100%; min-height: 2.4rem; padding: .45rem; color: #e7edf4; background: #101a24; border: 1px solid #516779; border-radius: .4rem; }
+.teldra-studio-selection-workspace { color: #e7edf4; font-family: var(--teldra-font-body, system-ui, sans-serif); }
+.teldra-studio-selection-workspace button { min-height: 2.5rem; padding: .5rem .8rem; color: #e7edf4; background: #263747; border: 1px solid #496072; border-radius: .45rem; font: inherit; cursor: pointer; }
+.teldra-studio-selection-workspace button:hover:not(:disabled) { background: #334b5c; }
+.teldra-studio-selection-workspace button:disabled { cursor: not-allowed; opacity: .48; }
+.teldra-studio-selection-workspace :focus-visible { outline: 3px solid #79d8cb; outline-offset: 2px; }
+.teldra-studio-selection-workspace { font-family: "Segoe UI", Arial, sans-serif; }
+.teldra-studio-selection-workspace__device-list { max-height: 10rem; }
+.teldra-studio-selection-workspace__device-list code { display: none; }
+.teldra-studio-selection-workspace__selection code, .teldra-project-device-editor__identity code { font-size: .7rem; color: #a8b5c4; }
+.teldra-spatial-edit__advanced { grid-column: 1 / -1; }
+.teldra-spatial-edit__advanced summary { color: #b9d9d6; cursor: pointer; font-size: .8rem; padding: .4rem 0; }
+.teldra-spatial-edit__advanced-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.teldra-spatial-edit__warning { grid-column: 1 / -1; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] p { color: #a8b5c4; font-size: .8rem; line-height: 1.5; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] label { display: grid; gap: .3rem; color: #bdcbd7; font-size: .75rem; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] input { min-width: 0; width: 100%; min-height: 2.4rem; padding: .45rem; color: #e7edf4; background: #101a24; border: 1px solid #516779; border-radius: .4rem; }
+.teldra-studio-selection-workspace__gizmo { display: flex; gap: .4rem; }
+.teldra-studio-selection-workspace__gizmo button[aria-pressed="true"] { border-color: #79d8cb; background: #24413f; }

@@ -5,6 +5,11 @@
  */
 
 export type Id = string;
+/**
+ * @minItems 3
+ * @maxItems 3
+ */
+export type Vector3 = [number, number, number];
 
 export interface TeldraTwin {
   schemaVersion: "0.1.0";
@@ -39,6 +44,18 @@ export interface Device {
   name: string;
   buildingRefId?: Id;
   capabilities: Capability[];
+  /**
+   * Device pose in the IFC world coordinate frame, in metres with Z up. Quaternion order is x, y, z, w.
+   */
+  placement?: {
+    frame: "ifc-world-metres-z-up";
+    position: Vector3;
+    /**
+     * @minItems 4
+     * @maxItems 4
+     */
+    rotationQuaternion: [number, number, number, number];
+  };
 }
 export interface Capability {
   id: Id;

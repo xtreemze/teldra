@@ -1,10 +1,13 @@
-import { createSignal } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import type { StudioProjectController } from "./StudioProjectController";
 import "./ProjectDeviceEditor.css";
 
 export interface ProjectDeviceEditorProps {
   readonly controller: StudioProjectController;
   readonly deviceId: string;
+  readonly hideProjectActions?: boolean;
+  readonly externalVersion?: number;
+  readonly onChange?: () => void;
 }
 
 export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
@@ -14,7 +17,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
     createSignal<"idle" | "saving" | "error">("idle");
   const [message, setMessage] = createSignal("");
 
-  const refresh = () => setVersion((value) => value + 1);
+  const refresh = () => { setVersion((value) => value + 1); props.onChange?.(); };
 
   const dirty = () => {
     version();
@@ -51,6 +54,10 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
   const syncInput = () => {
     nameInput.value = requireDevice().name;
   };
+  createEffect(() => {
+    props.externalVersion;
+    if (nameInput) syncInput();
+  });
 
   const applyRename = (event: SubmitEvent) => {
     event.preventDefault();
@@ -122,14 +129,14 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
             <code data-testid="device-canonical-id">{props.deviceId}</code>
           </p>
         </div>
-        <output
+        <Show when={!props.hideProjectActions}><output
           class="teldra-project-device-editor__dirty"
           data-dirty={dirty()}
           data-testid="project-dirty-state"
           aria-live="polite"
         >
           {dirty() ? "Unsaved changes" : "Saved"}
-        </output>
+        </output></Show>
       </header>
 
       <form class="teldra-project-device-editor__form" onSubmit={applyRename}>
@@ -146,7 +153,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
         </div>
       </form>
 
-      <div class="teldra-project-device-editor__actions" aria-label="Edit history and save">
+      <Show when={!props.hideProjectActions}><div class="teldra-project-device-editor__actions" aria-label="Edit history and save">
         <button
           type="button"
           onClick={undo}
@@ -168,7 +175,7 @@ export function ProjectDeviceEditor(props: ProjectDeviceEditorProps) {
         >
           {saveState() === "saving" ? "Saving…" : "Save project"}
         </button>
-      </div>
+      </div></Show>
 
       <dl class="teldra-project-device-editor__status">
         <div>

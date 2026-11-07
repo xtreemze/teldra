@@ -5,9 +5,16 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Camera } from "@babylonjs/core/Cameras/camera";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
-import { cameraState, orientCamera, syncProjection, zoomCamera, panCamera, fitCamera, SceneLayers } from "../src/view-controls";
+import { cameraState, orientCamera, syncProjection, zoomCamera, panCamera, fitCamera, isMeshInteractable, OneShotLoad, SceneLayers } from "../src/view-controls";
 
 describe("disposable viewport controls", () => {
+  it("rejects overlapping and repeated loads, including after a failed load", () => {
+    const gate = new OneShotLoad();
+    gate.begin();
+    expect(() => gate.begin()).toThrow(/already/);
+    gate.finish();
+    expect(() => gate.begin()).toThrow(/already/);
+  });
   it("orients, zooms, pans and fits without changing source transforms", () => {
     const engine = new NullEngine(); const scene = new Scene(engine);
     try {
@@ -25,6 +32,21 @@ describe("disposable viewport controls", () => {
       mesh.setEnabled(false); expect(fitCamera(camera, [mesh])).toBe(false);
     } finally { scene.dispose(); engine.dispose(); }
   });
+  it("fits a large object in a narrow viewport and ignores hidden or unpickable parts", () => {
+    const engine = new NullEngine({renderWidth: 200, renderHeight: 800, textureSize: 512, deterministicLockstep: false, lockstepMaxSteps: 4}); const scene = new Scene(engine);
+    try {
+      const camera = new ArcRotateCamera("camera", 0, 1, 10, Vector3.Zero(), scene);
+      const mesh = CreateBox("box", {size: 10}, scene);
+      expect(fitCamera(camera, [mesh])).toBe(true);
+      // A sphere enclosing the box must fit the horizontal field of view.
+      const halfHorizontalFov = Math.atan(Math.tan(camera.fov / 2) * 0.25);
+      expect(camera.radius * Math.sin(halfHorizontalFov)).toBeGreaterThan(Math.sqrt(75));
+      expect(isMeshInteractable(mesh)).toBe(true);
+      mesh.setEnabled(false); expect(isMeshInteractable(mesh)).toBe(false);
+      mesh.setEnabled(true); mesh.isVisible = false; expect(isMeshInteractable(mesh)).toBe(false);
+      mesh.isVisible = true; mesh.isPickable = false; expect(isMeshInteractable(mesh)).toBe(false);
+    } finally { scene.dispose(); engine.dispose(); }
+  });
   it("composes category, level and source-hidden visibility without rewriting metadata", () => {
     const engine = new NullEngine(); const scene = new Scene(engine);
     try {
@@ -39,6 +61,9 @@ describe("disposable viewport controls", () => {
       layers.setVisible("category:Walls", true); expect(mesh.isEnabled()).toBe(true);
       expect(JSON.stringify(mesh.metadata)).toBe(original);
       expect(layers.list()).toHaveLength(2);
+      const slab = CreateBox("slab", {}, scene);
+      layers.add(slab, "slab:fixture", false);
+      expect(layers.list().find(layer => layer.id === "category:Floors and ceilings")?.meshParts).toBe(1);
     } finally { scene.dispose(); engine.dispose(); }
   });
 });

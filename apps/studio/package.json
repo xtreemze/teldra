@@ -10,7 +10,8 @@
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
     "storybook:build": "storybook build -o storybook-static",
-    "storybook:test": "playwright test"
+    "storybook:test": "playwright test",
+    "pages:test": "playwright test --config playwright.production.config.ts"
   },
   "dependencies": {
     "@teldra/application": "workspace:*",
@@ -22,7 +23,9 @@
     "solid-js": "1.9.15",
     "@teldra/home-assistant": "workspace:*",
     "@teldra/live-state": "workspace:*",
-    "@teldra/scene-manifest": "workspace:*"
+    "@teldra/scene-manifest": "workspace:*",
+    "@teldra/ifc-edit": "workspace:*",
+    "web-ifc": "0.0.78"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

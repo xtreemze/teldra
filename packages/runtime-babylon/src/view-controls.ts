@@ -69,15 +69,47 @@ export function panCamera(camera: ArcRotateCamera, right: number, up: number): v
 }
 
 export function fitCamera(camera: ArcRotateCamera, meshes: AbstractMesh[]): boolean {
-  const visible = meshes.filter(mesh => mesh.isEnabled() && mesh.getTotalVertices() > 0);
+  const visible = meshes.filter(mesh => mesh.isEnabled() && mesh.isVisible && mesh.visibility > 0 && mesh.getTotalVertices() > 0);
   if (!visible.length) return false;
   stopCameraMotion(camera);
-  for (const mesh of visible) mesh.computeWorldMatrix(true);
-  camera.zoomOn(visible);
-  camera.radius = Math.max(camera.lowerRadiusLimit ?? 0.01, camera.radius * 1.15);
+  const minimum = new Vector3(Infinity, Infinity, Infinity);
+  const maximum = new Vector3(-Infinity, -Infinity, -Infinity);
+  for (const mesh of visible) {
+    mesh.computeWorldMatrix(true);
+    const bounds = mesh.getBoundingInfo().boundingBox;
+    minimum.minimizeInPlace(bounds.minimumWorld);
+    maximum.maximizeInPlace(bounds.maximumWorld);
+  }
+  const extent = maximum.subtract(minimum).length() / 2;
+  const engine = camera.getScene().getEngine();
+  const aspect = engine.getRenderWidth() / Math.max(1, engine.getRenderHeight());
+  const halfFov = camera.fov / 2;
+  const verticalHalfFov = camera.fovMode === Camera.FOVMODE_HORIZONTAL_FIXED
+    ? Math.atan(Math.tan(halfFov) / Math.max(aspect, 0.001)) : halfFov;
+  const horizontalHalfFov = Math.atan(Math.tan(verticalHalfFov) * Math.max(aspect, 0.001));
+  const limitingHalfFov = Math.min(verticalHalfFov, horizontalHalfFov);
+  const divisor = camera.mode === Camera.ORTHOGRAPHIC_CAMERA
+    ? Math.tan(limitingHalfFov) : Math.sin(limitingHalfFov);
+  camera.setTarget(minimum.add(maximum).scale(0.5));
+  camera.radius = Math.max(camera.lowerRadiusLimit ?? 0.01, extent * 1.15 / Math.max(divisor, 0.001));
   camera.minZ = Math.max(0.001, camera.radius / 10000);
   camera.maxZ = Math.max(1000, camera.radius * 100);
   return true;
+}
+
+/** Custom Babylon pick predicates must explicitly retain visibility checks. */
+export function isMeshInteractable(mesh: AbstractMesh): boolean {
+  return mesh.isEnabled() && mesh.isVisible && mesh.visibility > 0 && mesh.isPickable;
+}
+
+/** A runtime owns at most one load attempt; replace the runtime to load another asset. */
+export class OneShotLoad {
+  private state: "idle" | "loading" | "finished" = "idle";
+  begin(): void {
+    if (this.state !== "idle") throw new Error("This Babylon runtime has already started a load.");
+    this.state = "loading";
+  }
+  finish(): void { this.state = "finished"; }
 }
 
 export interface ViewLayer { id: string; label: string; group: "category" | "level"; visible: boolean; meshParts: number }
@@ -85,12 +117,13 @@ export class SceneLayers {
   private readonly layers = new Map<string, ViewLayer>();
   private readonly memberships = new Map<AbstractMesh, string[]>();
   private readonly hidden = new Set<AbstractMesh>();
+  private readonly batched = new Map<AbstractMesh, AbstractMesh>();
   private revealHidden = false;
 
   add(mesh: AbstractMesh, canonicalId: string, hidden: boolean): void {
     const source = mesh.metadata?.gltf?.extras?.teldraSourceLayer;
     const prefix = canonicalId.replace(/^sh3d:/, "").split(":")[0];
-    const category = ({wall: "Walls", room: "Floors and ceilings", pieceOfFurniture: "Furniture",
+    const category = ({wall: "Walls", room: "Floors and ceilings", slab: "Floors and ceilings", pieceOfFurniture: "Furniture",
       furniture: "Furniture", shelfUnit: "Furniture", doorOrWindow: "Doors and windows",
       light: "Light fixtures", device: "Devices", presentation: "Ground and background"} as Record<string, string>)[prefix ?? ""] ?? "Building";
     const id = `category:${category}`;
@@ -109,7 +142,22 @@ export class SceneLayers {
     else this.layers.set(id, {id, label, group, visible: true, meshParts: 1});
   }
   private apply(mesh: AbstractMesh, ids: string[]): void {
-    mesh.setEnabled((this.revealHidden || !this.hidden.has(mesh)) && ids.every(id => this.layers.get(id)?.visible));
+    const visible = (this.revealHidden || !this.hidden.has(mesh)) && ids.every(id => this.layers.get(id)?.visible);
+    const batch = this.batched.get(mesh);
+    if (batch) { mesh.setEnabled(false); batch.setEnabled(visible); }
+    else mesh.setEnabled(visible);
+  }
+  addBatch(batch: AbstractMesh, parts: readonly AbstractMesh[]): void {
+    for (const part of parts) {
+      const ids = this.memberships.get(part);
+      if (!ids) throw new Error("Cannot batch an unregistered scene part.");
+      this.batched.set(part, batch);
+      this.apply(part, ids);
+    }
+  }
+  isVisible(mesh: AbstractMesh): boolean {
+    const ids = this.memberships.get(mesh);
+    return !!ids && (this.revealHidden || !this.hidden.has(mesh)) && ids.every(id => this.layers.get(id)?.visible);
   }
   list(): ViewLayer[] { return [...this.layers.values()].map(layer => ({...layer})); }
   setVisible(id: string, visible: boolean): void {

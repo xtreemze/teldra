@@ -1,71 +1,44 @@
 .teldra-browser-studio {
+  --studio-ink: #e7edf4;
+  --studio-muted: #a8b5c4;
+  --studio-panel: #17212d;
+  --studio-border: #354556;
   box-sizing: border-box;
   min-height: 100vh;
-  padding: 2rem;
-  font-family: system-ui, sans-serif;
-  color: CanvasText;
-  background: Canvas;
+  color: var(--studio-ink);
+  background: #101821;
+  font-family: var(--teldra-font-body, system-ui, sans-serif);
 }
-
+.teldra-browser-studio *, .teldra-browser-studio *::before, .teldra-browser-studio *::after { box-sizing: border-box; }
 .teldra-browser-studio__masthead {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 2rem;
-  max-width: 72rem;
-  margin: 0 auto 2rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: .85rem 1.5rem; border-bottom: 1px solid var(--studio-border); background: #17212d;
 }
-
-.teldra-browser-studio__masthead h1 {
-  margin: 0.25rem 0;
-  font-size: clamp(1.75rem, 4vw, 3rem);
-}
-
-.teldra-browser-studio__masthead p {
-  max-width: 44rem;
-}
-
-.teldra-browser-studio__eyebrow {
-  margin: 0;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.teldra-browser-studio button {
-  min-height: 2.75rem;
-  padding: 0.55rem 0.9rem;
-}
-
-.teldra-browser-studio__workspace,
-.teldra-browser-studio__empty,
-.teldra-browser-studio__notice {
-  max-width: 72rem;
-  margin: 0 auto;
-}
-
-.teldra-browser-studio__file {
-  display: flex;
-  gap: 0.75rem;
-  align-items: baseline;
-  margin-bottom: 1rem;
-}
-
-.teldra-browser-studio__file span {
-  opacity: 0.7;
-}
-
-.teldra-browser-studio__error {
-  max-width: 72rem;
-  margin: 1rem auto;
-}
-
-@media (max-width: 42rem) {
-  .teldra-browser-studio {
-    padding: 1rem;
-  }
-
-  .teldra-browser-studio__masthead {
-    flex-direction: column;
-  }
-}
+.teldra-browser-studio__masthead > div { display: flex; align-items: baseline; gap: 1.25rem; min-width: 0; }
+.teldra-browser-studio__eyebrow { margin: 0; color: #8ddccf; font-size: .78rem; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.teldra-browser-studio__eyebrow span { color: var(--studio-ink); }
+.teldra-browser-studio__masthead h1 { margin: 0; font-size: .95rem; font-weight: 650; }
+.teldra-browser-studio__masthead p:not(.teldra-browser-studio__eyebrow) { display: none; }
+.teldra-browser-studio button, .teldra-browser-studio select, .teldra-browser-studio input { font: inherit; }
+.teldra-browser-studio button { min-height: 2.5rem; padding: .5rem .8rem; color: var(--studio-ink); background: #263747; border: 1px solid #496072; border-radius: .45rem; cursor: pointer; }
+.teldra-browser-studio button:hover:not(:disabled) { background: #334b5c; }
+.teldra-browser-studio button:disabled { cursor: not-allowed; opacity: .48; }
+.teldra-browser-studio :focus-visible { outline: 3px solid #79d8cb; outline-offset: 2px; }
+.teldra-browser-studio__masthead > button, .teldra-browser-studio__empty > button:not(.teldra-browser-studio__secondary) { color: #10262a; background: #82d8ca; border-color: #82d8ca; font-weight: 700; }
+.teldra-browser-studio__masthead > button:hover:not(:disabled), .teldra-browser-studio__empty > button:not(.teldra-browser-studio__secondary):hover:not(:disabled) { background: #a7ece0; }
+.teldra-browser-studio__workspace { padding: 0 1rem 1rem; }
+.teldra-browser-studio__file { display: flex; align-items: center; gap: .6rem; min-height: 3rem; font-size: .85rem; }
+.teldra-browser-studio__file span { color: var(--studio-muted); }
+.teldra-browser-studio__file strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.teldra-browser-studio__empty, .teldra-browser-studio__notice { max-width: 40rem; margin: clamp(4rem, 14vh, 9rem) auto; padding: 2.5rem; border: 1px solid var(--studio-border); border-radius: 1rem; background: var(--studio-panel); box-shadow: 0 1rem 3rem #0004; }
+.teldra-browser-studio__empty h2, .teldra-browser-studio__notice h2 { margin: .8rem 0; font-size: clamp(1.6rem, 4vw, 2.4rem); }
+.teldra-browser-studio__empty p, .teldra-browser-studio__notice p { color: var(--studio-muted); line-height: 1.6; }
+.teldra-browser-studio__empty > button { margin: .75rem .5rem .5rem 0; }
+.teldra-browser-studio__hint { font-size: .85rem; }
+.teldra-browser-studio__error { margin: 0 1rem; color: #ffb6a9; }
+.teldra-browser-studio__error:empty { display: none; }
+@media (max-width: 42rem) { .teldra-browser-studio__masthead { padding: .75rem 1rem; } .teldra-browser-studio__masthead h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; } .teldra-browser-studio__workspace { padding-inline: .5rem; } .teldra-browser-studio__empty, .teldra-browser-studio__notice { margin: 2rem 1rem; padding: 1.5rem; } }
+/* Keep the app shell and native form controls on one system typeface. */
+body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: "Segoe UI", Arial, sans-serif; }
+.teldra-browser-studio { font-family: "Segoe UI", Arial, sans-serif; }
+.teldra-browser-studio, .teldra-studio-selection-workspace { --teldra-font-body: "Segoe UI", Arial, sans-serif; }

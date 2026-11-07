@@ -1,42 +1,41 @@
-.teldra-twin-viewport {
-  display: grid;
-  gap: 0.75rem;
-  width: min(100%, 48rem);
-}
-
-.teldra-twin-viewport__canvas {
-  display: block;
-  width: 100%;
-  aspect-ratio: 8 / 5;
-  background: rgb(28 31 36);
-  border: 1px solid color-mix(in srgb, currentColor 24%, transparent);
-  border-radius: 0.75rem;
-  touch-action: none;
-}
-
-.teldra-twin-viewport__status {
-  display: flex;
-  gap: 1rem;
-  font: 0.75rem/1.4 ui-monospace, monospace;
-  opacity: 0.72;
-}
-
-.teldra-view-controls { display: grid; gap: .5rem; font: .875rem/1.5 system-ui, sans-serif; }
-.teldra-view-controls__bar { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
-.teldra-view-controls button, .teldra-view-controls select { min-height: 2.5rem; padding: .35rem .65rem; font: inherit; }
-.teldra-view-controls :focus-visible { outline: 3px solid #357bd8; outline-offset: 2px; }
-.teldra-view-controls__navigation { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; }
-.teldra-orientation { width: 120px; height: 120px; position: relative; flex-shrink: 0; }
+.teldra-twin-viewport { position: relative; width: 100%; min-width: 0; color: #e7edf4; font: .82rem/1.4 var(--teldra-font-body, system-ui, sans-serif); }
+.teldra-twin-viewport__canvas { display: block; width: 100%; height: clamp(32rem, calc(100vh - 10rem), 70rem); background: #1c242b; border: 1px solid #354556; border-radius: .65rem; touch-action: none; }
+.teldra-twin-viewport__status { display: flex; flex-wrap: wrap; gap: .7rem; padding: .45rem .2rem; color: #a8b5c4; font: .7rem/1.4 ui-monospace, monospace; }
+.teldra-view-controls { position: absolute; inset: 0 0 2rem; pointer-events: none; }
+.teldra-view-controls__bar { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem; }
+.teldra-view-controls > .teldra-view-controls__bar { position: absolute; top: .75rem; left: .75rem; max-width: calc(100% - 10rem); padding: .3rem; border: 1px solid #526170; border-radius: .55rem; background: #17212deF; box-shadow: 0 .35rem 1rem #0004; pointer-events: auto; }
+.teldra-view-controls button, .teldra-view-controls select, .teldra-view-controls summary { min-height: 2.15rem; padding: .35rem .55rem; color: #e7edf4; background: #293a48; border: 1px solid #536677; border-radius: .35rem; font: inherit; cursor: pointer; }
+.teldra-view-controls button:hover:not(:disabled), .teldra-view-controls summary:hover { background: #405668; }
+.teldra-view-controls button:disabled { opacity: .45; cursor: not-allowed; }
+.teldra-view-controls :focus-visible { outline: 3px solid #79d8cb; outline-offset: 2px; }
+.teldra-view-controls label { display: inline-flex; align-items: center; gap: .35rem; }
+.teldra-view-controls__navigation > .teldra-view-controls__bar { position: absolute; bottom: .75rem; left: .75rem; padding: .3rem; border: 1px solid #526170; border-radius: .55rem; background: #17212def; pointer-events: auto; }
+.teldra-view-controls__navigation > .teldra-view-controls__bar:last-child { left: auto; right: .75rem; }
+.teldra-orientation { position: absolute; top: .75rem; right: .75rem; width: 120px; height: 120px; border: 1px solid #526170; border-radius: .65rem; background: #17212de8; pointer-events: auto; }
 .teldra-orientation svg { position: absolute; width: 100%; height: 100%; }
-.teldra-orientation .teldra-orientation__axis { position: absolute; transform: translate(-50%, -50%); padding: 0; min-height: 30px; width: 30px; border-radius: 50%; font-size: .7rem; background: #fff; color: #172536; border: 1px solid #627283; }
-.teldra-view-controls__layers { display: flex; flex-wrap: wrap; gap: .75rem; }
-.teldra-view-controls__layers fieldset { flex: 1; min-width: 10rem; }
-.teldra-view-controls__layers label { display: flex; align-items: center; gap: .4rem; min-height: 2.5rem; }
+.teldra-orientation .teldra-orientation__axis { position: absolute; transform: translate(-50%, -50%); padding: 0; min-height: 30px; width: 30px; border-radius: 50%; font-size: .7rem; font-weight: 700; background: #dce9ed; color: #172536; border: 1px solid #627283; }
+.teldra-view-controls__panel { position: absolute; top: 4.5rem; left: .75rem; pointer-events: auto; }
+.teldra-view-controls__panel--help { left: 5.5rem; }
+.teldra-view-controls__panel summary { display: block; list-style: none; background: #17212def; }
+.teldra-view-controls__panel summary::-webkit-details-marker { display: none; }
+.teldra-view-controls__panel summary::after { content: ' ▾'; }
+.teldra-view-controls__panel-content { position: absolute; top: calc(100% + .35rem); left: 0; z-index: 4; width: min(24rem, calc(100vw - 3rem)); max-height: min(50vh, 28rem); overflow: auto; padding: .75rem; border: 1px solid #526170; border-radius: .55rem; background: #17212d; box-shadow: 0 .5rem 1.5rem #0008; }
+.teldra-view-controls__panel-content p { margin: .25rem 0 .7rem; line-height: 1.5; }
+.teldra-view-controls__layers { display: flex; flex-wrap: wrap; gap: .5rem; }
+.teldra-view-controls__layers fieldset { flex: 1; min-width: 9rem; border: 1px solid #526170; border-radius: .35rem; }
+.teldra-view-controls__layers label { display: flex; min-height: 2.2rem; }
 .teldra-view-controls__diagnostic { display: none; }
+.teldra-view-controls__announcement { position: absolute; left: .75rem; bottom: 4rem; padding: .35rem .55rem; border-radius: .35rem; background: #17212def; }
 .teldra-view-controls__announcement:empty { display: none; }
-
-.teldra-twin-viewport { position: relative; }
-.teldra-orientation { position: absolute; top: .5rem; right: .5rem; border-radius: .75rem; background: rgb(255 255 255 / 85%); }
-
-.teldra-twin-viewport, .teldra-twin-viewport__canvas, .teldra-view-controls { min-width: 0; max-width: 100%; box-sizing: border-box; }
-.teldra-twin-viewport__status { flex-wrap: wrap; }
+@media (max-width: 48rem) {
+  .teldra-twin-viewport__canvas { height: 55vh; min-height: 20rem; }
+  .teldra-view-controls { position: static; display: flex; flex-wrap: wrap; gap: .4rem; padding-top: .5rem; pointer-events: auto; }
+  .teldra-view-controls > .teldra-view-controls__bar, .teldra-view-controls__navigation > .teldra-view-controls__bar, .teldra-view-controls__navigation > .teldra-view-controls__bar:last-child { position: static; max-width: none; box-shadow: none; }
+  .teldra-view-controls__navigation { display: flex; flex-wrap: wrap; gap: .4rem; }
+  .teldra-orientation { top: .5rem; right: .5rem; }
+  .teldra-view-controls__panel { position: relative; top: auto; left: auto; }
+  .teldra-view-controls__panel-content { top: auto; bottom: calc(100% + .35rem); }
+  .teldra-view-controls__announcement { position: static; }
+}
+/* The viewport is also embedded independently in Storybook and other surfaces. */
+.teldra-twin-viewport { background: #101821; border-radius: .65rem; }

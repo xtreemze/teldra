@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import {
   openBrowserTeldraProjectWithPicker,
   supportsBrowserTeldraFileAccess,
@@ -11,6 +11,7 @@ import "./BrowserProjectStudio.css";
 
 export interface BrowserProjectStudioProps {
   readonly openProject?: () => Promise<BrowserStudioProject>;
+  readonly openDemoProject?: () => Promise<BrowserStudioProject>;
   readonly fileAccessSupported?: boolean;
   readonly onViewportReady?: (handle: TwinViewportHandle) => void;
 }
@@ -24,19 +25,15 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     props.fileAccessSupported ??
     (props.openProject !== undefined || supportsBrowserTeldraFileAccess());
 
-  const open = async () => {
+  const open = async (demo = false) => {
     setOpening(true);
     setError("");
 
     try {
-      const current = project();
-      if (current !== null) {
-        setProject(null);
-        await current.close();
-      }
-
       const next =
-        props.openProject === undefined
+        demo && props.openDemoProject !== undefined
+          ? await props.openDemoProject()
+          : props.openProject === undefined
           ? await openBrowserTeldraProjectWithPicker(
               `studio:${crypto.randomUUID()}`,
             )
@@ -44,15 +41,31 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
 
       const firstDevice = next.controller.twin.devices[0];
       next.controller.selectCanonicalId(firstDevice?.id ?? null);
+      const current = project();
+      if (current?.controller.dirty && !window.confirm("This project has unsaved changes. Open another project and discard them?")) {
+        await next.close();
+        return;
+      }
       setProject(next);
+      if (current !== null) await current.close();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      if (!(cause instanceof DOMException && cause.name === "AbortError")) {
+        setError(cause instanceof Error ? cause.message : String(cause));
+      }
     } finally {
       setOpening(false);
     }
   };
 
+  const protectUnsavedChanges = (event: BeforeUnloadEvent) => {
+    if (project()?.controller.dirty) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  };
+  onMount(() => window.addEventListener("beforeunload", protectUnsavedChanges));
   onCleanup(() => {
+    window.removeEventListener("beforeunload", protectUnsavedChanges);
     const current = project();
     if (current !== null) {
       void current.close();
@@ -63,12 +76,9 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     <main class="teldra-browser-studio">
       <header class="teldra-browser-studio__masthead">
         <div>
-          <p class="teldra-browser-studio__eyebrow">Teldra Studio</p>
-          <h1>Local smart-home project</h1>
-          <p>
-            Open, edit, undo, and save a portable <code>.teldra</code> project
-            without making renderer or browser state canonical.
-          </p>
+          <p class="teldra-browser-studio__eyebrow">Teldra <span>Studio</span></p>
+          <h1>{project() === null ? "Your space, in context." : "Project workspace"}</h1>
+          <p>Explore your building and manage its connected devices in one place.</p>
         </div>
         <button
           type="button"
@@ -80,7 +90,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
       </header>
 
       <Show
-        when={supported()}
+        when={supported() || props.openDemoProject !== undefined || project() !== null}
         fallback={
           <section class="teldra-browser-studio__notice" role="status">
             <h2>Direct local editing unavailable</h2>
@@ -96,8 +106,14 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
           when={project()}
           fallback={
             <section class="teldra-browser-studio__empty">
-              <h2>No project open</h2>
-              <p>Select a local .teldra file to begin.</p>
+              <p class="teldra-browser-studio__eyebrow">GET STARTED</p>
+              <h2>Open a project</h2>
+              <p>Choose a local <code>.teldra</code> file to explore its 3D scene and edit devices. Changes are saved back to your project.</p>
+              <Show when={props.openDemoProject}>
+                <button type="button" class="teldra-browser-studio__secondary" onClick={() => void open(true)} disabled={opening()}>Try demo</button>
+              </Show>
+              <Show when={!supported()}><p class="teldra-browser-studio__hint">Opening local files is unavailable in this browser.</p></Show>
+              <p class="teldra-browser-studio__hint">Once open, drag to orbit, scroll to zoom, and select a device to inspect it.</p>
             </section>
           }
         >
@@ -108,6 +124,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
                 <div class="teldra-browser-studio__file">
                   <span>Project</span>
                   <strong data-testid="browser-project-file">{ready().fileName}</strong>
+                  <Show when={ready().saveMode === "download"}><span class="teldra-browser-studio__save-mode">Save downloads a copy</span></Show>
                 </div>
                 <Show
                   when={ready().scene}

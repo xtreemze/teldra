@@ -34,7 +34,7 @@ test("opens a portable scene in Babylon, shares canonical selection, edits, and 
   await expect(page.getByTestId("device-canonical-id")).toHaveCount(0);
 
   await page
-    .getByRole("button", { name: /Living room floor lamp/ })
+    .getByRole("list", { name: "Devices", exact: true }).getByRole("button", { name: /Living room floor lamp/ })
     .click();
 
   await expect(page.getByTestId("device-canonical-id")).toHaveText(

@@ -4,11 +4,10 @@ import {
   onCleanup,
   onMount,
 } from "solid-js";
-import {
-  createBabylonTwinRuntime,
-  type BabylonBackend,
-  type BabylonTwinRuntime,
-  type TwinRenderIdentity,
+import type {
+  BabylonBackend,
+  BabylonTwinRuntime,
+  TwinRenderIdentity,
 } from "@teldra/runtime-babylon";
 import "./TwinViewport.css";
 import { ViewportControls } from "./ViewportControls";
@@ -22,12 +21,17 @@ export interface TwinViewportHandle {
   layers(): ReturnType<BabylonTwinRuntime["layers"]>;
   viewState(): ReturnType<BabylonTwinRuntime["viewState"]>;
   assetSummary(): ReturnType<BabylonTwinRuntime["assetSummary"]>;
+  renderStats(): ReturnType<BabylonTwinRuntime["renderStats"]>;
+  batchingStats(): ReturnType<BabylonTwinRuntime["batchingStats"]>;
+  applyScenePlacements: BabylonTwinRuntime["applyScenePlacements"];
+  beginFurnitureEdit: BabylonTwinRuntime["beginFurnitureEdit"];
   projectNode(nodeKey: string): TwinViewportClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
 }
 
 export interface TwinViewportProps {
   readonly selectedCanonicalId?: string | null | undefined;
+  readonly batchOpaqueParts?: boolean | undefined;
   readonly manifest: unknown;
   readonly glbUrl: string;
   readonly onReady?: (handle: TwinViewportHandle) => void;
@@ -38,6 +42,7 @@ export function TwinViewport(props: TwinViewportProps) {
   let canvas!: HTMLCanvasElement;
   let runtime: BabylonTwinRuntime | undefined;
   let unsubscribePick: (() => void) | undefined;
+  let disposed = false;
 
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading");
   const [readyRuntime, setReadyRuntime] = createSignal<BabylonTwinRuntime>();
@@ -53,7 +58,14 @@ export function TwinViewport(props: TwinViewportProps) {
 
     void (async () => {
       try {
-        runtime = await createBabylonTwinRuntime(canvas, props.manifest);
+        const { createBabylonTwinRuntime } = await import("@teldra/runtime-babylon");
+        if (disposed) return;
+        const created = await createBabylonTwinRuntime(canvas, props.manifest, {batchOpaqueParts: props.batchOpaqueParts ?? true});
+        if (disposed) {
+          created.dispose();
+          return;
+        }
+        runtime = created;
         runtime.resize();
         setBackend(runtime.backend);
         unsubscribePick = runtime.onPick((identity) => {
@@ -61,6 +73,7 @@ export function TwinViewport(props: TwinViewportProps) {
           props.onSelect?.(identity);
         });
         await runtime.load(props.glbUrl);
+        if (disposed) return;
         runtime.start();
         setReadyRuntime(runtime);
         setHasHiddenSourceContent(runtime.assetSummary().hiddenSourceParts > 0);
@@ -70,6 +83,10 @@ export function TwinViewport(props: TwinViewportProps) {
           layers: () => readyRuntime.layers(),
           viewState: () => readyRuntime.viewState(),
           assetSummary: () => readyRuntime.assetSummary(),
+          renderStats: () => readyRuntime.renderStats(),
+          batchingStats: () => readyRuntime.batchingStats(),
+          applyScenePlacements: (placements) => readyRuntime.applyScenePlacements(placements),
+          beginFurnitureEdit: (placement, onPreview, onDragState) => readyRuntime.beginFurnitureEdit(placement, onPreview, onDragState),
           projectNode(nodeKey) {
             return readyRuntime.projectNode(nodeKey);
           },
@@ -80,6 +97,7 @@ export function TwinViewport(props: TwinViewportProps) {
 
         setStatus("ready");
       } catch (error) {
+        if (disposed) return;
         console.error("Failed to initialize Teldra twin viewport.", error);
         setStatus("error");
       }
@@ -87,6 +105,7 @@ export function TwinViewport(props: TwinViewportProps) {
   });
 
   onCleanup(() => {
+    disposed = true;
     window.removeEventListener("resize", resize);
     unsubscribePick?.();
     runtime?.dispose();

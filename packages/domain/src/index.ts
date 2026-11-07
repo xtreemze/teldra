@@ -37,6 +37,12 @@ export function assertTwinIntegrity(project: TwinProject): void {
   const devicesById = new Map(project.devices.map((value) => [value.id, value] as const));
 
   for (const device of project.devices) {
+    if (device.placement !== undefined) {
+      const { frame, position, rotationQuaternion: q } = device.placement;
+      if (frame !== "ifc-world-metres-z-up" || position.length !== 3 || q.length !== 4 || ![...position, ...q].every(Number.isFinite) || Math.abs(Math.hypot(...q) - 1) > 1e-6) {
+        throw new TwinIntegrityError(`Device "${device.id}" has an invalid placement.`);
+      }
+    }
     if (device.buildingRefId !== undefined && !buildingIds.has(device.buildingRefId)) {
       throw new TwinIntegrityError(
         `Device "${device.id}" references unknown building object "${device.buildingRefId}".`,

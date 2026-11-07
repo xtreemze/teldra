@@ -681,3 +681,73 @@ function crc32(bytes: Uint8Array): number {
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
+/** Reconciliation of an unchanged derived GLB against a newer IFC building. */
+export const SCENE_PLACEMENT_OVERRIDES_PATH = "teldra/scene-placement-overrides.json";
+export const SCENE_SOURCE_IFC_PATH = "teldra/scene-source.ifc";
+export interface ScenePlacementOverride { readonly canonicalId: string; readonly ifcGlobalId: string; readonly matrix: readonly number[] }
+export interface ScenePlacementOverrides {
+  readonly version: 1;
+  readonly sourceBuildingSha256: string;
+  readonly buildingSha256: string;
+  readonly sceneAssetSha256: string;
+  readonly placements: readonly ScenePlacementOverride[];
+}
+export interface SceneProvenance { readonly source: { readonly buildingPath: string; readonly buildingSha256: string }; readonly scene: { readonly assetPath: string; readonly assetSha256: string }; readonly nodes: readonly { readonly canonicalId: string; readonly ifcGlobalId?: string }[] }
+
+/** Verifies that the unchanged scene is either current or has a complete, hash-bound reconciliation record. */
+export async function readScenePlacementOverrides(archive: OpenTeldraArchive, scene: SceneProvenance): Promise<ScenePlacementOverrides | null> {
+  if (scene.source.buildingPath !== archive.manifest.building.path) throw new TeldraArchiveError("Scene references a different IFC building.");
+  const asset = archive.entries.find((entry) => entry.path === scene.scene.assetPath);
+  if (!asset || await sha256Bytes(asset.bytes) !== scene.scene.assetSha256) throw new TeldraArchiveError("Scene asset hash mismatch.");
+  const listed = archive.manifest.derived?.some((entry) => entry.path === SCENE_PLACEMENT_OVERRIDES_PATH) ?? false;
+  if (!listed) {
+    if (scene.source.buildingSha256 !== archive.manifest.building.sha256) throw new TeldraArchiveError("Scene source IFC is stale and has no placement reconciliation.");
+    return null;
+  }
+  const sourceArtifact = archive.manifest.derived?.find((item) => item.path === SCENE_SOURCE_IFC_PATH);
+  const sourceEntry = archive.entries.find((item) => item.path === SCENE_SOURCE_IFC_PATH);
+  if (!sourceArtifact || !sourceEntry || sourceArtifact.sha256 !== scene.source.buildingSha256 || await sha256Bytes(sourceEntry.bytes) !== scene.source.buildingSha256) throw new TeldraArchiveError("Original scene IFC is missing or has the wrong hash.");
+  const entry = archive.entries.find((value) => value.path === SCENE_PLACEMENT_OVERRIDES_PATH);
+  if (!entry) throw new TeldraArchiveError("Placement reconciliation is missing.");
+  let candidate: unknown;
+  try { candidate = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(entry.bytes)); }
+  catch { throw new TeldraArchiveError("Invalid placement reconciliation JSON."); }
+  if (!candidate || typeof candidate !== "object") throw new TeldraArchiveError("Invalid placement reconciliation.");
+  const value = candidate as ScenePlacementOverrides;
+  if (value.version !== 1 || value.sourceBuildingSha256 !== scene.source.buildingSha256 || value.buildingSha256 !== archive.manifest.building.sha256 || value.sceneAssetSha256 !== scene.scene.assetSha256 || !Array.isArray(value.placements)) throw new TeldraArchiveError("Placement reconciliation provenance mismatch.");
+  const seen = new Set<string>();
+  for (const placement of value.placements) {
+    if (!placement || typeof placement.canonicalId !== "string" || typeof placement.ifcGlobalId !== "string" || seen.has(placement.canonicalId)) throw new TeldraArchiveError("Invalid or duplicate placement identity.");
+    seen.add(placement.canonicalId);
+    if (!archive.twin.building.refs.some((ref) => ref.id === placement.canonicalId && ref.ifcGlobalId === placement.ifcGlobalId && ref.kind === "furniture") || !scene.nodes.some((node) => node.canonicalId === placement.canonicalId && node.ifcGlobalId === placement.ifcGlobalId)) throw new TeldraArchiveError("Placement identity is not a rendered canonical furniture object.");
+    assertUprightRigidMatrix(placement.matrix);
+  }
+  return value;
+}
+function assertUprightRigidMatrix(m: readonly number[]): void {
+  if (!Array.isArray(m) || m.length !== 16 || !m.every(Number.isFinite)) throw new TeldraArchiveError("Invalid placement matrix.");
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-7;
+  if (!near(m[2]!, 0) || !near(m[3]!, 0) || !near(m[6]!, 0) || !near(m[7]!, 0) || !near(m[8]!, 0) || !near(m[9]!, 0) || !near(m[10]!, 1) || !near(m[11]!, 0) || !near(m[15]!, 1) || !near(m[0]! * m[0]! + m[1]! * m[1]!, 1) || !near(m[4]! * m[4]! + m[5]! * m[5]!, 1) || !near(m[0]! * m[4]! + m[1]! * m[5]!, 0) || !near(m[0]! * m[5]! - m[1]! * m[4]!, 1)) throw new TeldraArchiveError("Placement matrix must be a rigid, upright transform.");
+}
+
+/** Atomically replaces IFC and its hash-bound scene reconciliation in one archive. */
+export async function replaceTeldraBuilding(archive: OpenTeldraArchive, buildingBytes: Uint8Array, scene: SceneProvenance, placements: readonly ScenePlacementOverride[]): Promise<{ readonly bytes: Uint8Array; readonly archive: OpenTeldraArchive }> {
+  await readScenePlacementOverrides(archive, scene);
+  const sourceEntry = archive.entries.find((entry) => entry.path === (scene.source.buildingSha256 === archive.manifest.building.sha256 ? archive.manifest.building.path : SCENE_SOURCE_IFC_PATH));
+  if (!sourceEntry || await sha256Bytes(sourceEntry.bytes) !== scene.source.buildingSha256) throw new TeldraArchiveError("Original scene IFC is unavailable.");
+  const buildingSha256 = await sha256Bytes(buildingBytes);
+  const record: ScenePlacementOverrides = { version: 1, sourceBuildingSha256: scene.source.buildingSha256, buildingSha256, sceneAssetSha256: scene.scene.assetSha256, placements };
+  const recordBytes = new TextEncoder().encode(`${JSON.stringify(record, null, 2)}\n`);
+  const derived = (archive.manifest.derived ?? []).filter((item) => item.path !== SCENE_PLACEMENT_OVERRIDES_PATH && item.path !== SCENE_SOURCE_IFC_PATH);
+  derived.push({ path: SCENE_PLACEMENT_OVERRIDES_PATH, sha256: await sha256Bytes(recordBytes) });
+  derived.push({ path: SCENE_SOURCE_IFC_PATH, sha256: scene.source.buildingSha256 });
+  const manifest: TeldraProjectManifest = { ...archive.manifest, building: { ...archive.manifest.building, sha256: buildingSha256 }, derived };
+  const replacements = new Map([["project.json", new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`)], [manifest.building.path, buildingBytes], [SCENE_PLACEMENT_OVERRIDES_PATH, recordBytes]]);
+  const entries = archive.entries.filter((entry) => entry.path !== SCENE_PLACEMENT_OVERRIDES_PATH && entry.path !== SCENE_SOURCE_IFC_PATH).map((entry) => ({ path: entry.path, bytes: replacements.get(entry.path) ?? entry.bytes }));
+  entries.push({ path: SCENE_PLACEMENT_OVERRIDES_PATH, bytes: recordBytes });
+  entries.push({ path: SCENE_SOURCE_IFC_PATH, bytes: sourceEntry.bytes });
+  const bytes = encodeStoredZip(entries);
+  const reopened = await openTeldraArchive(bytes);
+  await readScenePlacementOverrides(reopened, scene);
+  return { bytes, archive: reopened };
+}

@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - "apps/site/**"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -35,13 +32,16 @@ jobs:
           package-manager-cache: false
 
       - name: Install dependencies
-        run: pnpm install --no-frozen-lockfile
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck site
         run: pnpm --filter @teldra/site typecheck
 
-      - name: Build and verify site
-        run: pnpm --filter @teldra/site verify
+      - name: Typecheck Studio
+        run: pnpm --filter @teldra/studio typecheck
+
+      - name: Build and verify complete Pages application
+        run: pnpm pages:build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
@@ -49,7 +49,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: apps/site/dist
+          path: dist/pages
 
   deploy:
     environment:
