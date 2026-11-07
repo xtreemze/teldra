@@ -25,6 +25,18 @@
     justify-content: space-between;
     gap: .5rem;
   }
+  .teldra-mobile-transform-pad__header button {
+    min-height: 2.75rem;
+    padding: .4rem .65rem;
+    border: 1px solid #628598;
+    border-radius: .45rem;
+    background: #273e4e;
+    color: #e7edf4;
+    font: inherit;
+    font-weight: 700;
+  }
+  .teldra-mobile-transform-pad__details { display: grid; gap: .4rem; }
+  .teldra-mobile-transform-pad__details[hidden] { display: none; }
   .teldra-mobile-transform-pad__header span,
   .teldra-mobile-transform-pad__feedback span,
   .teldra-mobile-transform-pad__axis-label {
