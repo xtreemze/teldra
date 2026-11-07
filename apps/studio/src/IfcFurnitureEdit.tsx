@@ -39,7 +39,8 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const cancel = () => { setDraft(null); loadedId = null; props.onPreview?.(null); props.onEditingChange?.(false); setError(""); };
   createEffect(() => {
     const request = props.editRequest ?? 0;
-    if (request > 0 && request !== lastHandledEditRequest) {
+    if (request === 0) { lastHandledEditRequest = 0; return; }
+    if (request !== lastHandledEditRequest) {
       lastHandledEditRequest = request;
       if (!loadedId) void begin();
     }
