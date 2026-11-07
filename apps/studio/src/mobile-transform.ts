@@ -3,7 +3,7 @@ import type { FurnitureGeometryScale, FurnitureWorldPose } from "@teldra/applica
 /** Gesture mathematics only. No renderer or canonical IFC state is mutated here. */
 export interface TouchPoint { readonly x: number; readonly y: number }
 export type WorldAxis = "x" | "y" | "z";
-export type TouchTransformMode = "translate" | "rotate";
+export type TouchTransformMode = "translate" | "rotate" | "scale";
 export interface TouchTransformResult {
   readonly pose: FurnitureWorldPose;
   readonly delta: number; // metres for move, radians for rotate
@@ -32,7 +32,7 @@ export function touchTransformPose(
   base: FurnitureWorldPose,
   start: readonly [TouchPoint, TouchPoint],
   current: readonly [TouchPoint, TouchPoint],
-  mode: TouchTransformMode,
+  mode: Exclude<TouchTransformMode, "scale">,
   axis: WorldAxis,
   snap: number,
 ): TouchTransformResult | null {
