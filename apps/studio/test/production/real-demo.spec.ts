@@ -7,6 +7,15 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});
  const assets=JSON.parse((await page.getByTestId("asset-summary").textContent())!);
  expect(assets).toMatchObject({meshParts:9512,visibleMeshParts:4488,hiddenSourceParts:5022,sourcePhongMaterials:467,textures:253,texturesReady:true,localLightSources:22,lightingProfile:"sh3d-preview-v1"});
+ // These are material bindings after runtime source-Phong projection, not just GLB inputs.
+ console.log("21D floor runtime texture bindings", JSON.stringify({
+  roomTexturedParts:assets.roomTexturedParts,
+  roomTexturesBound:assets.roomTexturesBound,
+  roomTexturesReady:assets.roomTexturesReady,
+ }));
+ expect(assets.roomTexturedParts).toBe(13);
+ expect(assets.roomTexturesBound).toBe(13);
+ expect(assets.roomTexturesReady).toBe(13);
  const canvas=(await page.getByTestId("twin-canvas").boundingBox())!;
  expect(canvas.width).toBeGreaterThan(1400); expect(canvas.height).toBeGreaterThan(900);
  for(const role of ["Project actions","Camera controls","3D orientation gizmo"]){
@@ -15,6 +24,12 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
   expect(box.x+box.width).toBeLessThanOrEqual(canvas.x+canvas.width+1);
  }
  await page.getByText("Appearance",{exact:true}).click();
+ expect(assets.floorInspectionMaterials).toBeGreaterThan(0);
+ const floorToggle=page.getByLabel("Inspect floor textures without lighting",{exact:true});
+ await floorToggle.check();
+ await expect(floorToggle).toBeChecked();
+ await floorToggle.uncheck();
+ await expect(floorToggle).not.toBeChecked();
  await page.getByLabel("Textures and diffuse maps",{exact:true}).uncheck();
  await expect(page.getByLabel("Textures and diffuse maps",{exact:true})).not.toBeChecked();
  await page.getByRole("button",{name:"Restore source appearance",exact:true}).click();
@@ -37,7 +52,14 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  expect(picked).not.toBeNull();
  await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText(picked!);
  await page.screenshot({path:testInfo.outputPath("real-home-desktop.png")});
- await page.setViewportSize({width:390,height:844});await page.reload();
+ expect(errors).toEqual([]);
+});
+
+test("real Sweet Home 3D demo mobile view opens with scene and appearance controls",async({page},testInfo)=>{
+ test.setTimeout(180000);
+ const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
+ await page.setViewportSize({width:390,height:844});
+ await page.goto("./");
  await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});
  await expect(page.getByRole("button",{name:"Scene",exact:true})).toHaveAttribute("aria-expanded","false");
  await page.getByRole("button",{name:"Scene",exact:true}).click();

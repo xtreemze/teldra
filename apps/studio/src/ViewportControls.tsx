@@ -97,9 +97,11 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary>Appearance</summary><div class="teldra-view-controls__panel-content">
       <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>
+      <label><input type="checkbox" aria-label="Inspect floor textures without lighting" checked={appearance().floorTextureInspection}
+        onChange={event => {props.runtime.setAppearance({floorTextureInspection:event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Inspect floor textures (unlit)</label>
       <label>Light intensity <input aria-label="Light intensity" type="range" min="0.25" max="2" step="0.05" value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
       <label>Shadow detail <input aria-label="Shadow detail" type="range" min="0" max="100" step="5" value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
-      <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
+      <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
       <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Shadow detail recovers dark tones without modifying project materials or light sources; 0 disables grading. Absent texture detail cannot be recreated. Adjustments affect this view only.</p>
     </div></details>
     <div class="teldra-view-controls__mobile">
@@ -138,11 +140,15 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
             <div class="teldra-view-controls__mobile-layers">
               <label><input type="checkbox" checked={appearance().texturesEnabled}
                 onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures</label>
+              <label><input type="checkbox" aria-label="Mobile inspect floor textures without lighting"
+                checked={appearance().floorTextureInspection} onChange={event => {
+                  props.runtime.setAppearance({floorTextureInspection:event.currentTarget.checked});setAppearance(props.runtime.appearance());
+                }} />Inspect floor textures (unlit)</label>
               <label>Light intensity <input aria-label="Mobile light intensity" type="range" min="0.25" max="2" step="0.05"
                 value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
               <label>Shadow detail <input aria-label="Mobile shadow detail" type="range" min="0" max="100" step="5"
                 value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
-              <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
+              <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
             </div>
           </details>
           <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>

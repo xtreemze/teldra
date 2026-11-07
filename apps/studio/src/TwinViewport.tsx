@@ -180,7 +180,7 @@ export function TwinViewport(props: TwinViewportProps) {
       try {
         const { createBabylonTwinRuntime } = await import("@teldra/runtime-babylon");
         if (disposed) return;
-        const created = await createBabylonTwinRuntime(canvas, props.manifest, {batchOpaqueParts: props.batchOpaqueParts ?? true});
+        const created = await createBabylonTwinRuntime(canvas, props.manifest, {batchOpaqueParts: props.batchOpaqueParts ?? true, forceWebGL: new URLSearchParams(window.location.search).get("renderer") === "webgl"});
         if (disposed) {
           created.dispose();
           return;
