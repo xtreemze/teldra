@@ -26,30 +26,8 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await page.getByText("Appearance",{exact:true}).click();
  expect(assets.floorInspectionMaterials).toBeGreaterThan(0);
  const floorToggle=page.getByLabel("Inspect floor textures without lighting",{exact:true});
- const sourceFrame=await page.screenshot();
  await floorToggle.check();
  await expect(floorToggle).toBeChecked();
- const inspectFrame=await page.screenshot();
- // Diagnostic comparison samples the scene's central region, avoiding the panel.
- const pixelChanges=await page.evaluate(async ({before,after,bounds})=>{
-  const decode=async(src:string)=>{
-   const image=new Image();image.src="data:image/png;base64,"+src;await image.decode();
-   const sample=document.createElement("canvas");sample.width=image.width;sample.height=image.height;
-   const context=sample.getContext("2d")!;context.drawImage(image,0,0);
-   return context.getImageData(0,0,image.width,image.height);
-  };
-  const a=await decode(before),b=await decode(after);
-  let count=0,changed=0,total=0;
-  const x0=Math.floor(bounds.x+bounds.width*.4),x1=Math.floor(bounds.x+bounds.width*.75);
-  const y0=Math.floor(bounds.y+bounds.height*.35),y1=Math.floor(bounds.y+bounds.height*.8);
-  for(let y=y0;y<y1;y+=6)for(let x=x0;x<x1;x+=6){
-   const i=(y*a.width+x)*4;
-   const delta=Math.abs(a.data[i]-b.data[i])+Math.abs(a.data[i+1]-b.data[i+1])+Math.abs(a.data[i+2]-b.data[i+2]);
-   count++;total+=delta;if(delta>30)changed++;
-  }
-  return {sampled:count,changed,meanRgbDelta:Math.round(total/Math.max(1,count))};
- },{before:sourceFrame.toString("base64"),after:inspectFrame.toString("base64"),bounds:canvas});
- console.log("21D unlit floor inspection pixel changes",JSON.stringify(pixelChanges));
  await floorToggle.uncheck();
  await expect(floorToggle).not.toBeChecked();
  await page.getByLabel("Textures and diffuse maps",{exact:true}).uncheck();
