@@ -33,3 +33,27 @@ describe("mobile touch editing previews", () => {
     expect(touchTransformPose(origin, [a, b], [a, b], "translate", "x", -1)).toBeNull();
   });
 });
+
+
+import {touchScalePreview} from "./mobile-transform";
+
+describe("pinch-to-scale IFC geometry previews", () => {
+  const start = [{x: 10, y: 90}, {x: 110, y: 90}] as const;
+  it("uniformly scales valid mapped instance factors with two fingers", () => {
+    const next = touchScalePreview([1, 2, 0.5], start,
+      [{x: -40, y: 90}, {x: 160, y: 90}], "all");
+    expect(next?.ratio).toBe(2);
+    expect(next?.scale).toEqual([2, 4, 1]);
+  });
+  it("supports local IFC axis scaling without moving or rotating furniture", () => {
+    const next = touchScalePreview([1, 2, 0.5], start,
+      [{x: -15, y: 90}, {x: 135, y: 90}], "x");
+    expect(next?.scale).toEqual([1.5, 2, 0.5]);
+  });
+  it("rejects invalid base factors, degenerate touches and overflow", () => {
+    expect(touchScalePreview([0, 1, 1], start, start, "all")).toBeNull();
+    expect(touchScalePreview([999, 1, 1], start,
+      [{x: -40, y: 90}, {x: 160, y: 90}], "all")).toBeNull();
+    expect(touchScalePreview([1, 1, 1], [start[0], start[0]], start, "x")).toBeNull();
+  });
+});
