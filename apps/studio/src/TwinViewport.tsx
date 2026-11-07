@@ -250,6 +250,7 @@ export function TwinViewport(props: TwinViewportProps) {
       aria-label="Smart home twin viewport"
       data-status={status()}
       data-backend={backend() ?? ""}
+      data-depth-mode={readyRuntime() ? (readyRuntime()!.renderStats().reverseDepth ? "reverse" : "standard") : ""}
     >
       <canvas
         ref={canvas}
