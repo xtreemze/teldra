@@ -65,3 +65,7 @@ browsers; other browsers and the demo download an edited copy. Local home files 
 Run `pnpm --filter @teldra/studio dev` for development. Build the combined Pages tree with
 `pnpm pages:build` and verify production paths with `pnpm --filter @teldra/studio pages:test`.
 See [the editing contract and measured limitations](docs/architecture/0021-browser-spatial-editing.md).
+
+## Installable Studio
+
+Teldra Studio can be installed as a progressive web app on supported desktop and mobile browsers. It caches the application shell, renderer code and IFC/WASM editing support for offline operation with locally available projects. Large example homes are downloaded and cached on demand where storage permits. See [PWA implementation, platform support and limitations](docs/architecture/0022-studio-pwa.md).
