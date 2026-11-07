@@ -30,3 +30,14 @@ test("reverse-Z renderer flag is honored without losing source textures", async 
   await expect(page.getByTestId("source-asset-summary")).toContainText('"texturesReady":true');
   expect(errors).toEqual([]);
 });
+
+test("surface identification can be armed without editing the SH3D scene", async ({page}) => {
+  await page.goto("/iframe.html?id=studio-sh3d-visual-transport--textured-furniture-and-hidden-content&viewMode=story");
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByText("Appearance",{exact:true}).click();
+  await page.getByRole("button",{name:"Identify visible surface",exact:true}).click();
+  await expect(page.getByText("Tap the dark floor once to identify the visible surface.")).toBeVisible();
+  await expect(page.getByRole("button",{name:"Tap a floor to identify it",exact:true})).toBeVisible();
+  const status=page.getByTestId("source-asset-summary");
+  await expect(status).toContainText('"sourcePhongMaterials":1');
+});
