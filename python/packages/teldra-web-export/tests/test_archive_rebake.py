@@ -6,7 +6,6 @@ import copy
 import hashlib
 import io
 import json
-import struct
 import zipfile
 from pathlib import Path
 
@@ -207,7 +206,9 @@ def test_refuses_tampered_ifc_geometry_matrix_and_source_hashes(tmp_path):
         entries[scene_path] = _json(scene)
 
     def tamper_current_ifc(entries):
-        entries["building.ifc"] = entries["building.ifc"].replace(b"IFCCARTESIANPOINTLIST3D", b"IFCCARTESIANPOINTLISTX")
+        entries["building.ifc"] = entries["building.ifc"].replace(
+            b"IFCCARTESIANPOINTLIST3D", b"IFCCARTESIANPOINTLISTX"
+        )
 
     for change in (altered_matrix, altered_scale, stale_scene, tamper_current_ifc):
         with pytest.raises(WebSceneExportError):
