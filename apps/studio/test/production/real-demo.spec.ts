@@ -7,6 +7,15 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});
  const assets=JSON.parse((await page.getByTestId("asset-summary").textContent())!);
  expect(assets).toMatchObject({meshParts:9512,visibleMeshParts:4488,hiddenSourceParts:5022,sourcePhongMaterials:467,textures:253,texturesReady:true,localLightSources:22,lightingProfile:"sh3d-preview-v1"});
+ // These are material bindings after runtime source-Phong projection, not just GLB inputs.
+ console.log("21D floor runtime texture bindings", JSON.stringify({
+  roomTexturedParts:assets.roomTexturedParts,
+  roomTexturesBound:assets.roomTexturesBound,
+  roomTexturesReady:assets.roomTexturesReady,
+ }));
+ expect(assets.roomTexturedParts).toBe(13);
+ expect(assets.roomTexturesBound).toBe(13);
+ expect(assets.roomTexturesReady).toBe(13);
  const canvas=(await page.getByTestId("twin-canvas").boundingBox())!;
  expect(canvas.width).toBeGreaterThan(1400); expect(canvas.height).toBeGreaterThan(900);
  for(const role of ["Project actions","Camera controls","3D orientation gizmo"]){
