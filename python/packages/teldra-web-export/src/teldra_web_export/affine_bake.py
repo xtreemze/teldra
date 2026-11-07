@@ -278,12 +278,12 @@ def bake_static_furniture_glb(
     scene_manifest: Mapping[str, Any],
     placements: Sequence[Mapping[str, Any]],
 ) -> StaticGlbBakeResult:
-    """Bake verified upright IFC deltas into *new* packed static GLB vertex accessors.
+    """Bake upright IFC deltas into new packed static GLB vertex accessors.
 
-    This is a deliberately restricted derivative-builder, not an IFC editor.
-    Caller must validate each matrix against source/current canonical IFC.
-    The manifest's original GLB SHA and canonical nodeKey/GlobalId identity
-    are still checked here. The source bytes and source manifest stay untouched.
+    A validated archive pipeline checks each matrix against source/current IFC;
+    this pure utility additionally checks source GLB SHA, nodeKey/GlobalId
+    identity, static topology and the rest-pose node hierarchy. It does not
+    author IFC or change its input bytes.
     """
     source_hash = hashlib.sha256(glb).hexdigest()
     if scene_manifest.get("scene", {}).get("assetSha256") != source_hash:
