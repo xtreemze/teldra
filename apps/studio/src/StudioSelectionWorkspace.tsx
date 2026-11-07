@@ -1,7 +1,8 @@
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { FurnitureEditSession, FurnitureWorldPose, TwinRenderIdentity } from "@teldra/runtime-babylon";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
-import { IfcFurnitureEdit } from "./IfcFurnitureEdit";
+import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit";
+import { transformShortcut, numericFurniturePose, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
@@ -34,7 +35,12 @@ export function StudioSelectionWorkspace(
   const [editingFurniture, setEditingFurniture] = createSignal(false);
   const [editMode, setEditMode] = createSignal<"translate" | "rotate">("translate");
   const [editRequest, setEditRequest] = createSignal(0);
+  const [transformModal, setTransformModal] = createSignal<TransformModal | null>(null);
+  const [transformMessage, setTransformMessage] = createSignal("");
+  let workspaceRoot!: HTMLDivElement;
   let editSession: FurnitureEditSession | undefined;
+  let furnitureControls: FurnitureEditControls | null = null;
+  let numericStartPose: FurnitureWorldPose | undefined;
 
   const refreshSelection = () =>
     setSelectionVersion((version) => version + 1);
@@ -93,9 +99,20 @@ export function StudioSelectionWorkspace(
     editSession?.cancel();
     editSession?.detach();
     editSession = undefined;
+    numericStartPose = undefined;
+    setTransformModal(null);
     setEditingFurniture(false);
     setViewportDraft(undefined);
     projectPlacements();
+  };
+  const previewNumericTransform = (modal: TransformModal | null) => {
+    if (!modal || !numericStartPose || !editSession) return;
+    const pose = numericFurniturePose(numericStartPose, modal);
+    if (pose || modal.numeric === "") {
+      const next = pose ?? numericStartPose;
+      editSession.setPose(next);
+      setViewportDraft(next);
+    }
   };
   const furnitureEditingChanged = (editing: boolean) => {
     if (!editing) { stopFurnitureEdit(); setEditRequest(0); return; }
@@ -105,14 +122,91 @@ export function StudioSelectionWorkspace(
       editSession = viewport()!.beginFurnitureEdit(props.controller.furniturePlacement(id), setViewportDraft);
       editSession.setMode(editMode());
       setEditingFurniture(true);
+      if (transformModal()) {
+        numericStartPose = props.controller.furniturePose(id);
+        previewNumericTransform(transformModal());
+      }
       setActionError("");
     } catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
   };
   createEffect(() => { selectionVersion(); viewport(); projectPlacements(); });
+  const keydown = (event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.isComposing || !workspaceRoot) return;
+    const canvas = workspaceRoot.querySelector<HTMLCanvasElement>(".teldra-twin-viewport__canvas");
+    // Do not intercept form typing, global browser shortcuts or keys from other viewports.
+    if (event.target !== canvas) return;
+    const key = event.key.toLowerCase();
+    if ((event.ctrlKey || event.metaKey) && !event.altKey &&
+        (key === "s" || key === "z") && !event.repeat) {
+      event.preventDefault(); event.stopPropagation();
+      if (editingFurniture()) {
+        setTransformMessage("Apply or cancel the current IFC transform before saving or undoing.");
+      } else if (key === "s") void save();
+      else changeHistory(event.shiftKey ? "redo" : "undo");
+      return;
+    }
+    const step = transformShortcut(transformModal(), event);
+    if (!step.handled) return;
+    event.preventDefault(); event.stopPropagation();
+    if (step.intent === "unsupported" || step.intent === "message") {
+      setTransformMessage(step.message ?? "Transform not supported.");
+      return;
+    }
+    if (step.intent === "begin") {
+      const ref = selectedBuildingRef();
+      if (!ref || ref.kind !== "furniture") {
+        setTransformMessage("Select an IFC furniture object before using G or R.");
+        return;
+      }
+      if (!viewport()) {
+        setTransformMessage("The 3D viewport must finish loading before editing.");
+        return;
+      }
+      const mode = step.state!.mode;
+      setEditMode(mode);
+      if (editingFurniture()) {
+        numericStartPose = viewportDraft() ?? props.controller.furniturePose(ref.id);
+        editSession?.setMode(mode);
+      } else {
+        setInspectorOpen(true);
+        setEditRequest((request) => request + 1);
+      }
+      setTransformModal(step.state);
+      setTransformMessage("");
+      return;
+    }
+    if (step.intent === "preview") {
+      setTransformModal(step.state);
+      previewNumericTransform(step.state);
+      setTransformMessage("");
+      return;
+    }
+    if (step.intent === "cancel") {
+      furnitureControls?.cancel();
+      stopFurnitureEdit();
+      setEditRequest(0);
+      setTransformMessage("Transform cancelled; IFC project unchanged.");
+      return;
+    }
+    if (step.intent === "confirm") {
+      if (!editingFurniture() || !furnitureControls) {
+        setTransformMessage("Transform is not ready; wait for IFC validation.");
+        return;
+      }
+      if (furnitureControls.apply()) {
+        setTransformModal(null);
+        setTransformMessage("IFC transform applied. Save the project to retain it.");
+      }
+    }
+  };
+  onMount(() => {
+    window.addEventListener("keydown", keydown, true);
+    onCleanup(() => window.removeEventListener("keydown", keydown, true));
+  });
   onCleanup(stopFurnitureEdit);
 
   return (
-    <div class="teldra-studio-selection-workspace">
+    <div ref={workspaceRoot} class="teldra-studio-selection-workspace">
       <div class="teldra-studio-selection-workspace__project-actions" role="group" aria-label="Project actions">
         <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}>Scene</button>
         <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}>Inspector</button>
@@ -123,8 +217,9 @@ export function StudioSelectionWorkspace(
         <Show when={selectedBuildingRef()?.kind === "furniture"}>
           <Show when={!editingFurniture()} fallback={
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
-              <button type="button" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); }}>Move</button>
-              <button type="button" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
+              <button type="button" aria-keyshortcuts="G" title="Move (G)" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); }}>Move</button>
+              <button type="button" aria-keyshortcuts="R" title="Rotate about IFC world Z (R)" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
+              <button type="button" disabled title="Requires IFC geometry editing support; visual-only scaling is forbidden">Scale</button>
             </div>
           }>
             <button type="button" disabled={!viewport()} title={viewport() ? "Manipulate selected furniture with 3D gizmos" : "3D scene is still loading"} onClick={() => { setInspectorOpen(true); setEditRequest((request) => request + 1); }}>Edit transform</button>
@@ -133,6 +228,12 @@ export function StudioSelectionWorkspace(
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
         <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
       </div>
+      <Show when={transformModal() || transformMessage()}>
+        <div class="teldra-studio-selection-workspace__transform-hint" role="status" aria-live="polite" data-testid="transform-shortcut-status">
+          <Show when={transformModal()}>{modal => <span>{modal().mode === "translate" ? "Move (G)" : "Rotate (R)"} {modal().axis?.toUpperCase() ?? ""} {modal().numeric} · X/Y/Z constrain · Enter apply · Esc cancel</span>}</Show>
+          <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
+        </div>
+      </Show>
       <section class="teldra-studio-selection-workspace__viewport">
         <TwinViewport
           manifest={props.manifest}
@@ -179,8 +280,9 @@ export function StudioSelectionWorkspace(
         <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}>
         <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
-            onEditingChange={furnitureEditingChanged} editRequest={editRequest()} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
-            onPreview={(pose) => { if (pose) editSession?.setPose(pose); else projectPlacements(); }} />
+            onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
+            editRequest={editRequest()} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
+            onPreview={(pose) => { if (pose) { editSession?.setPose(pose); setViewportDraft(pose); } else { setViewportDraft(undefined); projectPlacements(); } }} />
         </>}</Show>
 
         <section
