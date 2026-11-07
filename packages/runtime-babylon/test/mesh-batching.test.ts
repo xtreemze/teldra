@@ -43,7 +43,12 @@ describe("mesh batching", () => {
       expect(first.isEnabled()).toBe(false); expect(layers.list()[0]?.meshParts).toBe(2);
       const bridge = new FurnitureGizmoBridge(scene, Matrix.Identity(), () => [batch.mesh]);
       const original = {position: [0, 0, 0] as const, yawRadians: 0};
+      const measured = bridge.measureSourceGeometry("chair",original);
+      expect(measured.meshParts).toBe(1);
+      expect(measured.triangles).toBe(24);
+      expect(measured.size).toEqual([3,1,1]);
       bridge.apply({canonicalId: "chair", original, current: {position: [0, 3, 0], yawRadians: 0}});
+      expect(bridge.measureSourceGeometry("chair",original)).toEqual(measured);
       const moved = scene.pickWithRay(new Ray(new Vector3(2, 3, -5), Vector3.Forward()), mesh => mesh === batch.mesh);
       expect(batch.identityForFace(moved?.faceId ?? -1)).toBe(b);
       bridge.apply({canonicalId: "chair", original, current: original});
