@@ -54,3 +54,27 @@ test("compact mobile controls reveal touch guidance without changing the pose", 
   await expect(surface).toBeVisible();
   expect(await page.getByTestId("mobile-transform-pose").textContent()).toEqual(pose);
 });
+
+
+test("pinch previews bounded IFC instance scale without editing pose", async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto("/iframe.html?id=studio-mobiletransformpad--scale&viewMode=story");
+  const target = page.getByRole("group", {name: "Two-finger transform touch area"});
+  await expect(target).toBeVisible();
+  await target.evaluate(element => {
+    const send = (name: string, id: number, x: number, y: number) =>
+      element.dispatchEvent(new PointerEvent(name, {bubbles: true, pointerId: id,
+        pointerType: "touch", clientX: x, clientY: y}));
+    send("pointerdown", 1, 50, 180); send("pointerdown", 2, 150, 180);
+    send("pointermove", 1, 25, 180); send("pointermove", 2, 175, 180);
+    send("pointerup", 1, 25, 180); send("pointerup", 2, 175, 180);
+  });
+  const factor = JSON.parse(await page.getByTestId("mobile-transform-scale").textContent() ?? "[]");
+  expect(factor).toEqual([1.5, 1.5, 1.5]);
+  expect(JSON.parse(await page.getByTestId("mobile-transform-pose").textContent() ?? "{}")).toEqual({
+    position: [1, 2, 3], yawRadians: 0,
+  });
+  await expect(page.getByTestId("mobile-transform-delta")).toContainText("Scale ALL:");
+  const report = await new AxeBuilder({page}).include("#storybook-root").analyze();
+  expect(report.violations).toEqual([]);
+});
