@@ -187,6 +187,29 @@ export class StudioProjectController {
     if (!source || !baseline) throw new Error("This IFC object has no source-authored nominal dimensions.");
     return scaleForNominalDimensions(source, baseline, requested);
   }
+  /**
+   * Projection of actual source triangle extents into currently authored local
+   * IFC metre dimensions. Source bounds come from runtime geometry and are
+   * never persisted as a second canonical dimension authority.
+   */
+  furnitureMeasuredSizeStatus(canonicalId: string, measuredSource: FurnitureSourceDimensions,
+    previewScale?: FurnitureGeometryScale):
+    | {readonly supported:true;readonly source:FurnitureSourceDimensions;readonly current:FurnitureSourceDimensions}
+    | {readonly supported:false;readonly reason:string} {
+    const baseline=this.#sourceScales.get(canonicalId);
+    if(!baseline || !this.#ifc) return {supported:false,reason:"Mapped IFC geometry must be prepared before measuring its authored size."};
+    try {
+      const current=nominalDimensionsForScale(measuredSource,baseline,
+        previewScale??this.#ifc.readScale(this.#furnitureRef(canonicalId).ifcGlobalId));
+      return {supported:true,source:measuredSource,current};
+    } catch(error) {return {supported:false,reason:error instanceof Error?error.message:String(error)};}
+  }
+  furnitureScaleForMeasuredSize(canonicalId:string,measuredSource:FurnitureSourceDimensions,
+    requested:FurnitureSourceDimensions):FurnitureGeometryScale {
+    const baseline=this.#sourceScales.get(canonicalId);
+    if(!baseline) throw new Error("This IFC geometry has no validated source scale.");
+    return scaleForNominalDimensions(measuredSource,baseline,requested);
+  }
   transformFurniture(canonicalId: string, pose: FurnitureWorldPose, scale: FurnitureGeometryScale): void {
     if (!this.#ifc || !this.#sourceScales.has(canonicalId)) throw new Error("This IFC furniture has no safely scalable mapped geometry.");
     this.#assertProjectableScale(canonicalId, pose, scale);
