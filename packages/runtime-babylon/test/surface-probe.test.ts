@@ -6,7 +6,7 @@ import {PickingInfo} from "@babylonjs/core/Collisions/pickingInfo";
 import {Vector3} from "@babylonjs/core/Maths/math.vector";
 import {CreateBox} from "@babylonjs/core/Meshes/Builders/boxBuilder";
 import {RawTexture} from "@babylonjs/core/Materials/Textures/rawTexture";
-import {describeSurfacePick} from "../src/surface-probe";
+import {describeSurfacePick, diagnosticMipLevels, normalizeGpuRgb} from "../src/surface-probe";
 
 describe("surface probe",()=>{
  it("reports the actual material and texture without mutation or unsafe embedded names",()=>{
@@ -38,4 +38,21 @@ describe("surface probe",()=>{
    expect(describeSurfacePick(picked,null)).toBeNull();
   }finally{scene.dispose();engine.dispose();}
  });
+});
+
+it("limits readback to three bounded mip levels with valid dimensions",()=>{
+  expect(diagnosticMipLevels(1024,1024)).toEqual([0,5,10]);
+  expect(diagnosticMipLevels(1,1)).toEqual([0]);
+  expect(diagnosticMipLevels(1,512)).toEqual([0,4,9]);
+  expect(diagnosticMipLevels(0,1024)).toEqual([]);
+  expect(diagnosticMipLevels(65536,65536)).toEqual([]);
+  expect(diagnosticMipLevels(Number.NaN,1)).toEqual([]);
+});
+
+it("distinguishes valid black GPU texels from unavailable readback",()=>{
+  expect(normalizeGpuRgb(new Uint8Array([0,0,0,255]))).toEqual([0,0,0]);
+  expect(normalizeGpuRgb(new Uint8Array([206,171,117,255]))).toEqual([206,171,117]);
+  expect(normalizeGpuRgb(new Float32Array([.5,.25,1,1]))).toEqual([128,64,255]);
+  expect(normalizeGpuRgb(new Uint8Array([]))).toBeNull();
+  expect(normalizeGpuRgb(null)).toBeNull();
 });
