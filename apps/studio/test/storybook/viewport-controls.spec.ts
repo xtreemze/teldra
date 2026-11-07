@@ -23,6 +23,8 @@ test("navigation gizmo, camera controls and composed layers operate on the loade
   const canvas = page.getByTestId("twin-canvas"); await canvas.focus(); await canvas.press("7");
   await expect.poll(async () => (await state()).beta).toBeCloseTo(0.001);
   await canvas.press("Home");
+  await expect.poll(async () => (await state()).projection).toBe("orthographic");
+  await canvas.press("Shift+Home");
   await expect.poll(async () => (await state()).projection).toBe("perspective");
   await expect(page.getByRole("button", {name: "Fit selection", exact: true})).toBeDisabled();
   await page.getByText("Layers", {exact: true}).click();
