@@ -115,6 +115,8 @@
   border: 1px solid #557079; border-radius: .4rem;
 }
 .teldra-ifc-scale-fields legend { padding: 0 .3rem; color: #c8ddd8; font-size: .78rem; }
+.teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] .teldra-ifc-nominal-dimensions { grid-template-columns: minmax(0,1fr); }
+.teldra-ifc-nominal-dimensions > p { grid-column: 1 / -1; margin: 0; }
 @media(max-width:48rem) {
   .teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] .teldra-ifc-scale-fields {
     grid-template-columns: 1fr;
