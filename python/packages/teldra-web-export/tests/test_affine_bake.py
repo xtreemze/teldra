@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import io
 import json
 import struct
 from pathlib import Path
 
 import numpy as np
 import pytest
+from PIL import Image
 from teldra_web_export.affine_bake import (
     _source_chunks,
     bake_static_furniture_glb,
@@ -39,7 +41,12 @@ f 1/1/1 3/3/1 2/2/1
 
 def scene(tmp_path: Path):
     (tmp_path / "source.obj").write_text(OBJ)
-    (tmp_path / "source.mtl").write_text("newmtl material\nKd 0.8 0.7 0.6\nNs 50\n")
+    (tmp_path / "source.mtl").write_text(
+        "newmtl material\nKd 0.8 0.7 0.6\nNs 50\nmap_Kd texture.png\n"
+    )
+    image = io.BytesIO()
+    Image.new("RGB", (2, 2), (120, 80, 40)).save(image, format="PNG")
+    (tmp_path / "texture.png").write_bytes(image.getvalue())
     glb_path = tmp_path / "scene.glb"
     manifest_path = tmp_path / "scene.manifest.json"
     export_wavefront_scene(
@@ -102,8 +109,15 @@ def test_rebake_preserves_original_texture_materials_uvs_and_other_objects(tmp_p
     assert baked.triangles == 1
     assert source == (tmp_path / "scene.glb").read_bytes()
     assert binary == out_bin[: len(binary)]
+    assert len(old["images"]) == len(regenerated["images"]) == 1
+    assert len(old["textures"]) == len(regenerated["textures"]) == 1
     for name in ("materials", "images", "textures", "samplers"):
         assert old[name] == regenerated[name]
+    texture_view = old["bufferViews"][old["images"][0]["bufferView"]]
+    pos = texture_view["byteOffset"]
+    assert binary[pos : pos + texture_view["byteLength"]] == (
+        tmp_path / "texture.png"
+    ).read_bytes()
     assert old["nodes"][0]["extras"] == regenerated["nodes"][0]["extras"]
     assert old["nodes"][1] == regenerated["nodes"][1]
     assert old["meshes"][1] == regenerated["meshes"][1]
