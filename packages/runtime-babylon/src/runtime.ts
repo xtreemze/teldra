@@ -19,6 +19,7 @@ import { Material } from "@babylonjs/core/Materials/material";
 import { SelectionOutline } from "./selection-outline.js";
 import { applySourceLighting, assignSourceLights, applySourceLightPlacements } from "./source-lighting.js";
 import { sourceMaterialProjection } from "./source-material.js";
+import { applyPreviewShadowDetail, SH3D_EDITING_SHADOW_DETAIL } from "./preview-shadow-detail.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
@@ -62,8 +63,8 @@ export interface BabylonTwinRuntime {
   fit(canonicalId?: string): boolean;
   resetView(): void;
   fitHome(): boolean;
-  appearance(): {texturesEnabled: boolean; lightGain: number};
-  setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number}): void;
+  appearance(): {texturesEnabled: boolean; lightGain: number; shadowDetail: number};
+  setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number; shadowDetail?: number}): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
   setSelection(canonicalId: string | null): void;
@@ -127,7 +128,7 @@ export async function createBabylonTwinRuntime(
   const loadGate = new OneShotLoad();
   let renderMeshes: AbstractMesh[] = [];
   const lightBases = new Map<import("@babylonjs/core/Lights/light").Light, number>();
-  let texturesEnabled = true, lightGain = 1;
+  let texturesEnabled = true, lightGain = 1, shadowDetail = 0;
   const materialTextures = new Map<Material, BaseTexture | null>();
 
   let physicalMeshes: AbstractMesh[] = [];
@@ -473,8 +474,12 @@ export async function createBabylonTwinRuntime(
       });
       return fitCamera(defaultCamera, home.length ? home : physicalMeshes);
     },
-    appearance: () => ({texturesEnabled, lightGain}),
+    appearance: () => ({texturesEnabled, lightGain, shadowDetail}),
     setAppearance(settings) {
+      if (settings.shadowDetail !== undefined) {
+        applyPreviewShadowDetail(scene, settings.shadowDetail);
+        shadowDetail = settings.shadowDetail;
+      }
       if (settings.lightGain !== undefined) {
         if (!Number.isFinite(settings.lightGain) || settings.lightGain < 0.25 || settings.lightGain > 2) throw new Error("Light gain must be between 0.25 and 2.");
         lightGain = settings.lightGain;
@@ -598,7 +603,12 @@ export async function createBabylonTwinRuntime(
         const lighting = meshes.map(mesh => mesh.metadata?.gltf?.extras?.teldraSourceLighting)
           .find(value => value !== undefined);
         const hasSourceLighting = applySourceLighting(lighting, scene);
-        if (hasSourceLighting) previewLight?.setEnabled(false);
+        if (hasSourceLighting) {
+          previewLight?.setEnabled(false);
+          // Preview grading is intentionally separate from the SH3D lighting profile.
+          shadowDetail = SH3D_EDITING_SHADOW_DETAIL;
+          applyPreviewShadowDetail(scene, shadowDetail);
+        }
         container.addAllToScene();
         if(hasSourceLighting)assignSourceLights(scene,physical);
         await scene.whenReadyAsync();
@@ -641,6 +651,8 @@ export async function createBabylonTwinRuntime(
         }
         if (!disposed) {
           previewLight?.setEnabled(true);
+          shadowDetail = 0;
+          applyPreviewShadowDetail(scene, 0);
           for (const light of [...scene.lights]) if (!initialLights.has(light)) light.dispose();
           scene.ambientColor = initialAmbient;
           scene.clearColor = initialClear;
