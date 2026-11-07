@@ -111,6 +111,9 @@ function MobileGestureHarness() {
     <output data-testid="touch-projected-y">{point()?.clientY ?? "pending"}</output>
     <button type="button" onClick={() => setDisabled(!disabled())}
       aria-pressed={disabled()}>Disable canvas gestures</button>
+    <button type="button" onClick={() => { setSelectedId(null); setIntent("none"); }}>
+      Clear project selection
+    </button>
   </div>;
 }
 
