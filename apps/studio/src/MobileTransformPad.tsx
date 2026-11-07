@@ -93,10 +93,15 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       setAnnouncement("Two-finger editing preview active.");
       cue();
     } else if (contacts.size > 2) {
-      // A third touch is ambiguous: do not apply any transform until released.
+      // A third touch is ambiguous. Restore the pre-gesture draft, not a
+      // partially changed preview, and require every finger to lift first.
+      if (gesture) {
+        if (props.mode === "scale" && gesture.baseScale) props.onScalePreview(gesture.baseScale);
+        else props.onPreview(gesture.base);
+      }
       gesture = null;
       setActive(false);
-      setAnnouncement("Use exactly two fingers for this transform.");
+      setAnnouncement("Gesture cancelled: use exactly two fingers.");
     }
   };
   const move = (event: PointerEvent) => {
