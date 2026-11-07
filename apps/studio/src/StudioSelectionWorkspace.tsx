@@ -441,9 +441,16 @@ export function StudioSelectionWorkspace(
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
             <button type="button" disabled={!props.controller.furnitureScaleStatus(selectedCanonicalId()!).supported}
+              aria-describedby={!props.controller.furnitureScaleStatus(selectedCanonicalId()!).supported ? "teldra-mobile-scale-explanation" : undefined}
               title={(() => { const support = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
                 return support.supported ? "Scale mapped IFC geometry" : support.reason; })()}
               onClick={() => startMobileFurnitureEdit("scale")}>Scale</button>
+            <Show when={(() => {const support = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
+              return support.supported ? null : support.reason; })()}>
+              {(reason) => <p id="teldra-mobile-scale-explanation" class="teldra-studio-selection-workspace__mobile-scale-unavailable">
+                Scale unavailable: {reason()}
+              </p>}
+            </Show>
           </Show>
           <button type="button" onClick={() => setMobileContextOpen(false)}>Close menu</button>
         </div>
