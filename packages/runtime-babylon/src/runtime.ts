@@ -177,14 +177,19 @@ export async function createBabylonTwinRuntime(
       const onDown = (event: PointerEvent) => {
         if (event.button !== 1) return;
         pointers.panningMouseButton = event.shiftKey ? 1 : 2;
-        event.preventDefault(); // Suppress browser middle-button autoscroll.
+        // Babylon consumes pointerdown; cancelling it here blocks the camera.
+      };
+      const preventMiddleAutoscroll = (event: MouseEvent) => {
+        if (event.button === 1) event.preventDefault();
       };
       const onUp = () => { pointers.panningMouseButton = 2; };
       canvas.addEventListener("pointerdown", onDown, true);
+      canvas.addEventListener("mousedown", preventMiddleAutoscroll, true);
       window.addEventListener("pointerup", onUp, true);
       window.addEventListener("pointercancel", onUp, true);
       releaseBlenderPointer = () => {
         canvas.removeEventListener("pointerdown", onDown, true);
+        canvas.removeEventListener("mousedown", preventMiddleAutoscroll, true);
         window.removeEventListener("pointerup", onUp, true);
         window.removeEventListener("pointercancel", onUp, true);
       };
