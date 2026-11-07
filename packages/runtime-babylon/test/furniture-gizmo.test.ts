@@ -81,3 +81,18 @@ describe("IFC furniture projection", () => {
     } finally { scene.dispose(); engine.dispose(); }
   });
 });
+
+
+it("projects IFC local-axis scale about the original placement, including Z-up scene mapping", () => {
+  const source = {position:[1,-1,0] as const,yawRadians:0};
+  const target = {position:[2,3,1] as const,yawRadians:Math.PI/2};
+  const delta = furnitureSceneDelta(C,source,target,[2,1.5,0.5]);
+  const originalAnchor = Vector3.TransformCoordinates(Vector3.FromArray(source.position),C);
+  const projectedAnchor = Vector3.TransformCoordinates(originalAnchor,delta);
+  expect(projectedAnchor.asArray()).toEqual(Vector3.TransformCoordinates(Vector3.FromArray(target.position),C).asArray().map(v=>expect.closeTo(v,5)));
+  const sceneOffsetX = Vector3.TransformCoordinates(Vector3.FromArray([source.position[0]+1,source.position[1],source.position[2]]),C);
+  const projectedX = Vector3.TransformCoordinates(sceneOffsetX,delta);
+  const targetX = Vector3.TransformCoordinates(Vector3.FromArray([target.position[0],target.position[1]+2,target.position[2]]),C);
+  expect(projectedX.asArray()).toEqual(targetX.asArray().map(v=>expect.closeTo(v,5)));
+  expect(()=>furnitureSceneDelta(C,source,target,[0,1,1])).toThrow(/scale/);
+});
