@@ -47,6 +47,28 @@ export function orientCamera(camera: ArcRotateCamera, direction: ViewDirection):
   [camera.alpha, camera.beta] = views[direction];
 }
 
+/** Fit-derived scene bounds retained per camera, never in project geometry. */
+const clipBounds = new WeakMap<ArcRotateCamera, {center: Vector3; radius: number}>();
+
+/**
+ * Keep depth precision stable while orbiting, panning and zooming.
+ * A million-to-one far/near span makes nearly coplanar architectural faces
+ * swap depth order as the camera moves, particularly on mobile WebGPU.
+ */
+export function syncCameraDepth(camera: ArcRotateCamera): void {
+  const bounds = clipBounds.get(camera);
+  // Near scales with live camera radius, not stale radius at initial fit.
+  // A fixed minimum preserves close-range interaction with furniture gizmos.
+  const nearest = Math.max(0.01, Math.min(0.25, camera.radius * 0.005));
+  camera.getViewMatrix();
+  const farthest = bounds
+    ? Vector3.Distance(camera.position, bounds.center) + bounds.radius * 2
+    : camera.radius * 8;
+  const far = Math.max(32, farthest, nearest * 100);
+  if (camera.minZ !== nearest) camera.minZ = nearest;
+  if (camera.maxZ !== far) camera.maxZ = far;
+}
+
 export function syncProjection(camera: ArcRotateCamera, aspect: number): void {
   if (camera.mode !== Camera.ORTHOGRAPHIC_CAMERA) return;
   const height = camera.radius * Math.tan(camera.fov / 2);
@@ -92,8 +114,9 @@ export function fitCamera(camera: ArcRotateCamera, meshes: AbstractMesh[]): bool
     ? Math.tan(limitingHalfFov) : Math.sin(limitingHalfFov);
   camera.setTarget(minimum.add(maximum).scale(0.5), false, false, true);
   camera.radius = Math.max(camera.lowerRadiusLimit ?? 0.01, extent * 1.15 / Math.max(divisor, 0.001));
-  camera.minZ = Math.max(0.001, camera.radius / 10000);
-  camera.maxZ = Math.max(1000, camera.radius * 100);
+  // Preserve full model coverage without sacrificing near-plane precision.
+  clipBounds.set(camera, {center: minimum.add(maximum).scale(0.5), radius: extent});
+  syncCameraDepth(camera);
   return true;
 }
 

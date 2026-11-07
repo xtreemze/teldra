@@ -57,6 +57,9 @@ jobs:
       - name: Verify assembled Pages application
         run: node tools/site/measure-studio.mjs && node tools/site/assemble-pages.mjs && node tools/site/verify-pages.mjs
 
+      - name: Diagnose 21D near-coplanar architectural surfaces
+        run: python3 tools/diagnostics/audit_21d_depth.py
+
       - name: Test
         run: pnpm test
 

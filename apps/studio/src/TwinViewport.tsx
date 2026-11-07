@@ -180,7 +180,14 @@ export function TwinViewport(props: TwinViewportProps) {
       try {
         const { createBabylonTwinRuntime } = await import("@teldra/runtime-babylon");
         if (disposed) return;
-        const created = await createBabylonTwinRuntime(canvas, props.manifest, {batchOpaqueParts: props.batchOpaqueParts ?? true, forceWebGL: new URLSearchParams(window.location.search).get("renderer") === "webgl"});
+        const params = new URLSearchParams(window.location.search);
+        const depth = params.get("depth");
+        const depthMode = depth === "standard" || depth === "reverse" ? depth : "auto";
+        const created = await createBabylonTwinRuntime(canvas, props.manifest, {
+          batchOpaqueParts: props.batchOpaqueParts ?? true,
+          forceWebGL: params.get("renderer") === "webgl",
+          depthMode,
+        });
         if (disposed) {
           created.dispose();
           return;
@@ -243,6 +250,7 @@ export function TwinViewport(props: TwinViewportProps) {
       aria-label="Smart home twin viewport"
       data-status={status()}
       data-backend={backend() ?? ""}
+      data-depth-mode={readyRuntime() ? (readyRuntime()!.renderStats().reverseDepth ? "reverse" : "standard") : ""}
     >
       <canvas
         ref={canvas}

@@ -20,3 +20,13 @@ test("loads source textures and Phong appearance and reveals hidden source conte
   await expect(summary).toContainText('"visibleMeshParts":1');
   expect(errors).toEqual([]);
 });
+
+test("reverse-Z renderer flag is honored without losing source textures", async ({page}) => {
+  const errors:string[]=[];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.goto("/iframe.html?id=studio-sh3d-visual-transport--textured-furniture-and-hidden-content&viewMode=story&depth=reverse");
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await expect(page.locator(".teldra-twin-viewport")).toHaveAttribute("data-depth-mode", "reverse");
+  await expect(page.getByTestId("source-asset-summary")).toContainText('"texturesReady":true');
+  expect(errors).toEqual([]);
+});

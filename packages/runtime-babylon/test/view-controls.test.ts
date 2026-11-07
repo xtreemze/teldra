@@ -5,7 +5,7 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { Camera } from "@babylonjs/core/Cameras/camera";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
-import { cameraState, orientCamera, syncProjection, zoomCamera, panCamera, fitCamera, isMeshInteractable, OneShotLoad, SceneLayers } from "../src/view-controls";
+import { cameraState, orientCamera, syncProjection, syncCameraDepth, zoomCamera, panCamera, fitCamera, isMeshInteractable, OneShotLoad, SceneLayers } from "../src/view-controls";
 
 describe("disposable viewport controls", () => {
   it("rejects overlapping and repeated loads, including after a failed load", () => {
@@ -48,6 +48,37 @@ describe("disposable viewport controls", () => {
       mesh.setEnabled(true); mesh.isVisible = false; expect(isMeshInteractable(mesh)).toBe(false);
       mesh.isVisible = true; mesh.isPickable = false; expect(isMeshInteractable(mesh)).toBe(false);
     } finally { scene.dispose(); engine.dispose(); }
+  });
+  it("maintains stable near/far planes across camera distances without clipping the home", () => {
+    const engine = new NullEngine(); const scene = new Scene(engine);
+    try {
+      const camera = new ArcRotateCamera("depth-camera", 0, Math.PI / 3, 10, Vector3.Zero(), scene);
+      const floor = CreateBox("floor", {width: 32, height: 0.02, depth: 24}, scene);
+      const wall = CreateBox("wall", {width: 32, height: 3, depth: 0.1}, scene);
+      wall.position.y = 1.5;
+      wall.position.z = 12;
+      expect(fitCamera(camera, [floor, wall])).toBe(true);
+      expect(camera.maxZ / camera.minZ).toBeLessThan(20_000);
+      expect(camera.minZ).toBeGreaterThanOrEqual(0.01);
+      // Zoom via camera inputs, not only the explicit zoomCamera helper.
+      const fittedRadius = camera.radius;
+      for (const factor of [0.5, 0.1, 1, 4]) {
+        camera.radius = fittedRadius * factor;
+        syncCameraDepth(camera);
+        expect(camera.maxZ).toBeGreaterThan(camera.radius);
+        expect(camera.maxZ / camera.minZ).toBeLessThan(20_000);
+        expect(camera.minZ).toBeGreaterThanOrEqual(0.01);
+      }
+      // Camera can pan away from the model without truncating the model's far side.
+      camera.radius = fittedRadius;
+      camera.setTarget(new Vector3(15, 0, 0));
+      syncCameraDepth(camera);
+      expect(camera.maxZ).toBeGreaterThan(camera.position.length());
+      // A genuinely close camera still has a small near plane for object manipulation.
+      camera.radius = 0.03;
+      syncCameraDepth(camera);
+      expect(camera.minZ).toBe(0.01);
+    } finally {scene.dispose(); engine.dispose();}
   });
   it("composes category, level and source-hidden visibility without rewriting metadata", () => {
     const engine = new NullEngine(); const scene = new Scene(engine);
