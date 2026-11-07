@@ -64,7 +64,7 @@ export function StudioSelectionWorkspace(
   };
 
   const selectCanonicalId = (canonicalId: string | null) => {
-    if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); }
+    if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); setEditMode("translate"); }
     props.controller.selectCanonicalId(canonicalId);
     if (canonicalId !== null) {setInspectorOpen(true); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}
     refreshSelection();
@@ -165,7 +165,8 @@ export function StudioSelectionWorkspace(
     }
     const selectedId = selectedBuildingRef()?.id;
     const scaleSupport = selectedId ? props.controller.furnitureScaleStatus(selectedId) : null;
-    const step = transformShortcut(transformModal(), event, scaleSupport?.supported === true);
+    const step = transformShortcut(transformModal(), event,
+      editingFurniture() ? scaleSupport?.supported === true : selectedBuildingRef()?.kind === "furniture");
     if (!step.handled) return;
     event.preventDefault(); event.stopPropagation();
     if (step.intent === "unsupported" || step.intent === "message") {
