@@ -3,6 +3,7 @@ import {
   IfcFurnitureEditor,
   type IfcFurnitureAdapter,
   type FurnitureWorldPose,
+  type FurnitureGeometryScale,
   canonicalTwinFingerprint,
   type CommandHistoryStatus,
   type DevicePlacement,
@@ -22,6 +23,8 @@ export class StudioProjectController {
   #ifcAdapter?: IfcFurnitureAdapter;
   #originalBytes?: Uint8Array;
   #sourcePoses = new Map<string, FurnitureWorldPose>();
+  #sourceScales = new Map<string, FurnitureGeometryScale>();
+  #scaleUnsupported = new Map<string, string>();
   #undo: ("twin" | "ifc")[] = [];
   #redo: ("twin" | "ifc")[] = [];
   #revision: number;
@@ -108,6 +111,16 @@ export class StudioProjectController {
     if (!this.#sourcePoses.has(canonicalId)) {
       this.#sourcePoses.set(canonicalId, this.#ifcAdapter!.read(context.sourceBytes, ref.ifcGlobalId));
     }
+    if (!this.#sourceScales.has(canonicalId) && !this.#scaleUnsupported.has(canonicalId)) {
+      try {
+        const sourceScale = this.#ifcAdapter!.readScale?.(context.sourceBytes, ref.ifcGlobalId);
+        if (!sourceScale) throw new Error("This IFC adapter does not support mapped geometry scaling.");
+        this.#ifc.readScale(ref.ifcGlobalId); // Validate both versions.
+        this.#sourceScales.set(canonicalId, sourceScale);
+      } catch (error) {
+        this.#scaleUnsupported.set(canonicalId, error instanceof Error ? error.message : String(error));
+      }
+    }
     return current;
   }
   furniturePose(canonicalId: string): FurnitureWorldPose {
@@ -118,6 +131,19 @@ export class StudioProjectController {
     const original = this.#sourcePoses.get(canonicalId);
     if (!original) throw new Error("Prepare IFC editing first.");
     return { canonicalId, original, current: this.furniturePose(canonicalId) };
+  }
+  furnitureScaleStatus(canonicalId: string): { readonly supported: true; readonly scale: FurnitureGeometryScale } | { readonly supported: false; readonly reason: string } {
+    if (!this.#ifc || !this.#sourcePoses.has(canonicalId))
+      return { supported: false, reason: "Open furniture editing before changing its geometry." };
+    const reason = this.#scaleUnsupported.get(canonicalId);
+    if (reason) return { supported: false, reason };
+    try { return { supported: true, scale: this.#ifc.readScale(this.#furnitureRef(canonicalId).ifcGlobalId) }; }
+    catch (error) { return { supported: false, reason: error instanceof Error ? error.message : String(error) }; }
+  }
+  scaleFurniture(canonicalId: string, scale: FurnitureGeometryScale): void {
+    if (!this.#ifc || !this.#sourceScales.has(canonicalId)) throw new Error("This IFC furniture has no safely scalable mapped geometry.");
+    this.#ifc.scale(this.#furnitureRef(canonicalId).ifcGlobalId, scale);
+    this.#record("ifc");
   }
   placeFurniture(canonicalId: string, pose: FurnitureWorldPose): void {
     if (!this.#ifc || !this.#sourcePoses.has(canonicalId)) throw new Error("Prepare IFC editing first.");
@@ -130,7 +156,15 @@ export class StudioProjectController {
     const result = new Map(context.placements.map((entry) => [entry.canonicalId, entry]));
     if (this.#ifc) for (const [id, source] of this.#sourcePoses) {
       const ref = this.#furnitureRef(id); const current = this.#ifc.read(ref.ifcGlobalId);
-      result.set(id, { canonicalId: id, ifcGlobalId: ref.ifcGlobalId, matrix: poseDelta(source, current) });
+      const originalScale = this.#sourceScales.get(id);
+      const currentScale = originalScale && this.#ifc.readScale(ref.ifcGlobalId);
+      const ratio = originalScale && currentScale && currentScale.map((value, i) => value / originalScale[i]!) as [number, number, number];
+      const alteredScale = ratio && ratio.some(value => Math.abs(value - 1) > 1e-8);
+      result.set(id, {
+        canonicalId: id, ifcGlobalId: ref.ifcGlobalId,
+        matrix: poseDelta(source, current, alteredScale ? ratio : undefined),
+        ...(alteredScale ? { scale: ratio } : {}),
+      });
     }
     return [...result.values()];
   }
@@ -190,16 +224,32 @@ export class StudioProjectController {
   }
 }
 
-function poseDelta(source: FurnitureWorldPose, current: FurnitureWorldPose): number[] {
-  const angle = current.yawRadians - source.yawRadians, c = Math.cos(angle), s = Math.sin(angle);
-  return [c,s,0,0,-s,c,0,0,0,0,1,0,current.position[0]-c*source.position[0]+s*source.position[1],current.position[1]-s*source.position[0]-c*source.position[1],current.position[2]-source.position[2],1];
+function poseDelta(source: FurnitureWorldPose, current: FurnitureWorldPose, scale: FurnitureGeometryScale = [1,1,1]): number[] {
+  const cs = Math.cos(source.yawRadians), ss = Math.sin(source.yawRadians);
+  const cc = Math.cos(current.yawRadians), sc = Math.sin(current.yawRadians);
+  const [sx, sy, sz] = scale;
+  // In column-vector notation this is T_current * S_relative * T_source^-1.
+  // Matrix storage is column-major for the derived GLB scene.
+  const a00 = cc*sx*cs + sc*sy*ss, a01 = cc*sx*ss - sc*sy*cs;
+  const a10 = sc*sx*cs - cc*sy*ss, a11 = sc*sx*ss + cc*sy*cs;
+  return [a00,a10,0,0,a01,a11,0,0,0,0,sz,0,
+    current.position[0]-a00*source.position[0]-a01*source.position[1],
+    current.position[1]-a10*source.position[0]-a11*source.position[1],
+    current.position[2]-sz*source.position[2],1];
 }
 /** Check persisted presentation deltas against both authoritative IFC placements. */
 export function validateIfcScenePlacements(adapter: IfcFurnitureAdapter, sourceBytes: Uint8Array, currentBytes: Uint8Array, placements: readonly ScenePlacementOverride[]): void {
   for (const placement of placements) {
     const source = adapter.read(sourceBytes, placement.ifcGlobalId);
     const current = adapter.read(currentBytes, placement.ifcGlobalId);
-    const expected = poseDelta(source, current);
+    const oldScale = adapter.readScale ? (() => { try { return adapter.readScale!(sourceBytes, placement.ifcGlobalId); } catch { return null; } })() : null;
+    const newScale = oldScale && adapter.readScale!(currentBytes, placement.ifcGlobalId);
+    const ratio = oldScale && newScale && newScale.map((value, i) => value / oldScale[i]!) as [number, number, number];
+    const scaled = ratio && ratio.some(value => Math.abs(value - 1) > 1e-8);
+    if (scaled !== (placement.scale !== undefined) ||
+        (scaled && (placement.scale?.some((v, i) => Math.abs(v-ratio![i]!) > 1e-6) ?? true)))
+      throw new Error("Scene geometry scale does not match authoritative IFC geometry.");
+    const expected = poseDelta(source, current, ratio || undefined);
     if (placement.matrix.length !== expected.length || expected.some((value, i) => Math.abs(value - placement.matrix[i]!) > 1e-6)) throw new Error(`Scene placement for "${placement.canonicalId}" does not match its IFC placements.`);
   }
 }
