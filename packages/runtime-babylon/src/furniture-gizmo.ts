@@ -4,6 +4,9 @@ import { Matrix, Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import type { Node } from "@babylonjs/core/node";
+import { factorUprightFurnitureMatrix } from "./affine-furniture.js";
 
 /** IFC world metres, right-handed Z-up. This is an edit draft, not canonical state. */
 export interface FurnitureWorldPose { position: readonly [number, number, number]; yawRadians: number }
@@ -83,6 +86,10 @@ export function furnitureSceneDelta(canonicalToScene: Matrix, original: Furnitur
 
 export class FurnitureGizmoBridge {
   private readonly baseWorld = new Map<AbstractMesh, Matrix>();
+  private readonly affineGroups = new Map<string, {
+    root: TransformNode; pre: TransformNode;
+    parentByMesh: Map<AbstractMesh, Node | null>;
+  }>();
   private active: FurnitureEditSession | undefined;
   private manager: GizmoManager | undefined;
   constructor(private readonly scene: Scene, private readonly canonicalToScene: Matrix,
@@ -106,6 +113,8 @@ export class FurnitureGizmoBridge {
   }
 
   private applyDelta(canonicalId: string, delta: Matrix): void {
+    const existing = this.affineGroups.get(canonicalId);
+    if (existing) { this.applyAffineGroup(existing, delta); return; }
     const meshes = this.meshesForId(canonicalId);
     if (!meshes.length) throw new Error(`No render parts for ${canonicalId}.`);
     // Capture every baseline before applying any transforms; parents are handled first.
@@ -116,6 +125,7 @@ export class FurnitureGizmoBridge {
     const depth = (mesh: AbstractMesh) => { let n = 0; for (let p = mesh.parent; p; p = p.parent) n++; return n; };
     const projectedWorld = new Map<AbstractMesh, Matrix>();
     const plans: {mesh: AbstractMesh; position: Vector3; scale: Vector3; rotation: Quaternion}[] = [];
+    let needsAffineHierarchy = false;
     for (const mesh of [...meshes].sort((a, b) => depth(a) - depth(b))) {
       const world = this.baseWorld.get(mesh)!.multiply(delta);
       const parent = mesh.parent;
@@ -125,10 +135,23 @@ export class FurnitureGizmoBridge {
       const scale = new Vector3(), rotation = new Quaternion(), position = new Vector3();
       if (!local.decompose(scale, rotation, position)) throw new Error("Cannot project furniture placement to this mesh.");
       const reconstructed = Matrix.Compose(scale, rotation, position);
-      if (local.asArray().some((value, i) => Math.abs(value - reconstructed.asArray()[i]!) > 1e-4))
-        throw new Error("This GLB render part requires regenerated geometry; its affine scale contains shear.");
+      if (local.asArray().some((value, i) => Math.abs(value - reconstructed.asArray()[i]!) > 1e-4)) {
+        needsAffineHierarchy = true;
+        break;
+      }
       projectedWorld.set(mesh, world);
       plans.push({mesh, position, scale, rotation});
+    }
+    if (needsAffineHierarchy) {
+      // A valid IFC affine edit can shear the mesh's world matrix without
+      // requiring any shear in its *local* TRS. A two-node SVD hierarchy
+      // represents it exactly and preserves original geometry buffers.
+      const factors = this.affineFactors(delta); // Must validate before scene changes.
+      this.applyDelta(canonicalId, Matrix.Identity()); // Restore original world poses first.
+      const group = this.createAffineGroup(canonicalId, meshes);
+      try { this.setAffineFactors(group, factors); }
+      catch (error) { this.dropAffineGroup(canonicalId, group); throw error; }
+      return;
     }
     // Validate all part transforms first; a rejected scale must never leave
     // half the furniture moved or scaled in the render graph.
@@ -137,6 +160,97 @@ export class FurnitureGizmoBridge {
       mesh.rotationQuaternion ??= new Quaternion(); mesh.rotationQuaternion.copyFrom(rotation);
       mesh.computeWorldMatrix(true);
     }
+  }
+
+
+  private affineFactors(delta: Matrix) {
+    const frame = this.canonicalToScene;
+    const canonicalDelta = frame.multiply(delta).multiply(frame.clone().invert());
+    return factorUprightFurnitureMatrix(canonicalDelta.asArray());
+  }
+
+  private static componentMatrix(node: TransformNode, m: Matrix): void {
+    const scale = new Vector3(), rotation = new Quaternion(), position = new Vector3();
+    if (!m.decompose(scale, rotation, position)) throw new Error("Cannot project IFC affine factors to Babylon.");
+    const reconstructed = Matrix.Compose(scale, rotation, position);
+    if (m.asArray().some((value, i) => Math.abs(value - reconstructed.asArray()[i]!) > 1e-5))
+      throw new Error("IFC affine factor is not an exact Babylon TRS.");
+    node.position.copyFrom(position);
+    node.rotationQuaternion ??= new Quaternion();
+    node.rotationQuaternion.copyFrom(rotation);
+    node.scaling.copyFrom(scale);
+    node.computeWorldMatrix(true);
+  }
+
+  private setAffineFactors(
+    group: {root: TransformNode;pre: TransformNode}, factors: ReturnType<typeof factorUprightFurnitureMatrix>,
+  ): void {
+    const frame = this.canonicalToScene;
+    const inv = frame.clone().invert();
+    const parentScene = inv.multiply(factors.root).multiply(frame);
+    const preScene = inv.multiply(factors.preRotation).multiply(frame);
+    // Both matrices were validated before modifying the scene.
+    FurnitureGizmoBridge.componentMatrix(group.pre, preScene);
+    FurnitureGizmoBridge.componentMatrix(group.root, parentScene);
+  }
+
+  private applyAffineGroup(group: {root: TransformNode;pre: TransformNode}, delta: Matrix): void {
+    this.setAffineFactors(group, this.affineFactors(delta));
+  }
+
+  private createAffineGroup(canonicalId: string, meshes: readonly AbstractMesh[]) {
+    const parents = new Map<AbstractMesh, Node | null>();
+    const selected = new Set(meshes);
+    const roots = meshes.filter(mesh => {
+      for (let parent = mesh.parent; parent; parent = parent.parent)
+        if (selected.has(parent as AbstractMesh)) return false;
+      return true;
+    });
+    for (const mesh of meshes) {
+      if (!(mesh instanceof Mesh) || mesh.getClassName() !== "Mesh" ||
+          mesh.skeleton || mesh.morphTargetManager || mesh.animations.length ||
+          mesh.instances.length || mesh.hasThinInstances || mesh.billboardMode ||
+          mesh.infiniteDistance) {
+        throw new Error("Animated, skinned or instanced geometry requires source GLB regeneration.");
+      }
+      for (let parent = mesh.parent; parent; parent = parent.parent)
+        if (parent.animations.length) throw new Error("Animated parent requires source GLB regeneration.");
+      // Reparenting a cross-identity mesh hierarchy would move unrelated scene content.
+      if (mesh.getChildMeshes(false).some(child => child.getTotalVertices() > 0 && !selected.has(child)))
+        throw new Error("Mixed-identity geometry hierarchy requires source GLB regeneration.");
+    }
+    const root = new TransformNode("teldra-affine-root:" + canonicalId, this.scene);
+    const pre = new TransformNode("teldra-affine-prerotation:" + canonicalId, this.scene);
+    pre.parent = root;
+    try {
+      for (const mesh of roots) {
+        parents.set(mesh, mesh.parent);
+        mesh.setParent(pre); // Preserves original GLB world transform.
+      }
+      for (const mesh of meshes) {
+        const original = this.baseWorld.get(mesh)!;
+        const current = mesh.computeWorldMatrix(true).asArray();
+        if (current.some((value, i) =>
+          Math.abs(value - original.asArray()[i]!) > 1e-5*Math.max(1,Math.abs(value),Math.abs(original.asArray()[i]!))))
+          throw new Error("GLB parent hierarchy cannot be preserved without vertex regeneration.");
+      }
+    } catch (error) {
+      for (const [mesh, parent] of parents) mesh.setParent(parent);
+      pre.dispose(true); root.dispose(true);
+      throw error;
+    }
+    const group = {root,pre,parentByMesh:parents};
+    this.affineGroups.set(canonicalId,group);
+    return group;
+  }
+
+  private dropAffineGroup(canonicalId: string, group: {
+    root: TransformNode;pre: TransformNode;parentByMesh: Map<AbstractMesh, Node | null>;
+  }): void {
+    this.applyAffineGroup(group, Matrix.Identity());
+    for (const [mesh,parent] of group.parentByMesh) mesh.setParent(parent);
+    group.pre.dispose(true); group.root.dispose(true);
+    this.affineGroups.delete(canonicalId);
   }
 
   begin(placement: FurniturePlacement, onPreview: (pose: FurnitureWorldPose) => void,
@@ -261,5 +375,9 @@ export class FurnitureGizmoBridge {
     return session;
   }
   isInteracting(): boolean { return this.manager?.isHovered === true || this.manager?.isDragging === true; }
-  dispose(): void { this.active?.cancel(); this.baseWorld.clear(); }
+  dispose(): void {
+    this.active?.cancel();
+    for (const [id, group] of this.affineGroups) this.dropAffineGroup(id, group);
+    this.baseWorld.clear();
+  }
 }
