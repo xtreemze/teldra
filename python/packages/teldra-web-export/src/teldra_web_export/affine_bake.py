@@ -327,6 +327,27 @@ def bake_static_furniture_glb(
         raise WebSceneExportError("Source GLB contains too many scene nodes.")
 
     source_frames = _node_matrices(doc)
+    # A mapped node that is unreachable from the active glTF scene is not
+    # visible geometry. Do not report a successful rebake of hidden or orphaned
+    # data unless that node is explicitly in the active render hierarchy.
+    nodes = doc.get("nodes", [])
+    scenes = doc.get("scenes", [])
+    scene_index = doc.get("scene", 0)
+    if not isinstance(scene_index, int) or not 0 <= scene_index < len(scenes):
+        raise WebSceneExportError("Source GLB has no valid active scene.")
+    roots = scenes[scene_index].get("nodes", [])
+    if not isinstance(roots, list) or any(
+        not isinstance(root, int) or not 0 <= root < len(nodes) for root in roots
+    ):
+        raise WebSceneExportError("Source GLB scene has invalid root nodes.")
+    reachable: set[int] = set()
+    pending = list(roots)
+    while pending:
+        node_index = pending.pop()
+        if node_index in reachable:
+            continue
+        reachable.add(node_index)
+        pending.extend(nodes[node_index].get("children", []))
     rebuilt = copy.deepcopy(doc)
     binary = bytearray(packed)
     selected: set[tuple[str, str]] = set()
@@ -336,6 +357,8 @@ def bake_static_furniture_glb(
         pair = (tag.get("canonicalId"), tag.get("ifcGlobalId"))
         if pair not in matrices:
             continue
+        if node_index not in reachable:
+            raise WebSceneExportError("Matched IFC mesh is outside the active GLB scene.")
         key = tag.get("nodeKey")
         if manifest_by_key.get(key) != pair:
             raise WebSceneExportError("Source GLB identity does not match the scene manifest.")
