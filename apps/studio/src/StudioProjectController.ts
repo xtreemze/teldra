@@ -140,6 +140,11 @@ export class StudioProjectController {
     try { return { supported: true, scale: this.#ifc.readScale(this.#furnitureRef(canonicalId).ifcGlobalId) }; }
     catch (error) { return { supported: false, reason: error instanceof Error ? error.message : String(error) }; }
   }
+  transformFurniture(canonicalId: string, pose: FurnitureWorldPose, scale: FurnitureGeometryScale): void {
+    if (!this.#ifc || !this.#sourceScales.has(canonicalId)) throw new Error("This IFC furniture has no safely scalable mapped geometry.");
+    this.#ifc.transform(this.#furnitureRef(canonicalId).ifcGlobalId, pose, scale);
+    this.#record("ifc");
+  }
   scaleFurniture(canonicalId: string, scale: FurnitureGeometryScale): void {
     if (!this.#ifc || !this.#sourceScales.has(canonicalId)) throw new Error("This IFC furniture has no safely scalable mapped geometry.");
     this.#ifc.scale(this.#furnitureRef(canonicalId).ifcGlobalId, scale);
