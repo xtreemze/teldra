@@ -71,7 +71,9 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  if (request.mode === "navigate") {
+  // The Studio shell is one document. Other pages under the scope (such as
+  // third-party notices and licenses) must keep their normal navigation.
+  if (request.mode === "navigate" && (relative === "" || relative === "index.html")) {
     event.respondWith((async () => {
       // Do not mix newly deployed HTML with the previous worker's lazy chunks.
       // A new release becomes visible only after the user accepts the update.
