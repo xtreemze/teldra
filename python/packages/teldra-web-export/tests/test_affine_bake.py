@@ -115,9 +115,7 @@ def test_rebake_preserves_original_texture_materials_uvs_and_other_objects(tmp_p
         assert old[name] == regenerated[name]
     texture_view = old["bufferViews"][old["images"][0]["bufferView"]]
     pos = texture_view["byteOffset"]
-    assert binary[pos : pos + texture_view["byteLength"]] == (
-        tmp_path / "texture.png"
-    ).read_bytes()
+    assert binary[pos : pos + texture_view["byteLength"]] == (tmp_path / "texture.png").read_bytes()
     assert old["nodes"][0]["extras"] == regenerated["nodes"][0]["extras"]
     assert old["nodes"][1] == regenerated["nodes"][1]
     assert old["meshes"][1] == regenerated["meshes"][1]
