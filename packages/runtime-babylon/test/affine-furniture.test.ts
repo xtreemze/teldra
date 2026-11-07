@@ -7,12 +7,12 @@ const pose = (a: number,b: number,c: number,d: number,sz=1) =>
 
 describe("exact IFC affine factorization",() => {
   it.each([
-    pose(1,0,0,1), pose(0,-1,1,0),
-    pose(1.25,0,0,0.75,0.5),
+    {matrix:pose(1,0,0,1)}, {matrix:pose(0,-1,1,0)},
+    {matrix:pose(1.25,0,0,0.75,0.5)},
     // Nonuniform scale conjugated by a rotated original pose: sheared XY block.
-    pose(Math.SQRT2,Math.SQRT2,-Math.SQRT1_2,Math.SQRT1_2,0.7),
-    pose(0.2,-3,1.5,0.6,2),
-  ])("reconstructs exact geometry without a sheared local TRS", matrix => {
+    {matrix:pose(Math.SQRT2,Math.SQRT2,-Math.SQRT1_2,Math.SQRT1_2,0.7)},
+    {matrix:pose(0.2,-3,1.5,0.6,2)},
+  ])("reconstructs exact geometry without a sheared local TRS", ({matrix}) => {
     const {root,preRotation,principalScale} = factorUprightFurnitureMatrix(matrix);
     const reconstructed = preRotation.multiply(root).asArray();
     for (let i=0;i<16;i++) expect(reconstructed[i]).toBeCloseTo(matrix[i]!,6);
