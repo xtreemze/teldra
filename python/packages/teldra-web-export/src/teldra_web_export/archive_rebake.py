@@ -12,7 +12,6 @@ import copy
 import hashlib
 import io
 import json
-import math
 import zipfile
 from dataclasses import dataclass
 from typing import Any
@@ -58,7 +57,10 @@ def _read_archive(payload: bytes) -> dict[str, bytes]:
     try:
         with zipfile.ZipFile(io.BytesIO(payload)) as zip_file:
             records = zip_file.infolist()
-            if len(records) > 100_000 or sum(item.file_size for item in records) > _MAX_ARCHIVE_BYTES:
+            if (
+                len(records) > 100_000
+                or sum(item.file_size for item in records) > _MAX_ARCHIVE_BYTES
+            ):
                 raise WebSceneExportError("Teldra archive has too many or oversized entries.")
             if len({item.filename for item in records}) != len(records) or any(
                 not _valid_path(item.filename) or item.is_dir() for item in records
@@ -97,10 +99,12 @@ def _direction(value: Any, expected: tuple[float, float, float]) -> None:
 
 
 def _source_shape(entity: Any) -> tuple[Any, np.ndarray]:
-    if entity is None or not entity.is_a() in (
+    if entity is None or entity.is_a() not in (
         "IfcFurniture", "IfcLightFixture", "IfcBuildingElementProxy"
     ):
-        raise WebSceneExportError("Only mapped IFC furniture, light fixtures and proxies can rebake.")
+        raise WebSceneExportError(
+            "Only mapped IFC furniture, light fixtures and proxies can rebake."
+        )
     definition = entity.Representation
     if definition is None or len(definition.Representations) != 1:
         raise WebSceneExportError("Rebake requires exactly one IFC product shape representation.")
@@ -133,8 +137,9 @@ def _source_shape(entity: Any) -> tuple[Any, np.ndarray]:
         raise WebSceneExportError("This rebaker supports only original IFC triangulated geometry.")
     target = item.MappingTarget
     if (
-        not target.is_a() in (
-            "IfcCartesianTransformationOperator3D", "IfcCartesianTransformationOperator3DnonUniform"
+        target.is_a() not in (
+            "IfcCartesianTransformationOperator3D",
+            "IfcCartesianTransformationOperator3DnonUniform",
         )
         or not np.allclose(target.LocalOrigin.Coordinates, (0, 0, 0), atol=1e-8, rtol=0)
     ):
@@ -144,7 +149,11 @@ def _source_shape(entity: Any) -> tuple[Any, np.ndarray]:
     _direction(target.Axis3, (0, 0, 1))
     uniform = target.Scale if target.Scale is not None else 1.0
     scale = np.array(
-        [uniform, getattr(target, "Scale2", None) or uniform, getattr(target, "Scale3", None) or uniform],
+        [
+            uniform,
+            getattr(target, "Scale2", None) or uniform,
+            getattr(target, "Scale3", None) or uniform,
+        ],
         dtype=np.float64,
     )
     if not np.isfinite(scale).all() or (scale <= 0).any() or (scale > 1000).any():
@@ -170,17 +179,22 @@ def _verify_ifc_delta(source: Any, current: Any, placement: dict[str, Any]) -> N
     source_geom, source_scale = _source_shape(before)
     current_geom, current_scale = _source_shape(after)
     if not _same_tessellation(source_geom, current_geom):
-        raise WebSceneExportError("Source IFC triangulated geometry changed and cannot be rebased.")
+        raise WebSceneExportError(
+            "Source IFC triangulated geometry changed and cannot be rebased."
+        )
     ratio = current_scale / source_scale
     scaled = not np.allclose(ratio, [1, 1, 1], atol=1e-8, rtol=0)
     declared = placement.get("scale")
     if scaled != (declared is not None):
         raise WebSceneExportError("Placement scale record does not match canonical IFC changes.")
-    if scaled:
-        if not isinstance(declared, list) or len(declared) != 3 or not np.allclose(
-            declared, ratio, atol=1e-6, rtol=0
-        ):
-            raise WebSceneExportError("Placement ratio differs from canonical IFC mapped geometry.")
+    if scaled and (
+        not isinstance(declared, list)
+        or len(declared) != 3
+        or not np.allclose(declared, ratio, atol=1e-6, rtol=0)
+    ):
+        raise WebSceneExportError(
+            "Placement ratio differs from canonical IFC mapped geometry."
+        )
     try:
         original_pose = np.asarray(
             ifcopenshell.util.placement.get_local_placement(before.ObjectPlacement), dtype=float
@@ -191,7 +205,9 @@ def _verify_ifc_delta(source: Any, current: Any, placement: dict[str, Any]) -> N
         expected = current_pose @ np.diag([*ratio, 1.0]) @ np.linalg.inv(original_pose)
         recorded = np.asarray(placement["matrix"], dtype=float).reshape((4, 4), order="F")
     except (ValueError, TypeError, KeyError, np.linalg.LinAlgError) as error:
-        raise WebSceneExportError("Cannot read the canonical IFC source/current placements.") from error
+        raise WebSceneExportError(
+            "Cannot read the canonical IFC source/current placements."
+        ) from error
     if not np.isfinite(expected).all() or not np.allclose(
         recorded, expected, atol=1e-6, rtol=1e-6
     ):
