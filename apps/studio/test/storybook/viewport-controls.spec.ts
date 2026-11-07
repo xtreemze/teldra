@@ -59,10 +59,12 @@ test("viewport controls remain keyboard accessible on compact screens", async ({
   await page.setViewportSize({width: 390, height: 844});
   await page.goto("/iframe.html?id=studio-sh3d-visual-transport--textured-furniture-and-hidden-content&viewMode=story");
   await expect(page.getByTestId("viewport-status")).toHaveText("ready");
-  await page.getByText("Layers", {exact: true}).click();
+  await page.getByRole("button", {name: "View", exact: true}).click();
+  const settings = page.getByRole("group", {name: "Mobile view settings"});
+  await settings.getByText("Layers", {exact: true}).click();
   await page.getByTestId("twin-canvas").focus();
   await page.getByTestId("twin-canvas").press("5");
-  await expect(page.getByLabel("Projection", {exact: true})).toHaveValue("orthographic");
+  await expect(page.getByLabel("Mobile camera projection", {exact: true})).toHaveValue("orthographic");
   const results = await new AxeBuilder({page}).include("#storybook-root").analyze();
   expect(results.violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
