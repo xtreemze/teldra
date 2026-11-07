@@ -81,6 +81,8 @@ export interface BabylonTwinRuntimeOptions {
   attachDefaultCamera?: boolean;
   /** Experimental: merge compatible opaque parts while preserving face identity. */
   batchOpaqueParts?: boolean;
+  /** Diagnosis: bypass WebGPU selection without mutating scene or project data. */
+  forceWebGL?: boolean;
 }
 
 let loadersRegistered = false;
@@ -98,6 +100,7 @@ export async function createBabylonTwinRuntime(
   const { engine, backend } = await createEngine(
     canvas,
     options.antialias ?? true,
+    options.forceWebGL ?? false,
   );
   const scene = new Scene(engine);
   const instrumentation = new SceneInstrumentation(scene);
@@ -772,8 +775,9 @@ export async function createBabylonTwinRuntime(
 async function createEngine(
   canvas: HTMLCanvasElement,
   antialias: boolean,
+  forceWebGL: boolean,
 ): Promise<{ engine: AbstractEngine; backend: BabylonBackend }> {
-  if (await WebGPUEngine.IsSupportedAsync) {
+  if (!forceWebGL && await WebGPUEngine.IsSupportedAsync) {
     const engine = new WebGPUEngine(canvas, {
       antialias,
       adaptToDeviceRatio: true,
