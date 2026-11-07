@@ -31,6 +31,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     return { position: p, yawRadians: degrees * Math.PI / 180 };
   };
   const begin = async () => {
+    if (busy() || loadedId !== null) return;
     const id = props.canonicalId; setBusy(true); setError("");
     try { const current = await props.controller.prepareFurnitureEditing(id); if (id === props.canonicalId) { loadedId = id; setDraft(poseToDraft(current)); props.onEditingChange?.(true); updateSnapping(); } }
     catch (err) { setError(err instanceof Error ? err.message : String(err)); }
