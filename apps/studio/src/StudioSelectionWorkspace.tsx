@@ -9,6 +9,7 @@ import { SpatialEdit } from "./SpatialEdit";
 import { signalMobileFeedback, signalMobileSound } from "./mobile-feedback";
 import { readMobileFeedbackPreferences, writeMobileFeedbackPreferences } from "./mobile-feedback-preferences";
 import { MobileTransformPad } from "./MobileTransformPad";
+import { MobileSheetHandle, type MobileSheetDetent } from "./MobileSheetHandle";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
 import {
@@ -39,6 +40,16 @@ export function StudioSelectionWorkspace(
   const [actionError, setActionError] = createSignal("");
   const [mobileProjectOpen, setMobileProjectOpen] = createSignal(false);
   const [mobileContextOpen, setMobileContextOpen] = createSignal(false);
+  const [sceneDetent, setSceneDetent] = createSignal<MobileSheetDetent>("half");
+  const [inspectorDetent, setInspectorDetent] = createSignal<MobileSheetDetent>("half");
+  const setMobileDetent = (kind: "scene" | "inspector", detent: MobileSheetDetent) => {
+    (kind === "scene" ? setSceneDetent : setInspectorDetent)(detent);
+    tactile("menu");
+  };
+  const closeMobileSheet = (kind: "scene" | "inspector") => {
+    if (kind === "scene") setSceneOpen(false);
+    else setInspectorOpen(false); // During IFC edits this reveals the existing gesture pad; no cancel.
+  };
   const initialFeedback = readMobileFeedbackPreferences();
   const [mobileHapticsEnabled, setMobileHapticsEnabled] = createSignal(initialFeedback.hapticsEnabled);
   const [mobileSoundEnabled, setMobileSoundEnabled] = createSignal(initialFeedback.soundEnabled);
@@ -342,21 +353,53 @@ export function StudioSelectionWorkspace(
     }
   };
   onMount(() => {
+    const compact = () => window.matchMedia("(max-width: 48rem)").matches;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (!compact() || event.key !== "Escape" || event.defaultPrevented) return;
+      // Project/context menus close before the underlying IFC Escape handler can cancel a draft.
+      if (mobileProjectOpen()) setMobileProjectOpen(false);
+      else if (mobileContextOpen()) setMobileContextOpen(false);
+      else {
+        if (editingFurniture()) return; // Editor Escape retains its existing Cancel contract.
+        if (sceneOpen()) closeMobileSheet("scene");
+        else if (inspectorOpen()) closeMobileSheet("inspector");
+        else return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      workspaceRoot.querySelector<HTMLButtonElement>(editingFurniture()
+        ? '[data-testid="mobile-project-trigger"]'
+        : '[data-testid="mobile-scene-trigger"]')?.focus();
+    };
+    const closeOnCanvas = (event: PointerEvent) => {
+      if (!compact() || editingFurniture() || !(event.target instanceof HTMLCanvasElement) ||
+          !event.target.classList.contains("teldra-twin-viewport__canvas")) return;
+      if (sceneOpen()) closeMobileSheet("scene");
+      if (inspectorOpen()) closeMobileSheet("inspector");
+      if (mobileProjectOpen()) setMobileProjectOpen(false);
+      if (mobileContextOpen()) setMobileContextOpen(false);
+    };
     window.addEventListener("keydown", keydown, true);
-    onCleanup(() => window.removeEventListener("keydown", keydown, true));
+    window.addEventListener("keydown", closeOnEscape, true);
+    workspaceRoot.addEventListener("pointerdown", closeOnCanvas, true);
+    onCleanup(() => {
+      window.removeEventListener("keydown", keydown, true);
+      window.removeEventListener("keydown", closeOnEscape, true);
+      workspaceRoot.removeEventListener("pointerdown", closeOnCanvas, true);
+    });
   });
   onCleanup(stopFurnitureEdit);
 
   return (
     <div ref={workspaceRoot} class="teldra-studio-selection-workspace">
       <div class="teldra-studio-selection-workspace__mobile-header" role="group" aria-label="Mobile Studio navigation">
-        <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel"
+        <button type="button" data-testid="mobile-scene-trigger" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel"
           disabled={editingFurniture()} title={editingFurniture() ? "Apply or cancel the active transform first" : "Browse the scene"}
           onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}>Scene</button>
         <output aria-live="polite">{dirty() ? "Unsaved changes" : "Saved"}</output>
         <Show when={editingFurniture()}><button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel"
           onClick={() => setInspectorOpen(!inspectorOpen())}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
-        <button type="button" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
+        <button type="button" data-testid="mobile-project-trigger" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
           onClick={() => {setMobileProjectOpen(!mobileProjectOpen()); setMobileContextOpen(false);}}>Project</button>
       </div>
       <Show when={mobileProjectOpen()}>
@@ -488,7 +531,10 @@ export function StudioSelectionWorkspace(
         class="teldra-studio-selection-workspace__inspector"
         aria-label="Project selection and device inspector"
       >
-        <section id="teldra-scene-panel" class="teldra-studio-selection-workspace__scene-panel" hidden={!sceneOpen()} aria-labelledby="studio-device-list-title">
+        <section id="teldra-scene-panel" class="teldra-studio-selection-workspace__scene-panel" hidden={!sceneOpen()}
+          data-mobile-detent={sceneDetent()} aria-labelledby="studio-device-list-title">
+          <MobileSheetHandle label="Scene" detent={sceneDetent()}
+            onDetentChange={next => setMobileDetent("scene", next)} onClose={() => closeMobileSheet("scene")} />
           <h2 id="studio-device-list-title">Scene</h2>
           <p class="teldra-studio-selection-workspace__hint">Select an item here or in the scene.</p>
           <label class="teldra-studio-selection-workspace__search">Search scene<input type="search" placeholder="Name, type, or ID" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} /></label>
@@ -518,7 +564,10 @@ export function StudioSelectionWorkspace(
           <Show when={buildingRefs().length === 0}><p class="teldra-studio-selection-workspace__hint">No matching building items.</p></Show>
         </section>
 
-        <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}>
+        <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}
+          data-mobile-detent={inspectorDetent()}>
+        <MobileSheetHandle label="Inspector" detent={inspectorDetent()}
+          onDetentChange={next => setMobileDetent("inspector", next)} onClose={() => closeMobileSheet("inspector")} />
         <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "") && selectedBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={() => {refreshSelection(); tactile("applied");}}
             onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
