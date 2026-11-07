@@ -85,6 +85,6 @@ export function numericFurniturePose(base: FurnitureWorldPose, state: TransformM
   if (!state.axis) return null;
   const position: [number, number, number] = [...base.position];
   const index = {x: 0, y: 1, z: 2}[state.axis];
-  position[index] += amount;
+  position[index] = position[index]! + amount;
   return { position, yawRadians: base.yawRadians };
 }
