@@ -285,7 +285,19 @@ it("commits geometry scale with pose as one IFC undo step and validates source-b
   });
   await controller.prepareFurnitureEditing("chair");
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
+  expect(controller.furnitureMeasuredSizeStatus("chair",[0.4,0.8,1.2])).toEqual({
+    supported:true,source:[0.4,0.8,1.2],current:[0.4,0.8,1.2],
+  });
+  const measuredFactors=controller.furnitureScaleForMeasuredSize("chair",
+    [0.4,0.8,1.2],[0.8,1.2,0.96]);
+  measuredFactors.forEach((value,index)=>
+    expect(value).toBeCloseTo([2,1.5,0.8][index]!,9));
   controller.transformFurniture("chair",{position:[2,3,1],yawRadians:0},[2,1.5,0.8]);
+  const actualMeasured=controller.furnitureMeasuredSizeStatus("chair",[0.4,0.8,1.2]);
+  expect(actualMeasured.supported).toBe(true);
+  if (actualMeasured.supported)
+    actualMeasured.current.forEach((value,index)=>
+      expect(value).toBeCloseTo([0.8,1.2,0.96][index]!,8));
   expect(controller.history.undoDepth).toBe(1);
   const [placement] = controller.placementOverrides;
   expect(placement?.scale).toEqual([2,1.5,0.8]);
