@@ -204,9 +204,12 @@ or long-press release from leaking through the renderer's pick listener.
 The workspace gates gesture history on the existing project timeline,
 blocks all gestures during IFC editing or a pending modal, and offers
 equivalent Undo/Redo buttons in Project. A mobile Project-menu guide
-lists gestures and their fallbacks; visible status and best-effort haptic
-feedback accompany recognized actions. These gestures never call the
-Home Assistant command adapters.
+lists gestures and their fallbacks. Recognized actions provide visible
+status, capability-checked haptics, and optional synthetic confirmation
+tones. Sound is **off by default** and shared with the isolated two-finger
+transform pad. A single lazy Web Audio context is reused; blocked autoplay,
+missing audio or vibration support, and reduced-motion preferences never
+block editing. These gestures never call Home Assistant command adapters.
 
 Unit and Storybook browser tests verify arbitration, thresholds,
 cancellation, suppression of stray picks, disabled editing behavior and
