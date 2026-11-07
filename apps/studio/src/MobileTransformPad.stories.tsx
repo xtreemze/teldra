@@ -9,7 +9,7 @@ function Harness(props: {mode: "translate" | "rotate" | "scale"; startExpanded?:
   return <div style={{position: "relative", width: "390px", height: "700px", background: "#14202b", color: "#e7edf4"}}>
     <output data-testid="mobile-transform-pose">{JSON.stringify(pose())}</output>
     <output data-testid="mobile-transform-scale">{JSON.stringify(scale())}</output>
-    <MobileTransformPad mode={props.mode} startExpanded={props.startExpanded} pose={pose} scale={scale} onPreview={setPose} onScalePreview={setScale}
+    <MobileTransformPad mode={props.mode} startExpanded={props.startExpanded ?? false} pose={pose} scale={scale} onPreview={setPose} onScalePreview={setScale}
       translationSnap={0.05} rotationSnap={Math.PI / 12}
       onApply={() => {}} onCancel={() => setPose({position: [1, 2, 3], yawRadians: 0})} />
   </div>;
