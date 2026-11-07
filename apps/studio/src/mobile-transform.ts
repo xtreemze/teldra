@@ -1,4 +1,4 @@
-import type { FurnitureWorldPose } from "@teldra/application";
+import type { FurnitureGeometryScale, FurnitureWorldPose } from "@teldra/application";
 
 /** Gesture mathematics only. No renderer or canonical IFC state is mutated here. */
 export interface TouchPoint { readonly x: number; readonly y: number }
@@ -62,4 +62,41 @@ export function touchTransformPose(
     snap > 0 ? Math.round((base.position[index]! + metres) / snap) * snap - base.position[index]! : metres;
   position[index] = position[index]! + delta;
   return { pose: {position, yawRadians: base.yawRadians}, delta };
+}
+
+export type ScaleAxis = "all" | WorldAxis;
+
+export interface TouchScaleResult {
+  readonly scale: FurnitureGeometryScale;
+  readonly ratio: number;
+}
+
+/**
+ * Pinch edits **canonical mapped geometry scale**, never scene-node scaling.
+ * Each gesture uses an immutable baseline; only the existing IFC transaction
+ * can commit the resulting preview. Unsupported IFC objects cannot enter this
+ * path at the workspace level.
+ */
+export function touchScalePreview(
+  base: FurnitureGeometryScale,
+  start: readonly [TouchPoint, TouchPoint],
+  current: readonly [TouchPoint, TouchPoint],
+  axis: ScaleAxis,
+): TouchScaleResult | null {
+  const values = [...base, ...start.flatMap(p => [p.x, p.y]),
+    ...current.flatMap(p => [p.x, p.y])];
+  if (!values.every(Number.isFinite) || base.some(v => v <= 0 || v > 1000)) return null;
+  const initial = distance(...start), final = distance(...current);
+  if (initial < 32 || final < 24) return null;
+  const ratio = final / initial;
+  if (!Number.isFinite(ratio) || ratio <= 0) return null;
+  const scale: [number, number, number] = [...base];
+  for (const key of ["x", "y", "z"] as const) {
+    if (axis !== "all" && key !== axis) continue;
+    const index = {x: 0, y: 1, z: 2}[key];
+    const value = base[index]! * ratio;
+    if (!Number.isFinite(value) || value < 0.000001 || value > 1000) return null;
+    scale[index] = value;
+  }
+  return {scale, ratio};
 }
