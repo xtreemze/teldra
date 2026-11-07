@@ -96,3 +96,24 @@ it("projects IFC local-axis scale about the original placement, including Z-up s
   expect(projectedX.asArray()).toEqual(targetX.asArray().map(v=>expect.closeTo(v,5)));
   expect(()=>furnitureSceneDelta(C,source,target,[0,1,1])).toThrow(/scale/);
 });
+
+
+it("rejects unrepresentable local scale shear before mutating any furniture mesh", () => {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  try {
+    const one = CreateBox("one", {}, scene), two = CreateBox("two", {}, scene);
+    two.position.x = 3;
+    const bridge = new FurnitureGizmoBridge(scene, C, () => [one,two]);
+    const original = {position:[0,0,0] as const,yawRadians:Math.PI/4};
+    const before = [one,two].map(m => ({position:m.position.clone(), scale:m.scaling.clone()}));
+    expect(() => bridge.apply({
+      canonicalId:"chair", original, current:original,
+      sourceScale:[1,1,1], currentScale:[2,1,1],
+    })).toThrow(/shear/);
+    [one,two].forEach((m,i) => {
+      expect(m.position.asArray()).toEqual(before[i]!.position.asArray());
+      expect(m.scaling.asArray()).toEqual(before[i]!.scale.asArray());
+    });
+    bridge.dispose();
+  } finally {scene.dispose();engine.dispose();}
+});
