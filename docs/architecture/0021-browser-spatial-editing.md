@@ -99,7 +99,7 @@ free-pointer modal modeling.
 ## Mobile two-finger transform interaction (feature branch)
 
 The mobile transform pad appears only during a validated, active IFC furniture
-edit session. It is deliberately an **isolated touch surface**, not a second
+edit session and starts collapsed to avoid covering the scene. It is deliberately an **isolated touch surface**, not a second
 canvas navigation system: ordinary scene orbit/pan/pinch and Babylon gizmos
 keep their existing event handling. A two-finger vertical slide previews a
 world-X, -Y or -Z translation after selecting an explicit axis; a two-finger
