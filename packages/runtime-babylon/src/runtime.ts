@@ -12,6 +12,9 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import { Scene } from "@babylonjs/core/scene";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
+import type { BaseTexture } from "@babylonjs/core/Materials/Textures/baseTexture";
 import { Material } from "@babylonjs/core/Materials/material";
 import { applySourceLighting } from "./source-lighting.js";
 import { sourceMaterialProjection } from "./source-material.js";
@@ -57,6 +60,9 @@ export interface BabylonTwinRuntime {
   pan(right: number, up: number): void;
   fit(canonicalId?: string): boolean;
   resetView(): void;
+  fitHome(): boolean;
+  appearance(): {texturesEnabled: boolean; lightGain: number};
+  setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number}): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
@@ -114,6 +120,10 @@ export async function createBabylonTwinRuntime(
   let layers = new SceneLayers();
   const loadGate = new OneShotLoad();
   let renderMeshes: AbstractMesh[] = [];
+  const lightBases = new Map<import("@babylonjs/core/Lights/light").Light, number>();
+  let texturesEnabled = true, lightGain = 1;
+  const materialTextures = new Map<Material, BaseTexture | null>();
+
   let physicalMeshes: AbstractMesh[] = [];
   const batchesByMesh = new Map<AbstractMesh, MeshBatch>();
   const batchByPart = new Map<AbstractMesh, MeshBatch>();
@@ -374,6 +384,35 @@ export async function createBabylonTwinRuntime(
     fit(canonicalId) {
       return defaultCamera ? fitCamera(defaultCamera, physicalMeshes.filter(mesh =>
         !canonicalId || identityByMesh.get(mesh)?.canonicalId === canonicalId)) : false;
+    },
+    fitHome() {
+      if (!defaultCamera) return false;
+      const home = physicalMeshes.filter(mesh => {
+        const id = identityByMesh.get(mesh)?.canonicalId ?? "";
+        return /^(sh3d:)?(pieceOfFurniture|furniture|shelfUnit|room|space|light|fixture):/.test(id);
+      });
+      return fitCamera(defaultCamera, home.length ? home : physicalMeshes);
+    },
+    appearance: () => ({texturesEnabled, lightGain}),
+    setAppearance(settings) {
+      if (settings.lightGain !== undefined) {
+        if (!Number.isFinite(settings.lightGain) || settings.lightGain < 0.25 || settings.lightGain > 2) throw new Error("Light gain must be between 0.25 and 2.");
+        lightGain = settings.lightGain;
+        for (const light of scene.lights) { const base = lightBases.get(light) ?? light.intensity; lightBases.set(light, base); light.intensity = base * lightGain; }
+      }
+      if (settings.texturesEnabled !== undefined) {
+        texturesEnabled = settings.texturesEnabled;
+        for (const mesh of physicalMeshes) {
+          const material = mesh.material;
+          if (material instanceof StandardMaterial) {
+            if (!materialTextures.has(material)) materialTextures.set(material, material.diffuseTexture);
+            material.diffuseTexture = texturesEnabled ? materialTextures.get(material)! : null;
+          } else if (material instanceof PBRMaterial) {
+            if (!materialTextures.has(material)) materialTextures.set(material, material.albedoTexture);
+            material.albedoTexture = texturesEnabled ? materialTextures.get(material)! : null;
+          }
+        }
+      }
     },
     resetView() {
       if (!defaultCamera) return;

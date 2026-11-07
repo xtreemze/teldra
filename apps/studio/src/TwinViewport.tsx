@@ -20,6 +20,7 @@ export interface TwinViewportClientPoint {
 export interface TwinViewportHandle {
   layers(): ReturnType<BabylonTwinRuntime["layers"]>;
   viewState(): ReturnType<BabylonTwinRuntime["viewState"]>;
+  fitHome(): boolean;
   assetSummary(): ReturnType<BabylonTwinRuntime["assetSummary"]>;
   renderStats(): ReturnType<BabylonTwinRuntime["renderStats"]>;
   batchingStats(): ReturnType<BabylonTwinRuntime["batchingStats"]>;
@@ -47,6 +48,7 @@ export function TwinViewport(props: TwinViewportProps) {
   const [status, setStatus] = createSignal<"loading" | "ready" | "error">("loading");
   const [readyRuntime, setReadyRuntime] = createSignal<BabylonTwinRuntime>();
   const [backend, setBackend] = createSignal<BabylonBackend | null>(null);
+  const [assetSummary, setAssetSummary] = createSignal<ReturnType<BabylonTwinRuntime["assetSummary"]>>();
   const [hasHiddenSourceContent, setHasHiddenSourceContent] = createSignal(false);
   const [selected, setSelected] =
     createSignal<TwinRenderIdentity | null | undefined>(undefined);
@@ -74,12 +76,18 @@ export function TwinViewport(props: TwinViewportProps) {
         });
         await runtime.load(props.glbUrl);
         if (disposed) return;
+        if (runtime.assetSummary().sourcePhongMaterials > 0) {
+          runtime.setLayerVisible("category:Ground and background", false);
+          runtime.orient("isometric"); runtime.orbit(Math.PI, 0); runtime.fitHome();
+        }
+        setAssetSummary(runtime.assetSummary());
         runtime.start();
         setReadyRuntime(runtime);
         setHasHiddenSourceContent(runtime.assetSummary().hiddenSourceParts > 0);
 
         const readyRuntime = runtime;
         props.onReady?.({
+          fitHome: () => readyRuntime.fitHome(),
           layers: () => readyRuntime.layers(),
           viewState: () => readyRuntime.viewState(),
           assetSummary: () => readyRuntime.assetSummary(),
@@ -127,6 +135,8 @@ export function TwinViewport(props: TwinViewportProps) {
         aria-label="3D scene navigation"
         data-testid="twin-canvas"
       />
+      <Show when={status() === "loading"}><div class="teldra-twin-viewport__loading" role="status">Preparing materials and textures...</div></Show>
+      <output data-testid="asset-summary" hidden>{JSON.stringify(assetSummary())}</output>
       <Show when={readyRuntime()}>{current => <ViewportControls runtime={current()} canvas={canvas} selectedId={props.selectedCanonicalId === undefined ? selected()?.canonicalId : props.selectedCanonicalId ?? undefined} />}</Show>
       <div class="teldra-twin-viewport__status" aria-live="polite">
         <span data-testid="viewport-status">{status()}</span>

@@ -24,6 +24,8 @@ export function StudioSelectionWorkspace(
   props: StudioSelectionWorkspaceProps,
 ) {
   const [selectionVersion, setSelectionVersion] = createSignal(0);
+  const [sceneOpen, setSceneOpen] = createSignal(typeof window === "undefined" || !window.matchMedia("(max-width: 48rem)").matches);
+  const [inspectorOpen, setInspectorOpen] = createSignal(Boolean(props.controller.selectedCanonicalId));
   const [search, setSearch] = createSignal("");
   const [saving, setSaving] = createSignal(false);
   const [actionError, setActionError] = createSignal("");
@@ -54,6 +56,7 @@ export function StudioSelectionWorkspace(
   const selectCanonicalId = (canonicalId: string | null) => {
     if (canonicalId !== props.controller.selectedCanonicalId) stopFurnitureEdit();
     props.controller.selectCanonicalId(canonicalId);
+    if (canonicalId !== null) {setInspectorOpen(true); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}
     refreshSelection();
   };
 
@@ -109,6 +112,8 @@ export function StudioSelectionWorkspace(
   return (
     <div class="teldra-studio-selection-workspace">
       <div class="teldra-studio-selection-workspace__project-actions" role="group" aria-label="Project actions">
+        <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}>Scene</button>
+        <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}>Inspector</button>
         <output aria-live="polite" data-testid={selectedDevice() ? "project-dirty-state" : undefined}>{dirty() ? "Unsaved changes" : "Saved"}</output>
         <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}>Undo</button>
         <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}>Redo</button>
@@ -130,7 +135,7 @@ export function StudioSelectionWorkspace(
         class="teldra-studio-selection-workspace__inspector"
         aria-label="Project selection and device inspector"
       >
-        <section aria-labelledby="studio-device-list-title">
+        <section id="teldra-scene-panel" class="teldra-studio-selection-workspace__scene-panel" hidden={!sceneOpen()} aria-labelledby="studio-device-list-title">
           <h2 id="studio-device-list-title">Scene</h2>
           <p class="teldra-studio-selection-workspace__hint">Select an item here or in the scene.</p>
           <label class="teldra-studio-selection-workspace__search">Search scene<input type="search" placeholder="Name, type, or ID" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} /></label>
@@ -159,6 +164,7 @@ export function StudioSelectionWorkspace(
           <Show when={buildingRefs().length === 0}><p class="teldra-studio-selection-workspace__hint">No matching building items.</p></Show>
         </section>
 
+        <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}>
         <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
             onEditingChange={furnitureEditingChanged} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
@@ -237,6 +243,7 @@ export function StudioSelectionWorkspace(
             </>
           )}
         </Show>
+        </div>
       </aside>
     </div>
   );

@@ -3,7 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 
 test("Pages demo edits IFC furniture, saves atomically, and reopens with the same pose",async({page},testInfo)=>{
  const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
- await page.goto("./");await page.getByRole("button",{name:"Try demo",exact:true}).click();
+ await page.goto("./?demo=sample");await page.getByRole("button",{name:"Try demo",exact:true}).click();
  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
  const chair=()=>page.getByRole("list",{name:"Building objects",exact:true}).getByRole("button",{name:/^Chair/});
  await chair().click();await page.getByRole("button",{name:"Edit placement",exact:true}).click();
@@ -29,7 +29,7 @@ test("Pages demo edits IFC furniture, saves atomically, and reopens with the sam
 test("Pages routes and compact onboarding remain usable without direct file access",async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.addInitScript(()=>Object.defineProperty(window,"showOpenFilePicker",{value:undefined,configurable:true}));
- await page.goto("./");await expect(page.getByRole("button",{name:"Open .teldra",exact:true})).toBeEnabled();
+ await page.goto("./?demo=sample");await expect(page.getByRole("button",{name:"Open .teldra",exact:true})).toBeEnabled();
  await page.getByRole("button",{name:"Try demo",exact:true}).click();await expect(page.getByTestId("viewport-status")).toHaveText("ready");
  await expect(page.getByText("Save downloads a copy",{exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);

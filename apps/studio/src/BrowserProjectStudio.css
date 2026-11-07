@@ -42,3 +42,12 @@
 body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: "Segoe UI", Arial, sans-serif; }
 .teldra-browser-studio { font-family: "Segoe UI", Arial, sans-serif; }
 .teldra-browser-studio, .teldra-studio-selection-workspace { --teldra-font-body: "Segoe UI", Arial, sans-serif; }
+
+.teldra-browser-studio__masthead { height: 3.3rem; padding: .4rem 1rem; }
+.teldra-browser-studio__workspace { position: relative; padding: 0; }
+.teldra-browser-studio__file { position: absolute; z-index: 17; left: 1rem; top: .65rem; min-height: 2rem; max-width: 35%; gap: .4rem; padding: .2rem .5rem; border: 1px solid #425868; border-radius: .45rem; background: #17212de8; font-size: .75rem; }
+.teldra-browser-studio__file > span:first-child { display: none; }
+.teldra-browser-studio__file span:last-child { font-size: .65rem; }
+.teldra-browser-studio__loading { position: fixed; z-index: 50; inset: 3.3rem 0 0; display: grid; place-content: center; gap: 1rem; text-align: center; background: #101821f5; color: #dcecf3; }
+.teldra-browser-studio__loading span { font-size: .85rem; color: #acd8d0; }
+@media(max-width:48rem) { .teldra-browser-studio__file { max-width: calc(100% - 1rem); left: .5rem; top: .4rem; } }

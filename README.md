@@ -57,8 +57,7 @@ The bootstrap intentionally does not add Babylon.js, deck.gl, React, IfcOpenShel
 
 ## Browser Studio
 
-Launch [Teldra Studio](https://xtreemze.github.io/teldra/studio/) and choose **Try demo**
-or open a local `.teldra` project. Studio supports spatial navigation, category/level
+Launch [Teldra Studio](https://xtreemze.github.io/teldra/studio/) to open the complete 21D Sweet Home 3D home automatically, or open a local `.teldra` project. Studio supports spatial navigation, category/level
 visibility, canonical device editing and upright IFC4 furniture move/rotate drafts
 with Apply/Cancel, undo/redo and save. Direct file replacement is available in supporting
 browsers; other browsers and the demo download an edited copy. Local home files stay local.

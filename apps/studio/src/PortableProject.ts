@@ -56,9 +56,25 @@ export async function openPortableProject(): Promise<BrowserStudioProject> {
     new Uint8Array(await file.arrayBuffer())), owner);
 }
 
-export async function openDemoProject(url: string): Promise<BrowserStudioProject> {
+export async function openDemoProject(url: string, options: {
+  fileName?: string; onProgress?: (loaded: number, total: number) => void;
+} = {}): Promise<BrowserStudioProject> {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Demo could not be loaded (${response.status}).`);
-  return openBrowserTeldraProject(createDownloadProjectHandle("teldra-demo.teldra",
-    new Uint8Array(await response.arrayBuffer())), `demo:${crypto.randomUUID()}`);
+  let bytes: Uint8Array;
+  if (response.body && options.onProgress) {
+    const reader = response.body.getReader(); const chunks: Uint8Array[] = [];
+    const total = Number(response.headers.get("content-length") ?? 0); let loaded = 0;
+    try {
+      while (true) {
+        const chunk = await reader.read(); if (chunk.done) break;
+        loaded += chunk.value.length;
+        if (loaded > 512 * 1024 * 1024) throw new Error("The demo exceeds the supported download size.");
+        chunks.push(chunk.value); options.onProgress(loaded, total);
+      }
+    } finally { reader.releaseLock(); }
+    bytes = new Uint8Array(loaded); let offset = 0;
+    for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
+  } else bytes = new Uint8Array(await response.arrayBuffer());
+  return openBrowserTeldraProject(createDownloadProjectHandle(options.fileName ?? "teldra-demo.teldra", bytes), `demo:${crypto.randomUUID()}`);
 }

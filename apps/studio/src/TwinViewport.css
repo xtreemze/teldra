@@ -39,3 +39,43 @@
 }
 /* The viewport is also embedded independently in Storybook and other surfaces. */
 .teldra-twin-viewport { background: #101821; border-radius: .65rem; }
+
+.teldra-twin-viewport { height: 100%; border-radius: 0; }
+.teldra-twin-viewport__canvas { height: 100%; min-height: 0; border: 0; border-radius: 0; }
+.teldra-view-controls { position: absolute; inset: 0; padding: 0; pointer-events: none; }
+.teldra-view-controls > .teldra-view-controls__bar { position: absolute; top: 3.6rem; left: .85rem; max-width: calc(100% - 10rem); pointer-events: auto; }
+.teldra-orientation { top: 3.6rem; right: .85rem; }
+.teldra-view-controls__panel { position: absolute; top: 6.8rem; left: .85rem; }
+.teldra-view-controls__panel--help { left: 5.8rem; }
+.teldra-view-controls__navigation > .teldra-view-controls__bar { position: absolute; bottom: 2rem; left: .85rem; pointer-events: auto; }
+.teldra-view-controls__navigation > .teldra-view-controls__bar:last-child { left: auto; right: .85rem; }
+.teldra-twin-viewport__status { position: absolute; bottom: .3rem; left: 1rem; padding: .2rem .4rem; border-radius: .3rem; background: #17212de0; max-width: calc(100% - 2rem); }
+.teldra-twin-viewport > label { position: absolute; bottom: .4rem; right: 1rem; z-index: 5; padding: .25rem .5rem; border-radius: .3rem; background: #17212de8; }
+.teldra-twin-viewport__loading { position: absolute; inset: 0; z-index: 30; display: grid; place-content: center; background: #16232de8; font-size: 1rem; color: #dcecf3; }
+@media(max-width:48rem) {
+ .teldra-view-controls > .teldra-view-controls__bar { top: 6.1rem; left: .5rem; max-width: calc(100% - 1rem); font-size: .7rem; }
+ .teldra-orientation { top: auto; bottom: 6.5rem; right: .5rem; width: 120px; height: 120px; }
+ .teldra-view-controls__panel { top: 9.1rem; left: .5rem; }
+ .teldra-view-controls__panel--help { left: 5.4rem; }
+ .teldra-view-controls__navigation > .teldra-view-controls__bar { bottom: 2.4rem; left: .5rem; }
+ .teldra-view-controls__navigation > .teldra-view-controls__bar:last-child { display: none; }
+ .teldra-twin-viewport > label { bottom: 5rem; right: .5rem; max-width: 10rem; }
+ .teldra-view-controls__panel-content { position: absolute; top: calc(100% + .35rem); bottom: auto; max-height: 35vh; }
+}
+
+.teldra-view-controls__panel--appearance { left: 14rem; }
+.teldra-view-controls__panel--appearance .teldra-view-controls__panel-content { display: grid; gap: 1rem; }
+@media(max-width:48rem) { .teldra-view-controls__panel--appearance { left: 13.5rem; } }
+.teldra-view-controls__panel[open] { z-index: 25; }
+@media(max-width:48rem) {
+ .teldra-view-controls > .teldra-view-controls__bar { display: flex; flex-wrap: nowrap; overflow-x: auto; width: calc(100% - 1rem); max-width: none; height: 2.8rem; }
+ .teldra-view-controls > .teldra-view-controls__bar > * { flex-shrink: 0; white-space: nowrap; }
+ .teldra-view-controls__panel { top: 9.4rem; }
+ .teldra-view-controls__panel--appearance { left: 13.5rem; }
+ .teldra-view-controls__panel--appearance .teldra-view-controls__panel-content { left: auto; right: 0; width: min(22rem,calc(100vw - 1rem)); }
+ .teldra-twin-viewport > label { bottom: 12.5rem; max-width: 11rem; }
+}
+/* Standalone viewports have an explicit size; workspace embedding fills its host. */
+.teldra-twin-viewport { width: min(80rem, calc(100vw - 2rem)); height: clamp(28rem, calc(100dvh - 4rem), 70rem); overflow: hidden; }
+.teldra-twin-viewport *, .teldra-twin-viewport *::before, .teldra-twin-viewport *::after { box-sizing: border-box; }
+.teldra-studio-selection-workspace__viewport .teldra-twin-viewport { width: 100%; height: 100%; }

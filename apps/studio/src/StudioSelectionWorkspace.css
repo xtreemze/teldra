@@ -51,3 +51,29 @@
 .teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] input { min-width: 0; width: 100%; min-height: 2.4rem; padding: .45rem; color: #e7edf4; background: #101a24; border: 1px solid #516779; border-radius: .4rem; }
 .teldra-studio-selection-workspace__gizmo { display: flex; gap: .4rem; }
 .teldra-studio-selection-workspace__gizmo button[aria-pressed="true"] { border-color: #79d8cb; background: #24413f; }
+
+/* The canvas owns the workspace; panels and tools float over it. */
+.teldra-studio-selection-workspace { position: relative; display: block; width: 100%; height: calc(100dvh - 3.3rem); overflow: hidden; }
+.teldra-studio-selection-workspace__viewport { position: absolute; inset: 0; }
+.teldra-studio-selection-workspace__project-actions { position: absolute; z-index: 15; top: .55rem; right: .75rem; width: auto; max-width: calc(100% - 24rem); padding: .25rem; background: #15232deb; border: 1px solid #546d7d; box-shadow: 0 4px 16px #0003; }
+.teldra-studio-selection-workspace__project-actions button { min-height: 2rem; padding: .3rem .55rem; font-size: .75rem; }
+.teldra-studio-selection-workspace__inspector { display: block; position: absolute; inset: 0; pointer-events: none; max-height: none; overflow: visible; padding: 0; }
+.teldra-studio-selection-workspace__scene-panel { position: absolute; z-index: 9; top: 8rem; left: .85rem; width: 16rem; max-height: calc(100% - 13rem); overflow: auto; pointer-events: auto; background: #17212df2 !important; box-shadow: 0 6px 24px #0004; backdrop-filter: blur(12px); }
+.teldra-studio-selection-workspace__properties { position: absolute; z-index: 9; top: 8rem; right: .85rem; width: 18rem; max-height: calc(100% - 13rem); overflow: auto; pointer-events: auto; display: grid; gap: .6rem; padding: 0; border-radius: .65rem; background: #17212dee; box-shadow: 0 6px 24px #0004; backdrop-filter: blur(12px); }
+.teldra-studio-selection-workspace__properties > section { padding: .85rem; border: 1px solid #425868; border-radius: .65rem; }
+.teldra-studio-selection-workspace__properties h2 { font-size: .9rem; }
+.teldra-studio-selection-workspace__properties[hidden], .teldra-studio-selection-workspace__scene-panel[hidden] { display: none; }
+.teldra-studio-selection-workspace__selection > p:first-of-type { display: none; }
+.teldra-studio-selection-workspace__device-list { max-height: 25vh; }
+@media(max-width: 48rem) {
+ .teldra-studio-selection-workspace__project-actions { top: 3rem; left: .5rem; right: .5rem; max-width: none; width: auto; flex-wrap: wrap; }
+ .teldra-studio-selection-workspace__scene-panel { top: 10.5rem; left: .5rem; width: min(16rem,calc(100% - 1rem)); max-height: 42vh; }
+ .teldra-studio-selection-workspace__properties { top: 10.5rem; right: .5rem; width: min(18rem,calc(100% - 1rem)); max-height: 42vh; z-index: 10; }
+}
+.teldra-studio-selection-workspace__scene-panel, .teldra-studio-selection-workspace__properties { top: 9.5rem; max-height: calc(100% - 15rem); }
+@media(max-width:48rem) {
+ .teldra-studio-selection-workspace__project-actions { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; height: 2.8rem; }
+ .teldra-studio-selection-workspace__project-actions > * { flex-shrink: 0; white-space: nowrap; }
+ .teldra-studio-selection-workspace__project-actions output { display: none; }
+ .teldra-studio-selection-workspace__scene-panel, .teldra-studio-selection-workspace__properties { top: 12.2rem; max-height: calc(100% - 19rem); }
+}
