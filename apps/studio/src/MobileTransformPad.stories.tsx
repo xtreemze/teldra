@@ -8,7 +8,8 @@ function Harness(props: {mode: "translate" | "rotate"}) {
   return <div style={{position: "relative", width: "390px", height: "700px", background: "#14202b"}}>
     <output data-testid="mobile-transform-pose">{JSON.stringify(pose())}</output>
     <MobileTransformPad mode={props.mode} pose={pose} onPreview={setPose}
-      translationSnap={0.05} rotationSnap={Math.PI / 12} />
+      translationSnap={0.05} rotationSnap={Math.PI / 12}
+      onApply={() => {}} onCancel={() => setPose({position: [1, 2, 3], yawRadians: 0})} />
   </div>;
 }
 const meta = {title: "Studio/MobileTransformPad", component: Harness,
