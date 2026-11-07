@@ -35,6 +35,12 @@ test("mobile sheets support keyboard and touch detents without losing IFC edit s
 
   await page.getByRole("button",{name:"Move",exact:true}).click();
   await expect(page.getByRole("group",{name:"Touch editing mode"})).toBeVisible();
+  await page.getByRole("button",{name:"Project",exact:true}).click();
+  await expect(page.getByRole("group",{name:"Mobile project menu"})).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("group",{name:"Mobile project menu"})).toBeHidden();
+  await expect(page.getByRole("group",{name:"Touch editing mode"})).toBeVisible();
+  await expect(page.getByTestId("mobile-project-trigger")).toBeFocused();
   await page.getByRole("button",{name:"Numbers",exact:true}).click();
   await expect(inspector).toBeVisible();
   await page.getByRole("button",{name:"Close Inspector sheet"}).click();
