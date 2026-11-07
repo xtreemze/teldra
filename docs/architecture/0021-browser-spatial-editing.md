@@ -204,9 +204,11 @@ runtime's existing pointer-gizmo interface remains available. The editor
 touch surface is still dedicated to IFC Move/Rotate/Scale previews; camera
 gestures never silently become edits.
 
-The recognizer tracks touch pointer IDs, monotonic event times, movement
-thresholds and cancellation. A long press requires one stationary touch
-for at least 480 ms; a double tap requires two brief taps within 320 ms
+The recognizer tracks touch/pen pointer IDs, monotonic event times,
+movement thresholds and cancellation. A stationary touch **or pen** long
+press is preserved as an alternative to the visible object menu. Mixed
+pen/touch contacts cannot trigger history. A long press requires one stationary
+contact for at least 480 ms; a double tap requires two brief taps within 320 ms
 and a 28 CSS-pixel spatial threshold, and only frames when the object is
 already selected. Three touches must begin promptly and move coherently
 at least 80 CSS pixels horizontally with limited vertical movement before
