@@ -224,8 +224,11 @@ export function readFurnitureSourceDimensions(
       const setRef = relation.RelatingPropertyDefinition;
       if (!Number.isInteger(setRef?.value)) continue;
       const pset = api.GetLine(id, setRef.value) as Line;
-      if (pset?.type === IFCPROPERTYSET && pset.Name?.value === "Teldra_Source")
+      if (pset?.type === IFCPROPERTYSET && pset.Name?.value === "Teldra_Source") {
+        if (relation.RelatedObjects?.length !== 1)
+          throw new Error("Shared SH3D source provenance cannot define one object's dimensions.");
         sourceSets.push(pset);
+      }
     }
     if (!sourceSets.length) return null;
     if (sourceSets.length !== 1) throw new Error("Duplicate SH3D source provenance property sets.");
