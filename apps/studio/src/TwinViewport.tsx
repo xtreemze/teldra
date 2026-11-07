@@ -27,6 +27,7 @@ export interface TwinViewportHandle {
   renderStats(): ReturnType<BabylonTwinRuntime["renderStats"]>;
   batchingStats(): ReturnType<BabylonTwinRuntime["batchingStats"]>;
   applyScenePlacements: BabylonTwinRuntime["applyScenePlacements"];
+  measureFurnitureGeometry: BabylonTwinRuntime["measureFurnitureGeometry"];
   beginFurnitureEdit: BabylonTwinRuntime["beginFurnitureEdit"];
   projectNode(nodeKey: string): TwinViewportClientPoint | null;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
@@ -219,6 +220,7 @@ export function TwinViewport(props: TwinViewportProps) {
           renderStats: () => readyRuntime.renderStats(),
           batchingStats: () => readyRuntime.batchingStats(),
           applyScenePlacements: (placements) => readyRuntime.applyScenePlacements(placements),
+          measureFurnitureGeometry: (canonicalId, original) => readyRuntime.measureFurnitureGeometry(canonicalId, original),
           beginFurnitureEdit: (placement, onPreview, onDragState, onScalePreview) => readyRuntime.beginFurnitureEdit(placement, onPreview, onDragState, onScalePreview),
           projectNode(nodeKey) {
             return readyRuntime.projectNode(nodeKey);
