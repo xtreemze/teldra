@@ -117,23 +117,16 @@ jobs:
         run: uv python install 3.12
 
       - name: Resolve workspace
-        run: uv sync --group dev
-
-      # Temporary lock generation for issue #71. Removed once python/uv.lock is committed.
-      - name: Export resolved Python lock for reproducibility review
-        run: |
-          echo TELDRA_UV_LOCK_BEGIN
-          cat uv.lock
-          echo TELDRA_UV_LOCK_END
+        run: uv sync --locked --group dev
 
       - name: Check deterministic golden fixture
-        run: uv run python ../tools/fixtures/generate_golden_home.py --check
+        run: uv run --locked python ../tools/fixtures/generate_golden_home.py --check
 
       - name: Lint
-        run: uv run ruff check .
+        run: uv run --locked ruff check .
 
       - name: Format
-        run: uv run ruff format --check .
+        run: uv run --locked ruff format --check .
 
       - name: Test
-        run: uv run pytest
+        run: uv run --locked pytest
