@@ -119,6 +119,13 @@ jobs:
       - name: Resolve workspace
         run: uv sync --group dev
 
+      # Temporary lock generation for issue #71. Removed once python/uv.lock is committed.
+      - name: Export resolved Python lock for reproducibility review
+        run: |
+          echo TELDRA_UV_LOCK_BEGIN
+          cat uv.lock
+          echo TELDRA_UV_LOCK_END
+
       - name: Check deterministic golden fixture
         run: uv run python ../tools/fixtures/generate_golden_home.py --check
 
