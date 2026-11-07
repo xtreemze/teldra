@@ -168,7 +168,7 @@ export async function createBabylonTwinRuntime(
     scene.cameraToUseForPointers = defaultCamera;
     // Keep existing primary-button orbit and secondary-button pan for compatibility.
     // The middle button orbits; Shift+middle pans, as in Blender.
-    defaultCamera.attachControl(canvas, true, false, 2);
+    defaultCamera.attachControl(canvas, true, false);
     const pointers = defaultCamera.inputs.attached.pointers as
       | { buttons: number[]; panningMouseButton: number }
       | undefined;
