@@ -82,3 +82,21 @@ test("offline workers serve the current shell and retained previous lazy assets"
     await context.setOffline(false);
   }
 });
+
+test("narrow installed iOS-style header keeps project opening and install guidance reachable", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "userAgent", {
+      configurable: true,
+      value: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17 Mobile/15E148 Safari/604.1",
+    });
+  });
+  await page.goto("./?launch=file");
+  const add = page.getByRole("button", { name: "Add Teldra Studio to Home Screen" });
+  await expect(add).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open .teldra" })).toBeVisible();
+  expect(await page.evaluate(() =>
+    document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await add.click();
+  await expect(page.getByText("In Safari, open Share and choose Add to Home Screen.")).toBeVisible();
+});
