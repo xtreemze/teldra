@@ -91,3 +91,29 @@ export const IdentityPicking: Story = {
   },
   render: () => <IdentityPickingHarness />,
 };
+
+function MobileGestureHarness() {
+  const [selectedId, setSelectedId] = createSignal<string | null>(null);
+  const [intent, setIntent] = createSignal("none");
+  const [point, setPoint] = createSignal<TwinViewportClientPoint | null>(null);
+  const [disabled, setDisabled] = createSignal(false);
+
+  return <div style={{position: "relative"}}>
+    <TwinViewport manifest={manifest} glbUrl="/fixtures/twin-pick.glb"
+      selectedCanonicalId={selectedId()} gesturesDisabled={disabled()}
+      onReady={handle => setPoint(handle.projectNode(fixtureNodeKey))}
+      onSelect={identity => setSelectedId(identity?.canonicalId ?? null)}
+      onTouchGesture={(kind, identity) =>
+        setIntent(kind + (identity ? ":" + identity.canonicalId : ""))} />
+    <output data-testid="touch-intent">{intent()}</output>
+    <output data-testid="touch-selected-id">{selectedId() ?? "none"}</output>
+    <output data-testid="touch-projected-x">{point()?.clientX ?? "pending"}</output>
+    <output data-testid="touch-projected-y">{point()?.clientY ?? "pending"}</output>
+    <button type="button" onClick={() => setDisabled(!disabled())}
+      aria-pressed={disabled()}>Disable canvas gestures</button>
+  </div>;
+}
+
+export const TouchGestureArbitration: Story = {
+  render: () => <MobileGestureHarness />,
+};
