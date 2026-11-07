@@ -75,6 +75,9 @@ test("offline workers serve the current shell and retained previous lazy assets"
     const icon = await page.evaluate(async () =>
       (await fetch(new URL("./icons/icon.svg", location.href))).text());
     expect(icon).toBe(expectedIcon);
+    await context.setOffline(false);
+    await page.goto("./third-party-notices.html");
+    await expect(page.getByRole("heading", { name: "Third-party notices" })).toBeVisible();
   } finally {
     await context.setOffline(false);
   }
