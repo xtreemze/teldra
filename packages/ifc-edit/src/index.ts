@@ -1,4 +1,4 @@
-import { IfcAPI, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL } from "web-ifc";
+import { IfcAPI, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM } from "web-ifc";
 
 /** IFC world coordinates in metres, Z up; rotation is about world Z. */
 export interface FurniturePose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
@@ -86,6 +86,106 @@ export function writeFurniturePose(api: IfcAPI, bytes: Uint8Array, guid: string,
     const relative = api.CreateIfcEntity(id, IFCAXIS2PLACEMENT3D, point, axis, direction);
     furniture.ObjectPlacement = api.CreateIfcEntity(id, IFCLOCALPLACEMENT, relativeParent, relative);
     api.WriteLine(id, furniture);
+    return api.SaveModel(id);
+  });
+}
+
+
+/** IFC4 per-instance mapped geometry scaling, in local XYZ; never a placement scale. */
+export type FurnitureGeometryScale = readonly [number, number, number];
+function validGeometryScale(scale: readonly number[]): asserts scale is FurnitureGeometryScale {
+  if (scale.length !== 3 || scale.some(value => !Number.isFinite(value) || value <= 0 || value > 1000))
+    throw new Error("Furniture scale must contain three finite, positive factors at most 1000.");
+}
+const nearTuple = (a: readonly number[], b: readonly number[]) =>
+  a.length === b.length && a.every((v, i) => Math.abs(v - b[i]!) < 1e-8);
+function handle(ref: any, label: string): number {
+  if (!Number.isInteger(ref?.value) || ref.value <= 0) throw new Error("Missing " + label + ".");
+  return ref.value;
+}
+function zeroPoint(api: IfcAPI, id: number, ref: any, label: string) {
+  const point = api.GetLine(id, handle(ref, label)) as Line;
+  if (point?.type !== IFCCARTESIANPOINT || !nearTuple(numeric(point.Coordinates, label), [0,0,0]))
+    throw new Error(label + " must be at the local origin.");
+}
+function identityDirection(api: IfcAPI, id: number, ref: any, expected: number[], label: string) {
+  if (!ref) return;
+  const axis = api.GetLine(id, handle(ref, label)) as Line;
+  if (axis?.type !== IFCDIRECTION || !nearTuple(numeric(axis.DirectionRatios, label), expected))
+    throw new Error("Only identity-aligned geometry mapping is supported (" + label + ").");
+}
+/**
+ * The mapped source geometry may be shared. The editable product definition,
+ * shape and mapped item may not; only a fresh MappingTarget will be committed.
+ */
+function mappedFurniture(api: IfcAPI, id: number, guid: string): { item: Line; scale: FurnitureGeometryScale } {
+  const furniture = find(api, id, guid);
+  const definitionId = handle(furniture.Representation, "IfcProductDefinitionShape");
+  const definition = api.GetLine(id, definitionId) as Line;
+  if (definition?.type !== IFCPRODUCTDEFINITIONSHAPE || definition.Representations?.length !== 1)
+    throw new Error("Scale requires one owned IFC product shape representation.");
+  const shapeId = handle(definition.Representations[0], "IfcShapeRepresentation");
+  const shape = api.GetLine(id, shapeId) as Line;
+  if (shape?.type !== IFCSHAPEREPRESENTATION || shape.RepresentationIdentifier?.value !== "Body" ||
+      shape.RepresentationType?.value !== "MappedRepresentation" || shape.Items?.length !== 1)
+    throw new Error("Only a Body/MappedRepresentation with one mapped item supports scaling.");
+  const itemId = handle(shape.Items[0], "IfcMappedItem");
+  const item = api.GetLine(id, itemId) as Line;
+  if (item?.type !== IFCMAPPEDITEM) throw new Error("Expected a single IfcMappedItem.");
+
+  // Guard each level of the editable reference chain against other products.
+  const products = api.GetLineIDsWithType(id, IFCPRODUCT, true);
+  let productOwners = 0;
+  for (let i = 0; i < products.size(); i++)
+    if ((api.GetLine(id, products.get(i)) as Line).Representation?.value === definitionId) productOwners++;
+  if (productOwners !== 1) throw new Error("Product geometry is shared by another IFC product.");
+  const definitions = api.GetLineIDsWithType(id, IFCPRODUCTDEFINITIONSHAPE);
+  let shapeOwners = 0;
+  for (let i = 0; i < definitions.size(); i++)
+    if ((api.GetLine(id, definitions.get(i)) as Line).Representations?.some((v: any) => v.value === shapeId)) shapeOwners++;
+  if (shapeOwners !== 1) throw new Error("IFC shape is shared by another product definition.");
+  const shapes = api.GetLineIDsWithType(id, IFCSHAPEREPRESENTATION);
+  let mappedOwners = 0;
+  for (let i = 0; i < shapes.size(); i++)
+    if ((api.GetLine(id, shapes.get(i)) as Line).Items?.some((v: any) => v.value === itemId)) mappedOwners++;
+  if (mappedOwners !== 1) throw new Error("Mapped item is shared by another IFC shape.");
+
+  const source = api.GetLine(id, handle(item.MappingSource, "IfcRepresentationMap")) as Line;
+  if (source?.type !== IFCREPRESENTATIONMAP) throw new Error("Expected IfcRepresentationMap.");
+  const origin = api.GetLine(id, handle(source.MappingOrigin, "representation map origin")) as Line;
+  if (origin?.type !== IFCAXIS2PLACEMENT3D) throw new Error("Only 3D mapping origins are supported.");
+  zeroPoint(api, id, origin.Location, "mapping origin");
+  identityDirection(api, id, origin.Axis, [0,0,1], "mapping Z");
+  identityDirection(api, id, origin.RefDirection, [1,0,0], "mapping X");
+
+  const target = api.GetLine(id, handle(item.MappingTarget, "mapping target")) as Line;
+  if (target?.type !== IFCCARTESIANTRANSFORMATIONOPERATOR3D &&
+      target?.type !== IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM)
+    throw new Error("Only 3D mapping targets support scaling.");
+  zeroPoint(api, id, target.LocalOrigin, "mapping target origin");
+  identityDirection(api, id, target.Axis1, [1,0,0], "target X");
+  identityDirection(api, id, target.Axis2, [0,1,0], "target Y");
+  identityDirection(api, id, target.Axis3, [0,0,1], "target Z");
+  const x = target.Scale?.value ?? 1;
+  const scale: FurnitureGeometryScale = [x, target.Scale2?.value ?? x, target.Scale3?.value ?? x];
+  validGeometryScale(scale);
+  return { item, scale };
+}
+export function readFurnitureGeometryScale(api: IfcAPI, bytes: Uint8Array, guid: string): FurnitureGeometryScale {
+  return model(api, bytes, id => mappedFurniture(api, id, guid).scale);
+}
+/** Updates only a fresh per-instance MappingTarget, never shared map geometry or stable identity. */
+export function writeFurnitureGeometryScale(api: IfcAPI, bytes: Uint8Array, guid: string,
+  scale: FurnitureGeometryScale): Uint8Array {
+  validGeometryScale(scale);
+  return model(api, bytes, id => {
+    const { item } = mappedFurniture(api, id, guid);
+    const real = (v: number) => api.CreateIfcType(id, IFCREAL, v);
+    const origin = api.CreateIfcEntity(id, IFCCARTESIANPOINT,
+      [0,0,0].map(v => api.CreateIfcType(id, IFCLENGTHMEASURE, v)));
+    item.MappingTarget = api.CreateIfcEntity(id, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM,
+      null, null, origin, real(scale[0]), null, real(scale[1]), real(scale[2]));
+    api.WriteLine(id, item);
     return api.SaveModel(id);
   });
 }

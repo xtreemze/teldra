@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { numericFurniturePose, transformShortcut, type TransformModal } from "./transform-shortcuts";
+import { numericFurniturePose, numericFurnitureScale, transformShortcut, type TransformModal } from "./transform-shortcuts";
 
 const original = {position: [1, -1, 0] as const, yawRadians: 0};
 
@@ -61,4 +61,18 @@ describe("Blender-style IFC-safe transform shortcuts", () => {
     expect(numericFurniturePose(original, modal)).toBeNull();
     expect(transformShortcut(modal, {key: "Enter"}).message).toMatch(/Choose X, Y or Z/);
   });
+  it("enables S only for validated IFC representations, with uniform and per-axis positive factors", () => {
+    const result = transformShortcut(null, {key: "s"}, true);
+    expect(result).toMatchObject({handled:true,intent:"begin",state:{mode:"scale",axis:null,numeric:""}});
+    const start = result.state!;
+    const uniform = transformShortcut(start, {key:"2"}).state!;
+    expect(numericFurnitureScale([1,1.5,2],uniform)).toEqual([2,3,4]);
+    const axisX = transformShortcut(start,{key:"x"}).state!;
+    const factor = transformShortcut(axisX,{key:"2"}).state!;
+    expect(numericFurnitureScale([1,1.5,2],factor)).toEqual([2,1.5,2]);
+    const bad = transformShortcut(factor,{key:"-"}).state!;
+    expect(numericFurnitureScale([1,1.5,2],bad)).toBeNull();
+    expect(transformShortcut(bad,{key:"Enter"}).intent).toBe("message");
+  });
+
 });

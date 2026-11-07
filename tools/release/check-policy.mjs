@@ -28,6 +28,17 @@ for (const required of ["pnpm-lock.yaml", "python/uv.lock"]) {
   }
 }
 
+// Development CI must reject missing lockfiles too; declarations alone cannot
+// establish reproducibility. The installers independently verify lock freshness.
+const repositoryRoot = new URL("../../", import.meta.url);
+for (const required of lockfiles) {
+  try {
+    await access(new URL(required, repositoryRoot));
+  } catch {
+    fail(`required lockfile is absent: ${required}`);
+  }
+}
+
 if (
   policy.reproducibility?.toolchainManifest !== "toolchain/manifest.json" ||
   policy.reproducibility?.releaseRequiresPinnedToolchainManifest !== true
@@ -109,25 +120,12 @@ if (policy.licensing?.copiedSweetHome3DImplementationInPortableCore !== false) {
 }
 
 if (releaseMode) {
-  const root = new URL("../../", import.meta.url);
-  const missing = [];
-
-  for (const path of [
-    ...lockfiles,
-    policy.reproducibility.toolchainManifest,
-  ]) {
-    try {
-      await access(new URL(path, root));
-    } catch {
-      missing.push(path);
-    }
+  try {
+    await access(new URL(policy.reproducibility.toolchainManifest, repositoryRoot));
+  } catch {
+    throw new Error("Release readiness failed: toolchain manifest is absent");
   }
 
-  if (missing.length > 0) {
-    throw new Error(
-      `Release readiness failed: missing reproducibility files: ${missing.join(", ")}`,
-    );
-  }
 
   if (
     String(policy.licensing?.portableCoreTarget ?? "").includes(

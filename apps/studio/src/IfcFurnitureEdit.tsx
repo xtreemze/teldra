@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, Show, onMount, onCleanup } from "solid-js";
-import type { FurnitureWorldPose } from "@teldra/application";
+import type { FurnitureGeometryScale, FurnitureWorldPose } from "@teldra/application";
 import type { StudioProjectController } from "./StudioProjectController";
 
 export interface FurnitureEditControls {
@@ -16,6 +16,10 @@ export interface IfcFurnitureEditProps {
   editRequest?: number;
   onChange?: () => void;
   onPreview?: (pose: FurnitureWorldPose | null) => void;
+  onScalePreview?: (scale: FurnitureGeometryScale | null) => void;
+  onScaleUnavailable?: (reason: string) => void;
+  viewportScaleDraft?: FurnitureGeometryScale | undefined;
+  editMode?: "translate" | "rotate" | "scale";
   onSnapChange?: (metres: number, radians: number) => void;
   onEditingChange?: (editing: boolean) => void;
   onControlsReady?: (controls: FurnitureEditControls | null) => void;
@@ -24,6 +28,8 @@ export interface IfcFurnitureEditProps {
 /** A draft is visual only until Apply issues the IFC-aware application command. */
 export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const [draft, setDraft] = createSignal<number[] | null>(null);
+  const [scaleDraft, setScaleDraft] = createSignal<number[] | null>(null);
+  const [scaleReason, setScaleReason] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [snap, setSnap] = createSignal(0);
@@ -45,8 +51,17 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     try {
       const current = await props.controller.prepareFurnitureEditing(id);
       if (generation === beginGeneration && id === props.canonicalId) {
+        const support = props.controller.furnitureScaleStatus(id);
+        if (props.editMode === "scale" && !support.supported) {
+          setError("Scale unavailable: " + support.reason);
+          props.onEditingChange?.(false);
+          props.onScaleUnavailable?.(support.reason);
+          return;
+        }
         loadedId = id;
         setDraft(poseToDraft(current));
+        setScaleDraft(support.supported ? [...support.scale] : null);
+        setScaleReason(support.supported ? "" : support.reason);
         props.onEditingChange?.(true);
         updateSnapping();
       }
@@ -57,8 +72,9 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     }
   };
   const cancel = () => {
-    ++beginGeneration; setBusy(false); setDraft(null); loadedId = null;
-    props.onPreview?.(null); props.onEditingChange?.(false); setError("");
+    ++beginGeneration; setBusy(false); setDraft(null); setScaleDraft(null); loadedId = null;
+    props.onPreview?.(null); props.onScalePreview?.(null);
+    props.onEditingChange?.(false); setError("");
   };
   createEffect(() => {
     const request = props.editRequest ?? 0;
@@ -68,9 +84,30 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
       if (!loadedId) void begin();
     }
   });
-  createEffect(() => { props.externalVersion; const id = props.canonicalId; if (loadedId && id !== loadedId) cancel(); else if (loadedId) { try { setDraft(poseToDraft(props.controller.furniturePose(id))); props.onPreview?.(null); } catch { cancel(); } } });
+  createEffect(() => { props.externalVersion; const id = props.canonicalId; if (loadedId && id !== loadedId) cancel(); else if (loadedId) {
+    try {
+      setDraft(poseToDraft(props.controller.furniturePose(id)));
+      const support = props.controller.furnitureScaleStatus(id);
+      setScaleDraft(support.supported ? [...support.scale] : null);
+      props.onPreview?.(null);
+    } catch { cancel(); }
+  } });
   createEffect(() => { const viewport = props.viewportDraft; if (viewport && loadedId === props.canonicalId) setDraft(poseToDraft(viewport)); });
+  createEffect(() => { const scale = props.viewportScaleDraft; if (scale && loadedId === props.canonicalId) setScaleDraft([...scale]); });
   const update = (index: number, value: number) => { setDraft((old) => old?.map((n, i) => i === index ? value : n) ?? null); const next = pose(); if (next) props.onPreview?.(next); };
+  const updateScale = (index: number, value: number) => {
+    const prior = scaleDraft();
+    const next = prior?.map((v, i) => i === index ? value : v);
+    if (!next) return;
+    setScaleDraft(next);
+    if (next.every(v => Number.isFinite(v) && v > 0 && v <= 1000)) {
+      try { props.onScalePreview?.(next as [number,number,number]); setError(""); }
+      catch (err) {
+        setScaleDraft(prior);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  };
   const updateSnapping = () => {
     if ([snap(), rotationSnap()].every(value => Number.isFinite(value) && value >= 0))
       props.onSnapChange?.(snap(), rotationSnap() * Math.PI / 180);
@@ -91,8 +128,15 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
       setError("Enter finite position, rotation and snap values."); return false;
     }
     try {
-      props.controller.placeFurniture(props.canonicalId, next);
-      props.onPreview?.(null); setDraft(null); loadedId = null;
+      const scale = scaleDraft();
+      if (scale) {
+        if (scale.length !== 3 || scale.some(v => !Number.isFinite(v) || v <= 0 || v > 1000)) {
+          setError("Enter finite positive geometry-scale factors at most 1000."); return false;
+        }
+        props.controller.transformFurniture(props.canonicalId, next, scale as [number,number,number]);
+      } else props.controller.placeFurniture(props.canonicalId, next);
+      props.onPreview?.(null); props.onScalePreview?.(null);
+      setDraft(null); setScaleDraft(null); loadedId = null;
       props.onEditingChange?.(false); setError(""); props.onChange?.();
       return true;
     } catch (err) {
@@ -110,6 +154,14 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
         }</For>
         <label>Position snap (m, 0 off) <input type="number" min="0" step="any" value={snap()} onInput={(event) => { setSnap(event.currentTarget.valueAsNumber); updateSnapping(); }} /></label>
         <label>Rotation snap (degrees, 0 off) <input type="number" min="0" step="any" value={rotationSnap()} onInput={(event) => { setRotationSnap(event.currentTarget.valueAsNumber); updateSnapping(); }} /></label>
+        <Show when={scaleDraft()} fallback={<p class="teldra-studio-selection-workspace__hint" title={scaleReason()}>Scale unavailable: {scaleReason()}</p>}>
+          <fieldset class="teldra-ifc-scale-fields"><legend>IFC mapped geometry scale (local XYZ)</legend>
+            <For each={["Scale X", "Scale Y", "Scale Z"]}>{(label, index) =>
+              <label>{label} <input type="number" min="0.000001" max="1000" step="any" value={scaleDraft()?.[index()]}
+                onInput={event => updateScale(index(), event.currentTarget.valueAsNumber)} /></label>
+            }</For>
+          </fieldset>
+        </Show>
         <button type="submit">Apply placement</button><button type="button" onClick={cancel}>Cancel</button>
       </form>
     </Show>
