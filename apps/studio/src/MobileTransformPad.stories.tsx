@@ -5,7 +5,7 @@ import {MobileTransformPad} from "./MobileTransformPad";
 
 function Harness(props: {mode: "translate" | "rotate"}) {
   const [pose, setPose] = createSignal<FurnitureWorldPose>({position: [1, 2, 3], yawRadians: 0});
-  return <div style={{position: "relative", width: "390px", height: "700px", background: "#14202b"}}>
+  return <div style={{position: "relative", width: "390px", height: "700px", background: "#14202b", color: "#e7edf4"}}>
     <output data-testid="mobile-transform-pose">{JSON.stringify(pose())}</output>
     <MobileTransformPad mode={props.mode} pose={pose} onPreview={setPose}
       translationSnap={0.05} rotationSnap={Math.PI / 12}
