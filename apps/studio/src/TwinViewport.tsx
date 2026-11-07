@@ -143,6 +143,16 @@ export function TwinViewport(props: TwinViewportProps) {
     };
     const onClickCapture = (event: MouseEvent) => {
       if (!gestures.suppressClick(performance.now())) return;
+      // Modern browsers dispatch PointerEvent clicks with a pointerType.
+      // Do not swallow an actual mouse click following a touch interaction.
+      if (event instanceof PointerEvent && event.pointerType === "mouse") return;
+      // Keyboard/assistive-tech activations have no click count, unlike
+      // compatibility clicks synthesized after a touch or stylus gesture.
+      if (event.detail === 0 && !(event instanceof PointerEvent)) return;
+      const source = (event as MouseEvent & {
+        sourceCapabilities?: {firesTouchEvents?: boolean}
+      }).sourceCapabilities;
+      if (source?.firesTouchEvents === false) return;
       event.preventDefault();
       event.stopImmediatePropagation();
     };

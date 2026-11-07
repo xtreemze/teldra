@@ -78,3 +78,47 @@ test("pinch previews bounded IFC instance scale without editing pose", async ({p
   const report = await new AxeBuilder({page}).include("#storybook-root").analyze();
   expect(report.violations).toEqual([]);
 });
+
+test("changing a move axis mid-gesture restores its pre-gesture IFC draft", async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto("/iframe.html?id=studio-mobiletransformpad--move&viewMode=story");
+  const target = page.getByRole("group", {name: "Two-finger transform touch area"});
+  await expect(target).toBeVisible();
+  const baseline = await page.getByTestId("mobile-transform-pose").textContent();
+  await target.evaluate(element => {
+    const pointer = (type: string, id: number, x: number, y: number) =>
+      element.dispatchEvent(new PointerEvent(type, {bubbles: true, cancelable: true,
+        pointerType: "touch", pointerId: id, clientX: x, clientY: y}));
+    pointer("pointerdown", 1, 50, 180); pointer("pointerdown", 2, 150, 180);
+    pointer("pointermove", 1, 50, 100); pointer("pointermove", 2, 150, 100);
+  });
+  await expect(page.getByTestId("mobile-transform-pose")).not.toHaveText(baseline ?? "");
+  await page.getByRole("button", {name: "Y", exact: true}).click();
+  await expect(page.getByTestId("mobile-transform-pose")).toHaveText(baseline ?? "");
+  await expect(page.locator(".teldra-mobile-transform-pad__announcement")).toContainText("Previous draft restored");
+  // Old contact releases cannot restart or commit a hidden gesture.
+  await target.evaluate(element => {
+    for (const id of [1, 2]) element.dispatchEvent(new PointerEvent("pointerup",
+      {bubbles: true, pointerId: id, pointerType: "touch", clientX: 75, clientY: 120}));
+  });
+  await expect(page.getByTestId("mobile-transform-pose")).toHaveText(baseline ?? "");
+});
+
+test("switching modes during a pinch restores the previous mapped geometry scale", async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto("/iframe.html?id=studio-mobiletransformpad--scale&viewMode=story");
+  const target = page.getByRole("group", {name: "Two-finger transform touch area"});
+  await expect(target).toBeVisible();
+  await target.evaluate(element => {
+    const pointer = (type: string, id: number, x: number) =>
+      element.dispatchEvent(new PointerEvent(type, {bubbles: true, cancelable: true,
+        pointerType: "touch", pointerId: id, clientX: x, clientY: 150}));
+    pointer("pointerdown", 1, 50); pointer("pointerdown", 2, 150);
+    pointer("pointermove", 1, 25); pointer("pointermove", 2, 175);
+  });
+  await expect(page.getByTestId("mobile-transform-scale")).toHaveText("[1.5,1.5,1.5]");
+  await page.getByRole("group", {name: "Touch editing mode"}).getByRole("button", {name: "Rotate"}).click();
+  await expect(page.getByTestId("mobile-transform-scale")).toHaveText("[1,1,1]");
+  await expect(page.getByTestId("mobile-transform-pose")).toHaveText('{"position":[1,2,3],"yawRadians":0}');
+  await expect(page.locator(".teldra-mobile-transform-pad__announcement")).toContainText("Previous draft restored");
+});
