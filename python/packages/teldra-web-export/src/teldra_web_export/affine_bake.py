@@ -150,7 +150,9 @@ def _append_accessor(
 
 
 def _placement_matrix(matrix: Sequence[float]) -> np.ndarray:
-    if len(matrix) != 16 or not all(isinstance(v, (float, int)) and math.isfinite(v) for v in matrix):
+    if len(matrix) != 16 or not all(
+        isinstance(v, (float, int)) and math.isfinite(v) for v in matrix
+    ):
         raise WebSceneExportError("Rebake requires a finite 4×4 IFC placement matrix.")
     canonical = np.asarray(matrix, dtype=np.float64).reshape((4, 4), order="F")
     linear = canonical[:3, :3]
@@ -163,7 +165,9 @@ def _placement_matrix(matrix: Sequence[float]) -> np.ndarray:
         or np.linalg.cond(linear) > 1e8
         or np.max(np.abs(canonical)) > 1e6
     ):
-        raise WebSceneExportError("Static rebake requires a nonsingular, positive upright IFC affine.")
+        raise WebSceneExportError(
+            "Static rebake requires a nonsingular, positive upright IFC affine."
+        )
     frame = np.asarray(CANONICAL_TO_GLTF, dtype=np.float64).reshape((4, 4), order="F")
     return frame @ canonical @ np.linalg.inv(frame)
 
@@ -193,7 +197,9 @@ def bake_static_furniture_glb(
         raise WebSceneExportError("Source GLB hash does not match the scene manifest.")
     doc, packed = _source_chunks(glb)
     if doc.get("skins") or doc.get("animations"):
-        raise WebSceneExportError("Animated or skinned scenes require a separate deformation rebaker.")
+        raise WebSceneExportError(
+            "Animated or skinned scenes require a separate deformation rebaker."
+        )
     if any(name in doc.get("extensionsUsed", []) for name in (
         "KHR_draco_mesh_compression", "EXT_meshopt_compression", "KHR_mesh_quantization"
     )):
@@ -255,10 +261,16 @@ def bake_static_furniture_glb(
         if not new_mesh.get("primitives"):
             raise WebSceneExportError("Selected source GLB mesh contains no geometry.")
         for primitive in new_mesh["primitives"]:
-            if primitive.get("mode", 4) != 4 or primitive.get("targets") or primitive.get("extensions"):
+            if (
+                primitive.get("mode", 4) != 4
+                or primitive.get("targets")
+                or primitive.get("extensions")
+            ):
                 raise WebSceneExportError("Static rebake supports uncompressed triangles only.")
             attrs = primitive.get("attributes", {})
-            if "POSITION" not in attrs or any(key.startswith(("JOINTS_", "WEIGHTS_")) for key in attrs):
+            if "POSITION" not in attrs or any(
+                key.startswith(("JOINTS_", "WEIGHTS_")) for key in attrs
+            ):
                 raise WebSceneExportError("Static rebake requires non-skinned positions.")
             positions = _accessor(doc, packed, attrs["POSITION"], components=3, component_type=5126)
             index_ref = primitive.get("indices")
@@ -270,7 +282,9 @@ def bake_static_furniture_glb(
                 raise WebSceneExportError("Invalid triangle index component type.")
             indices = _accessor(doc, packed, index_ref, components=1, component_type=index_type)
             if len(indices) % 3 or indices.max() >= len(positions):
-                raise WebSceneExportError("Indexed triangle geometry is incomplete or out of range.")
+                raise WebSceneExportError(
+                    "Indexed triangle geometry is incomplete or out of range."
+                )
             transformed = positions.astype(np.float64) @ linear.T + delta[:3, 3]
             attrs["POSITION"] = _append_accessor(rebuilt, binary, transformed, attrs["POSITION"])
             transformed_normals = None
@@ -279,15 +293,21 @@ def bake_static_furniture_glb(
                 if len(normals) != len(positions):
                     raise WebSceneExportError("Normal/position vertex counts differ.")
                 transformed_normals = _transform_normal(normals, normal_matrix)
-                attrs["NORMAL"] = _append_accessor(rebuilt, binary, transformed_normals, attrs["NORMAL"])
+                attrs["NORMAL"] = _append_accessor(
+                    rebuilt, binary, transformed_normals, attrs["NORMAL"]
+                )
             if "TANGENT" in attrs:
                 if transformed_normals is None:
                     raise WebSceneExportError("Tangents without normals cannot be rebaked.")
-                tangents = _accessor(doc, packed, attrs["TANGENT"], components=4, component_type=5126)
+                tangents = _accessor(
+                    doc, packed, attrs["TANGENT"], components=4, component_type=5126
+                )
                 if len(tangents) != len(positions):
                     raise WebSceneExportError("Tangent/position vertex counts differ.")
                 rotated = tangents[:, :3].astype(np.float64) @ linear.T
-                rotated -= (rotated * transformed_normals).sum(axis=1)[:, None] * transformed_normals
+                rotated -= (
+                    (rotated * transformed_normals).sum(axis=1)[:, None] * transformed_normals
+                )
                 oriented = _transform_normal(rotated, np.eye(3))
                 if not np.isfinite(tangents[:, 3]).all() or not np.all(
                     np.isclose(np.abs(tangents[:, 3]), 1, atol=1e-5)
