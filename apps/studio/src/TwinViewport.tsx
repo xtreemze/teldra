@@ -137,10 +137,7 @@ export function TwinViewport(props: TwinViewportProps) {
       gestures.abort(performance.now());
       clearHold();
     };
-    const reset = () => {
-      if (gestures.activeContacts) gestures.abort(performance.now());
-      clearHold();
-    };
+    const reset = () => { gestures.abort(performance.now()); clearHold(); };
     const onVisibilityChange = () => {
       if (document.visibilityState !== "visible") reset();
     };
