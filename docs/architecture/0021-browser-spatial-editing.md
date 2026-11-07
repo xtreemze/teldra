@@ -9,8 +9,8 @@ wall/topology changes, non-metre IFC, tilted or dependent placement hierarchies 
 rejected or not offered. Source furniture material/geometry remains unchanged.
 
 Studio now exposes an **Edit transform** action in the viewport project toolbar for a selected
-IFC furniture item. It validates supported IFC geometry before attaching Move/Rotate
-Gizmos. The inspector remains the accessible precision-input, snap, Apply and Cancel
+IFC furniture item. It validates the supported IFC4 placement contract before attaching
+Move/Rotate gizmos. The inspector remains the accessible precision-input, snap, Apply and Cancel
 surface. **Scale is not enabled** until an IFC-backed geometry/dimension command and
 validated derived-scene reconciliation exist (tracked in #82). A Babylon-only scale
 preview must not be presented as a saved architectural edit.
