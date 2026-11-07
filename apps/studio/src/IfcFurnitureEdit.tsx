@@ -108,6 +108,32 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
       }
     }
   };
+  const dimensionStatus = () => {
+    const scale = scaleDraft();
+    return scale && scale.length === 3 && scale.every(value => Number.isFinite(value) && value > 0 && value <= 1000)
+      ? props.controller.furnitureDimensionStatus(props.canonicalId, scale as [number, number, number])
+      : { supported: false as const, reason: "Enter valid positive scale factors first." };
+  };
+  const updateDimension = (index: number, requestedMetres: number) => {
+    const current = dimensionStatus();
+    if (!current.supported) { setError(current.reason); return; }
+    if (!Number.isFinite(requestedMetres) || requestedMetres <= 0 || requestedMetres > 1000) {
+      setError("Nominal dimensions must be positive finite metre values no greater than 1000.");
+      return;
+    }
+    try {
+      const next = [...current.current] as [number, number, number];
+      next[index] = requestedMetres;
+      const scale = props.controller.furnitureScaleForDimensions(props.canonicalId, next);
+      // Renderer validation runs before mutating the editor draft. The source
+      // properties remain immutable and Apply still creates one IFC command.
+      props.onScalePreview?.(scale);
+      setScaleDraft([...scale]);
+      setError("");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
+  };
   const updateSnapping = () => {
     if ([snap(), rotationSnap()].every(value => Number.isFinite(value) && value >= 0))
       props.onSnapChange?.(snap(), rotationSnap() * Math.PI / 180);
@@ -161,6 +187,28 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
                 onInput={event => updateScale(index(), event.currentTarget.valueAsNumber)} /></label>
             }</For>
           </fieldset>
+          <Show when={dimensionStatus()}>{dimensions =>
+            <Show when={dimensions().supported && dimensions()} fallback={
+              <p class="teldra-studio-selection-workspace__hint" data-testid="nominal-dimensions-unavailable">
+                Source nominal dimensions unavailable; use the IFC scale factors above.
+              </p>
+            }>
+              <fieldset class="teldra-ifc-scale-fields" aria-describedby="teldra-nominal-dimensions-description">
+                <legend>Authored nominal dimensions (metres)</legend>
+                <For each={["Nominal width (m)", "Nominal depth (m)", "Nominal height (m)"]}>{(label, index) =>
+                  <label>{label}
+                    <input type="number" min="0.000001" max="1000" step="any"
+                      value={dimensionStatus().supported ? (dimensionStatus() as {current: readonly number[]}).current[index()] : undefined}
+                      onChange={event => updateDimension(index(), event.currentTarget.valueAsNumber)} />
+                  </label>
+                }</For>
+                <p id="teldra-nominal-dimensions-description" class="teldra-studio-selection-workspace__hint">
+                  Original SH3D dimensions are preserved; these values derive the IFC mapped-instance scale.
+                  They represent source-authored nominal sizes, not measured mesh bounds.
+                </p>
+              </fieldset>
+            </Show>
+          }</Show>
         </Show>
         <button type="submit">Apply placement</button><button type="button" onClick={cancel}>Cancel</button>
       </form>
