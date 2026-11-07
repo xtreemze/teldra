@@ -137,7 +137,13 @@ export function TwinViewport(props: TwinViewportProps) {
       gestures.abort(performance.now());
       clearHold();
     };
-    const reset = () => { gestures.abort(performance.now()); clearHold(); };
+    const reset = () => {
+      if (gestures.activeContacts) gestures.abort(performance.now());
+      clearHold();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") reset();
+    };
     const onClickCapture = (event: MouseEvent) => {
       if (!gestures.suppressClick(performance.now())) return;
       event.preventDefault();
@@ -148,6 +154,8 @@ export function TwinViewport(props: TwinViewportProps) {
     window.addEventListener("pointerup", onUp, true);
     window.addEventListener("pointercancel", onCancel, true);
     window.addEventListener("blur", reset);
+    window.addEventListener("resize", reset);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     canvas.addEventListener("click", onClickCapture, true);
     onCleanup(() => {
       clearHold();
@@ -156,6 +164,8 @@ export function TwinViewport(props: TwinViewportProps) {
       window.removeEventListener("pointerup", onUp, true);
       window.removeEventListener("pointercancel", onCancel, true);
       window.removeEventListener("blur", reset);
+      window.removeEventListener("resize", reset);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       canvas.removeEventListener("click", onClickCapture, true);
     });
 
