@@ -297,6 +297,7 @@ export function StudioSelectionWorkspace(
     <div ref={workspaceRoot} class="teldra-studio-selection-workspace">
       <div class="teldra-studio-selection-workspace__mobile-header" role="group" aria-label="Mobile Studio navigation">
         <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel"
+          disabled={editingFurniture()} title={editingFurniture() ? "Apply or cancel the active transform first" : "Browse the scene"}
           onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}>Scene</button>
         <output aria-live="polite">{dirty() ? "Unsaved changes" : "Saved"}</output>
         <button type="button" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
