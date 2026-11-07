@@ -47,11 +47,60 @@ GlobalIds and IFC mapped source geometry remain unmodified. A reopened
 mapping factors and the hash-bound original source.
 
 The capability is deliberately described as **nominal dimensions**.
-A separate measured-geometry bounds feature must validate actual mesh
-extents, transforms, unit conversions, and asymmetrical/offset model
-origins before presenting those extents as exact measured dimensions.
-For axes that would require unrepresentable GLB shear, the existing
-scale-projection safety gate still rejects the commit.
+The measured geometry feature below validates actual indexed mesh triangles,
+transforms, canonical units and offset model origins. Its per-axis extents
+are deliberately separate from source-authored nominal dimensions.
+
+## Measured IFC-local geometry and lossless nonuniform projection
+
+Studio distinguishes two geometrically different concepts:
+
+- **SH3D nominal dimensions:** immutable source metadata preserved as
+  `Teldra_Source` in IFC, edited through relative mapping-target factors.
+- **Measured triangle extents:** dimensions calculated from every indexed
+  triangle of the actual loaded render geometry, transformed from its saved
+  source world matrix into the object's **original IFC local XYZ** frame.
+  This is a source-local axis-aligned bounding box, **not** a minimum-volume
+  oriented bounding box or an assertion that an asymmetrical item's nominal
+  size equals its mesh extents. Its min and max offsets from the IFC pivot
+  are also retained.
+
+Measured size is calculated from CPU geometry only once per selected
+object and cached. The source measurement is independent of subsequent
+Move/Rotate/Scale previews, and the current authored size uses the verified
+original/current IFC MappingTarget ratio, not a second saved scale state.
+Studio's inspector can edit either measured local-axis extents or nominal
+dimensions, with both yielding the **same canonical** IFC scale command.
+An empty, nontriangle, deformable, nonfinite or incomplete source mesh cannot
+claim a valid measurement. No source triangles, materials, texture coordinates,
+normals, IFC GlobalIds or original SH3D assets are modified.
+
+For source yaw `r0`, current yaw `r1` and local XYZ scale ratio `S`,
+the canonical delta is `T1 × R1 × S × inverse(R0 × T0)`.
+A single Babylon node cannot generally decompose the resulting world matrix
+without shear. The renderer now uses a numerical 2D singular-value
+factorization of its upright XY block:
+
+```text
+A = U × diag(sx, sy) × Vᵀ
+source vertices → original mesh transforms → Vᵀ child → U×S parent
+```
+
+Both synthetic hierarchy nodes have valid ordinary TRS transforms. Their
+product is checked against the canonical matrix to numerical tolerance;
+the original mesh buffers remain intact and batching/picking continue to use
+their original render identities. It is an exact runtime projection, not
+a GLB file rewrite. Saved version-2 `.teldra` matrix records remain hash-bound
+and are checked against source/current IFC; the hierarchy is rebuilt on reopen.
+
+Before a **nonuniform** canonical scale is accepted, the active viewport
+preflights the actual mesh ownership and source transforms. Unsupported
+animation, skinning, morph targets, instances, mirrored/unstable source
+hierarchies, cross-identity child dependencies or invalid/near-singular
+matrices fail closed. Without a loaded validating renderer, headless commands
+retain the prior conservative shear restriction. More general IFC solid
+authoring and derived GLB regeneration for these unsupported cases are still
+tracked in issue #82, as are real GPU and mobile hardware certifications.
 
 ## IFC4 mapped-instance scale contract (restricted)
 
@@ -70,10 +119,12 @@ Uniform scaling and per-axis X/Y/Z factors are represented in a local-scale
 draft, alongside the pose draft. Enter/Apply sends one application
 command for pose and scale, with one IFC undo/redo snapshot. Cancel leaves
 canonical bytes unchanged; numerical controls remain available for accessibility.
-For simple supported geometry, a per-item affine projection updates the
-unchanged GLB preview. Nonuniform transformations requiring shear that Babylon
-cannot represent are rejected before IFC commit. A future conversion pipeline
-must regenerate GLB derivatives for these cases.
+For supported static triangle geometry, a per-item affine projection updates
+the unchanged GLB preview. When the matrix contains nonuniform shear that one
+mesh TRS cannot represent, Babylon uses the exact two-node factorization
+described below. Animated, instanced, skinned, morphable and ambiguous mixed-
+identity hierarchies still require a dedicated derived-GLB regeneration path
+and are rejected before canonical IFC commit.
 
 Scene placement reconciliation records with geometry-scale ratios use version
 2 of the derived, hash-bound scene placement record; version 1 is still

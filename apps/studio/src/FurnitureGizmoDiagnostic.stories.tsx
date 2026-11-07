@@ -17,6 +17,7 @@ function GizmoHarness() {
   let session: FurnitureEditSession | undefined;
   const [pose, setPose] = createSignal(JSON.stringify(origin));
   const [scale, setScale] = createSignal("1,1,1");
+  const [affine, setAffine] = createSignal("source");
   const [status, setStatus] = createSignal("loading");
   const [drag, setDrag] = createSignal("idle");
   const [point, setPoint] = createSignal("pending");
@@ -43,10 +44,25 @@ function GizmoHarness() {
     <button onClick={() => session?.setMode("translate")}>Translate</button>
     <button onClick={() => session?.setMode("rotate")}>Rotate</button>
     <button onClick={() => session?.setMode("scale")}>Scale</button>
+    <button onClick={() => {
+      if (!runtime) return;
+      const s=Math.SQRT1_2;
+      // R_current(0) * localScale(2,1) * R_source(-45deg).
+      runtime.applyScenePlacements([{canonicalId:"wall:fixture",
+        matrix:[2*s,-s,0,0,2*s,s,0,0,0,0,1,0,0.5,0.25,0,1]}]);
+      setAffine("projected");
+      setPoint(JSON.stringify(runtime.projectNode("ifc:fixture-wall:body")));
+    }}>Project affine shear</button>
+    <button onClick={() => {
+      if (!runtime) return;
+      runtime.applyScenePlacements([]);
+      setAffine("source");
+      setPoint(JSON.stringify(runtime.projectNode("ifc:fixture-wall:body")));
+    }}>Reset affine</button>
     <button onClick={() => { session?.setScale([1.5,1,0.75]); setScale("1.5,1,0.75"); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body"))); }}>Set scale XYZ</button>
     <button onClick={() => { session?.cancel(); setScale("1,1,1"); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body"))); }}>Cancel</button>
     <output data-testid="gizmo-status">{status()}</output><output data-testid="gizmo-pose">{pose()}</output>
-    <output data-testid="gizmo-scale">{scale()}</output>
+    <output data-testid="gizmo-scale">{scale()}</output><output data-testid="gizmo-affine">{affine()}</output>
     <output data-testid="gizmo-drag">{drag()}</output><output data-testid="gizmo-pickpoint">{point()}</output></div>;
 }
 const meta = {title: "Studio/FurnitureGizmoDiagnostic", component: GizmoHarness, parameters: {layout: "fullscreen"}} satisfies Meta<typeof GizmoHarness>;

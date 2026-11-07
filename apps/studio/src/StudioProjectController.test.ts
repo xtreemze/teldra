@@ -285,7 +285,19 @@ it("commits geometry scale with pose as one IFC undo step and validates source-b
   });
   await controller.prepareFurnitureEditing("chair");
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
+  expect(controller.furnitureMeasuredSizeStatus("chair",[0.4,0.8,1.2])).toEqual({
+    supported:true,source:[0.4,0.8,1.2],current:[0.4,0.8,1.2],
+  });
+  const measuredFactors=controller.furnitureScaleForMeasuredSize("chair",
+    [0.4,0.8,1.2],[0.8,1.2,0.96]);
+  measuredFactors.forEach((value,index)=>
+    expect(value).toBeCloseTo([2,1.5,0.8][index]!,9));
   controller.transformFurniture("chair",{position:[2,3,1],yawRadians:0},[2,1.5,0.8]);
+  const actualMeasured=controller.furnitureMeasuredSizeStatus("chair",[0.4,0.8,1.2]);
+  expect(actualMeasured.supported).toBe(true);
+  if (actualMeasured.supported)
+    actualMeasured.current.forEach((value,index)=>
+      expect(value).toBeCloseTo([0.8,1.2,0.96][index]!,8));
   expect(controller.history.undoDepth).toBe(1);
   const [placement] = controller.placementOverrides;
   expect(placement?.scale).toEqual([2,1.5,0.8]);
@@ -302,6 +314,22 @@ it("commits geometry scale with pose as one IFC undo step and validates source-b
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
   expect(controller.redo()).toBe(true);
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[2,1.5,0.8]});
+  const shearedPose={position:[2,3,1] as const,yawRadians:Math.PI/4};
+  // This fixture's original yaw is zero, so its canonical delta remains
+  // decomposable; attaching a renderer nevertheless preflights nonuniform
+  // scale for potentially rotated *mesh-local* source parts.
+  let validated=0;
+  controller.setAffineProjectionValidator((id,matrix)=>{
+    expect(id).toBe("chair");
+    expect(matrix).toHaveLength(16);
+    validated++;
+  });
+  controller.transformFurniture("chair",shearedPose,[2,1,1]);
+  expect(validated).toBe(1);
+  expect(controller.furniturePose("chair").yawRadians).toBeCloseTo(Math.PI/4);
+  expect(controller.undo()).toBe(true);
+  expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[2,1.5,0.8]});
+  controller.setAffineProjectionValidator(null);
 });
 
 

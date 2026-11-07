@@ -27,6 +27,22 @@ describe("building scene reconciliation", () => {
       ...scaled, scale: [2,2,1] as [number,number,number],
     }])).rejects.toThrow("does not match");
 
+    // Rotated local nonuniform scales may shear the canonical XY affine
+    // matrix. The version-2 record must retain that exact matrix so a
+    // renderer can factor it without changing canonical IFC or source GLB.
+    const s=Math.SQRT1_2;
+    const sheared={...placement,
+      matrix:[2*s,-s,0,0,2*s,s,0,0,0,0,1,0,2,3,0,1],
+      scale:[2,1,1] as [number,number,number]};
+    const savedAffine=await replaceTeldraBuilding(archive,new Uint8Array([7]),scene,[sheared]);
+    const reopened=await openTeldraArchive(savedAffine.bytes);
+    expect((await readScenePlacementOverrides(reopened,scene))?.placements[0]?.matrix)
+      .toEqual(sheared.matrix);
+    await expect(replaceTeldraBuilding(archive,new Uint8Array([7]),scene,[{
+      ...sheared,matrix:[...sheared.matrix.slice(0,1),0,...sheared.matrix.slice(2)],
+    }])).rejects.toThrow();
+
+
     await expect(replaceTeldraBuilding(archive, new Uint8Array([5]), scene, [{ ...placement, canonicalId: "unknown" }])).rejects.toThrow("identity");
   });
 });

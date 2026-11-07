@@ -58,3 +58,31 @@ test("native IFC without SH3D source provenance retains scale factor editor only
   await expect(page.getByLabel("Scale X",{exact:true})).toHaveValue("1");
   await expect(page.getByLabel("Nominal width (m)",{exact:true})).toHaveCount(0);
 });
+
+
+test("measured source triangle extents remain separate from nominal sizes and author exact IFC scale", async ({page}) => {
+  await openStory(page, "editable");
+  await page.getByRole("button",{name:"Edit placement",exact:true}).click();
+  await expect(page.getByLabel("Measured width (m)",{exact:true})).toHaveValue("0.4");
+  await expect(page.getByLabel("Measured depth (m)",{exact:true})).toHaveValue("0.8");
+  await expect(page.getByLabel("Measured height (m)",{exact:true})).toHaveValue("1.2");
+  await expect(page.getByLabel("Nominal width (m)",{exact:true})).toHaveValue("0.5");
+  await page.getByLabel("Measured width (m)",{exact:true}).fill("0.6");
+  await page.getByLabel("Measured width (m)",{exact:true}).press("Tab");
+  await expect(page.getByTestId("preview-scale")).toHaveText("1.5,1,1");
+  await expect(page.getByLabel("Nominal width (m)",{exact:true})).toHaveValue("0.75");
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(page.getByTestId("committed-scale")).toHaveText("1,1,1");
+
+  await page.getByRole("button",{name:"Edit placement",exact:true}).click();
+  await page.getByLabel("Measured depth (m)",{exact:true}).fill("-0.5");
+  await page.getByLabel("Measured depth (m)",{exact:true}).press("Tab");
+  await expect(page.getByLabel("Measured depth (m)",{exact:true})).toHaveAttribute("aria-invalid","true");
+  await page.getByRole("button",{name:"Apply placement",exact:true}).click();
+  await expect(page.getByTestId("committed-scale")).toHaveText("1,1,1");
+  await page.getByLabel("Measured depth (m)",{exact:true}).fill("1.2");
+  await page.getByLabel("Measured depth (m)",{exact:true}).press("Tab");
+  await expect(page.getByLabel("Measured depth (m)",{exact:true})).toHaveAttribute("aria-invalid","false");
+  await page.getByRole("button",{name:"Apply placement",exact:true}).click();
+  await expect(page.getByTestId("committed-scale")).toHaveText("1,1.5,1");
+});

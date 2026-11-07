@@ -24,6 +24,7 @@ import { FloorTextureInspector } from "./floor-texture-inspector.js";
 import { FloorMinificationInspector, type FloorMinificationMode } from "./floor-minification-inspector.js";
 import { describeSurfacePick, type SurfaceProbe } from "./surface-probe.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
+import type { FurnitureMeasuredBounds } from "./furniture-bounds.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
@@ -51,6 +52,10 @@ export interface BabylonTwinRuntime {
   renderStats(): { backend: BabylonBackend; reverseDepth: boolean; nearPlane: number; farPlane: number; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
+  /** Exact indexed triangle extents in the original IFC local axes. */
+  measureFurnitureGeometry(canonicalId: string, original: FurnitureWorldPose): FurnitureMeasuredBounds;
+  /** Pure preflight: no canonical IFC change or scene mutation. */
+  assertFurnitureAffineProjectable(canonicalId: string, canonicalDelta: readonly number[]): void;
   beginFurnitureEdit(placement: FurniturePlacement, onPreview: (pose: FurnitureWorldPose) => void,
     onDragState?: (dragging: boolean) => void, onScalePreview?: (scale: import("./furniture-gizmo.js").GeometryScale) => void): FurnitureEditSession;
   setHiddenSourceContentVisible(visible: boolean): void;
@@ -401,6 +406,12 @@ export async function createBabylonTwinRuntime(
       return {eligibleParts, candidateGroups: candidates.length,
         possibleDrawCallReduction: candidates.reduce((total, count) => total + count - 1, 0),
         sameCanonicalPotentialReduction: [...canonicalGroups.values()].reduce((total, count) => total + Math.max(0, count - 1), 0)};
+    },
+    measureFurnitureGeometry(canonicalId, original) {
+      return furniture.measureSourceGeometry(canonicalId, original);
+    },
+    assertFurnitureAffineProjectable(canonicalId, canonicalDelta) {
+      furniture.assertAffineProjectable(canonicalId, canonicalDelta);
     },
     applyScenePlacements(placements) {
       for (const placement of placements) {

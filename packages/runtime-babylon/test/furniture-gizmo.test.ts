@@ -3,6 +3,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import { Scene } from "@babylonjs/core/scene";
 import { Matrix, Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { FurnitureGizmoBridge, furnitureSceneDelta } from "../src/furniture-gizmo";
@@ -25,9 +26,13 @@ describe("IFC furniture projection", () => {
     const engine = new NullEngine(), scene = new Scene(engine);
     try {
       const mesh = CreateBox("furniture", {}, scene);
+      mesh.material = new StandardMaterial("source",scene);
       mesh.position.copyFrom(Vector3.TransformCoordinates(Vector3.FromArray(original.position), C));
       const bridge = new FurnitureGizmoBridge(scene, C, id => id === "chair" ? [mesh] : []);
+      const measuredSource = bridge.measureSourceGeometry("chair",original);
+      expect(measuredSource.size).toEqual([1,1,1]);
       bridge.apply({canonicalId: "chair", original, current});
+      expect(bridge.measureSourceGeometry("chair",original)).toEqual(measuredSource);
       const expected = Vector3.TransformCoordinates(Vector3.FromArray(current.position), C);
       expect(mesh.position.asArray()).toEqual(expected.asArray().map(value => expect.closeTo(value, 5)));
       bridge.apply({canonicalId: "chair", original, current: original});
@@ -98,21 +103,54 @@ it("projects IFC local-axis scale about the original placement, including Z-up s
 });
 
 
-it("rejects unrepresentable local scale shear before mutating any furniture mesh", () => {
+it("projects nonuniform IFC scale through rotated source geometry using exact affine hierarchy", () => {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  try {
+    const parent = new TransformNode("source-root",scene);
+    parent.position.set(3,0,-1);
+    const one = CreateBox("one", {}, scene), two = CreateBox("two", {}, scene);
+    one.parent = parent; two.parent = parent;
+    one.position.x = 0.3;
+    two.position.z = 2;
+    two.rotation.y = Math.PI/7;
+    const bridge = new FurnitureGizmoBridge(scene,C,()=>[one,two]);
+    const source = {position:[0,0,0] as const,yawRadians:Math.PI/4};
+    const current = {position:[2,1,0] as const,yawRadians:0};
+    const before = [one,two].map(mesh => mesh.computeWorldMatrix(true).clone());
+    const delta = furnitureSceneDelta(C,source,current,[2,0.5,1.25]);
+    bridge.apply({canonicalId:"chair",original:source,current,sourceScale:[1,1,1],currentScale:[2,0.5,1.25]});
+    [one,two].forEach((mesh,i) => {
+      const target = before[i]!.multiply(delta).asArray();
+      const actual = mesh.computeWorldMatrix(true).asArray();
+      target.forEach((v,j)=>expect(actual[j]).toBeCloseTo(v,4));
+    });
+    bridge.apply({canonicalId:"chair",original:source,current:source,sourceScale:[1,1,1],currentScale:[1,1,1]});
+    [one,two].forEach((mesh,i) => {
+      const target = before[i]!.asArray();
+      const actual = mesh.computeWorldMatrix(true).asArray();
+      target.forEach((v,j)=>expect(actual[j]).toBeCloseTo(v,5));
+    });
+    bridge.dispose();
+    expect(one.parent).toBe(parent);
+    expect(two.parent).toBe(parent);
+  } finally {scene.dispose();engine.dispose();}
+});
+
+it("rejects animated or mixed-identity affine scenes without partial mesh mutations", () => {
   const engine = new NullEngine(), scene = new Scene(engine);
   try {
     const one = CreateBox("one", {}, scene), two = CreateBox("two", {}, scene);
     two.position.x = 3;
-    const bridge = new FurnitureGizmoBridge(scene, C, () => [one,two]);
-    const original = {position:[0,0,0] as const,yawRadians:Math.PI/4};
-    const before = [one,two].map(m => ({position:m.position.clone(), scale:m.scaling.clone()}));
+    one.animations.push({} as never);
+    const bridge = new FurnitureGizmoBridge(scene,C,()=>[one,two]);
+    const source = {position:[0,0,0] as const,yawRadians:Math.PI/4};
+    const original = [one,two].map(mesh => mesh.computeWorldMatrix(true).clone());
     expect(() => bridge.apply({
-      canonicalId:"chair", original, current:original,
+      canonicalId:"chair",original:source,current:source,
       sourceScale:[1,1,1], currentScale:[2,1,1],
-    })).toThrow(/shear/);
-    [one,two].forEach((m,i) => {
-      expect(m.position.asArray()).toEqual(before[i]!.position.asArray());
-      expect(m.scaling.asArray()).toEqual(before[i]!.scale.asArray());
+    })).toThrow(/regeneration/);
+    [one,two].forEach((mesh,i)=>{
+      original[i]!.asArray().forEach((v,j)=>expect(mesh.computeWorldMatrix(true).asArray()[j]).toBeCloseTo(v,5));
     });
     bridge.dispose();
   } finally {scene.dispose();engine.dispose();}

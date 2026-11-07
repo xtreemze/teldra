@@ -9,6 +9,12 @@ import type { StudioProjectController } from "./StudioProjectController";
 import { IfcFurnitureEdit } from "./IfcFurnitureEdit";
 
 const source: FurnitureSourceDimensions = [0.5, 0.5, 1];
+const measured = {
+  minimum: [-0.2,-0.4,-0.6] as const,
+  maximum: [0.2,0.4,0.6] as const,
+  size: [0.4,0.8,1.2] as const,
+  triangles: 24, meshParts: 2,
+};
 const original: FurnitureGeometryScale = [1,1,1];
 const pose: FurnitureWorldPose = { position: [1,-1,0], yawRadians: 0 };
 
@@ -26,6 +32,10 @@ function SizeHarness(props: {sourceProvenance?: boolean}) {
         : {supported: false, reason: "No SH3D source dimensions"},
     furnitureScaleForDimensions: (_id: string, desired: FurnitureSourceDimensions) =>
       scaleForNominalDimensions(source, original, desired),
+    furnitureMeasuredSizeStatus: (_id: string, extents: FurnitureSourceDimensions, scale?: FurnitureGeometryScale) =>
+      ({supported:true, source:extents, current:nominalDimensionsForScale(extents,original,scale ?? committed())}),
+    furnitureScaleForMeasuredSize: (_id: string, extents: FurnitureSourceDimensions, requested: FurnitureSourceDimensions) =>
+      scaleForNominalDimensions(extents,original,requested),
     transformFurniture: (_id: string, _pose: FurnitureWorldPose, scale: FurnitureGeometryScale) => {
       setCommitted(scale);
     },
@@ -36,6 +46,7 @@ function SizeHarness(props: {sourceProvenance?: boolean}) {
     <output data-testid="preview-scale">{preview()?.join(",") ?? "none"}</output>
     <IfcFurnitureEdit
       controller={controller} canonicalId="chair"
+      measuredGeometry={props.sourceProvenance !== false ? measured : undefined}
       onScalePreview={setPreview} />
   </div>;
 }
