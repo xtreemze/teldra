@@ -97,6 +97,20 @@ describe("canvas gesture arbitration", () => {
     expect(aborted.hold(600)).toBeNull();
   });
 
+  it("preserves pen long press and refuses mixed stylus/touch multi-finger history", () => {
+    const pen = new CanvasGestureArbiter();
+    pen.down({...pointer(1, 80, 90, 0), pointerType: "pen"});
+    expect(pen.hold(500)).toEqual({type: "longpress", x: 80, y: 90});
+    expect(pen.up({...pointer(1, 80, 90, 520), pointerType: "pen"})).toBeNull();
+
+    const mixed = new CanvasGestureArbiter();
+    mixed.down({...pointer(1, 50, 100, 0), pointerType: "pen"});
+    mixed.down({...pointer(2, 120, 100, 10), pointerType: "touch"});
+    mixed.down({...pointer(3, 190, 100, 20), pointerType: "touch"});
+    for (let i = 1; i <= 3; i++) mixed.move(pointer(i, i * 70 + 100, 100, 90));
+    expect(mixed.up(pointer(1, 150, 100, 120))).toBeNull();
+  });
+
   it("recognizes a spatially and temporally bounded double tap only", () => {
     const g = new CanvasGestureArbiter();
     g.down(pointer(1, 75, 110, 0));
