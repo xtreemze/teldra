@@ -165,7 +165,10 @@ def _node_matrices(doc: Mapping[str, Any]) -> list[np.ndarray]:
         children = node.get("children", [])
         if not isinstance(children, list):
             raise WebSceneExportError("Invalid GLB child relationships.")
-        if any(not isinstance(child, int) for child in children) or len(set(children)) != len(children):
+        if (
+            any(not isinstance(child, int) for child in children)
+            or len(set(children)) != len(children)
+        ):
             raise WebSceneExportError("Invalid GLB node child relationships.")
         for child in children:
             if not 0 <= child < len(nodes) or child in parents:
@@ -338,7 +341,9 @@ def bake_static_furniture_glb(
         if manifest_by_key.get(key) != pair:
             raise WebSceneExportError("Source GLB identity does not match the scene manifest.")
         if any(key in node for key in ("skin", "weights", "extensions")):
-            raise WebSceneExportError("Skinned or instanced source geometry cannot be baked statically.")
+            raise WebSceneExportError(
+                "Skinned or instanced source geometry cannot be baked statically."
+            )
         mesh_index = node.get("mesh")
         if not isinstance(mesh_index, int) or mesh_index >= len(doc["meshes"]) or mesh_index < 0:
             raise WebSceneExportError("Selected source node has no valid GLB mesh.")
