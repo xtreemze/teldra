@@ -6,12 +6,15 @@ normals; it does not assume darkness comes from lighting.
 """
 from __future__ import annotations
 
+import io
 import json
 import math
 import struct
 from collections import Counter
 from pathlib import Path
 from zipfile import ZipFile
+
+from PIL import Image, ImageStat
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = ROOT / "examples/21d-sweethome3d/21D-demo.teldra"
@@ -60,6 +63,7 @@ def audit():
     doc, binary = read_glb()
     rows = []
     counts = Counter()
+    room_texture_indices = set()
     materials = doc.get("materials", [])
     for node in doc.get("nodes", []):
         identity = node.get("extras", {}).get("teldra", {})
@@ -87,6 +91,7 @@ def audit():
             black_kd = max(kd) <= 0.015
             flat_uv = uv is not None and max(uv["span"]) <= 0.0001
             if has_texture:
+                room_texture_indices.add(texture_index)
                 counts["texturedRoomParts"] += 1
             if not has_texture:
                 counts["untexturedRoomParts"] += 1
@@ -124,11 +129,38 @@ def audit():
         samples.append(row)
         if len(samples) == MAX_ROWS:
             break
+    # Decode the embedded textures, not source images from the repository.
+    # This distinguishes a dark source bitmap from a runtime texture binding bug.
+    texture_stats = []
+    for index in sorted(room_texture_indices):
+        record = doc["textures"][index]
+        image = doc["images"][record["source"]]
+        view = doc["bufferViews"][image["bufferView"]]
+        start = view.get("byteOffset", 0)
+        payload = bytes(binary[start : start + view["byteLength"]])
+        with Image.open(io.BytesIO(payload)) as original:
+            image_rgb = original.convert("RGB")
+            preview = image_rgb.copy()
+            preview.thumbnail((128, 128), Image.Resampling.BILINEAR)
+            stat = ImageStat.Stat(preview)
+            pixels = list(preview.getdata())
+            texture_stats.append({
+                "textureIndex": index,
+                "imageName": image.get("name"),
+                "size": original.size,
+                "meanRGB": [round(v, 1) for v in stat.mean],
+                "rangeRGB": preview.getextrema(),
+                "nearBlackFraction": round(
+                    sum(max(pixel) < 16 for pixel in pixels) / len(pixels), 4
+                ),
+                "centerPixel": preview.getpixel((preview.width // 2, preview.height // 2)),
+            })
     print(json.dumps({
         "asset": "published 21D demo",
         "totalMaterials": len(materials),
         "totalEmbeddedImages": len(doc.get("images", [])),
         "counts": dict(counts),
+        "roomTextureStats": texture_stats,
         "roomSamples": samples,
         "truncated": len(rows) > len(samples),
     }, indent=2))
