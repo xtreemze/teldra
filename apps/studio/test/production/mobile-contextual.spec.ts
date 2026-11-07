@@ -38,5 +38,15 @@ test("mobile Studio keeps the viewport primary and exposes contextual IFC editin
   await page.getByRole("button", {name: "Project", exact: true}).click();
   await expect(page.getByRole("group", {name: "Mobile project menu"})).toBeVisible();
   await expect(page.getByRole("button", {name: "Save project", exact: true})).toBeDisabled();
+  await page.getByRole("button", {name: "Haptics on", exact: true}).click();
+  await expect(page.getByRole("button", {name: "Haptics off", exact: true})).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", {name: "Sounds off", exact: true}).click();
+  await expect(page.getByRole("button", {name: "Sounds on", exact: true})).toHaveAttribute("aria-pressed", "true");
+  await page.reload();
+  await page.getByRole("button", {name: "Try demo", exact: true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button", {name: "Project", exact: true}).click();
+  await expect(page.getByRole("button", {name: "Haptics off", exact: true})).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("button", {name: "Sounds on", exact: true})).toHaveAttribute("aria-pressed", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
