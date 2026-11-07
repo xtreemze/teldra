@@ -17,6 +17,7 @@ export interface IfcFurnitureEditProps {
   onChange?: () => void;
   onPreview?: (pose: FurnitureWorldPose | null) => void;
   onScalePreview?: (scale: FurnitureGeometryScale | null) => void;
+  onScaleUnavailable?: (reason: string) => void;
   viewportScaleDraft?: FurnitureGeometryScale | undefined;
   editMode?: "translate" | "rotate" | "scale";
   onSnapChange?: (metres: number, radians: number) => void;
@@ -54,6 +55,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
         if (props.editMode === "scale" && !support.supported) {
           setError("Scale unavailable: " + support.reason);
           props.onEditingChange?.(false);
+          props.onScaleUnavailable?.(support.reason);
           return;
         }
         loadedId = id;
