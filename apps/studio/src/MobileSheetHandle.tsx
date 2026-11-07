@@ -1,21 +1,7 @@
 import { createSignal, onCleanup } from "solid-js";
 
-export type MobileSheetDetent = "half" | "full";
-
-/**
- * Only the sheet handle interprets vertical drags. Scrolling in the body of a
- * sheet must remain native; there is no draggable canvas-wide overlay.
- */
-export function mobileSheetSwipe(
-  detent: MobileSheetDetent,
-  deltaY: number,
-  threshold = 52,
-): MobileSheetDetent | "close" | null {
-  if (!Number.isFinite(deltaY) || !Number.isFinite(threshold) || threshold <= 0) return null;
-  if (deltaY <= -threshold) return detent === "full" ? null : "full";
-  if (deltaY >= threshold) return detent === "full" ? "half" : "close";
-  return null;
-}
+import { mobileSheetSwipe, type MobileSheetDetent } from "./MobileSheetDetent";
+export type { MobileSheetDetent } from "./MobileSheetDetent";
 
 export interface MobileSheetHandleProps {
   readonly label: "Scene" | "Inspector";
