@@ -11,6 +11,7 @@ interface MobileTransformPadProps {
   readonly onPreview: (pose: FurnitureWorldPose) => void;
   readonly onApply: () => void;
   readonly onCancel: () => void;
+  readonly startExpanded?: boolean;
 }
 
 /**
@@ -25,6 +26,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
   const [label, setLabel] = createSignal("Use two fingers in the touch area to preview a transform.");
   const [announcement, setAnnouncement] = createSignal("");
   const [active, setActive] = createSignal(false);
+  const [expanded, setExpanded] = createSignal(props.startExpanded ?? false);
   let audio: AudioContext | undefined;
   let lastCue = 0;
   const contacts = new Map<number, TouchPoint>();
@@ -139,9 +141,13 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
 
   return <section class="teldra-mobile-transform-pad" aria-label="Mobile transform gestures">
     <div class="teldra-mobile-transform-pad__header">
-      <strong>{props.mode === "rotate" ? "Touch rotate" : "Touch move"}</strong>
-      <span>Preview · Apply in inspector</span>
+      <button type="button" aria-expanded={expanded()} aria-controls="teldra-mobile-transform-details"
+        onClick={() => setExpanded(!expanded())}>
+        {props.mode === "rotate" ? "Touch rotate" : "Touch move"} {expanded() ? "▴" : "▾"}
+      </button>
+      <span>{props.mode === "rotate" ? "Two-finger twist" : "Two-finger axis slide"} · Preview</span>
     </div>
+    <Show when={expanded()}><div id="teldra-mobile-transform-details" class="teldra-mobile-transform-pad__details">
     <Show when={props.mode === "translate"} fallback={<p class="teldra-mobile-transform-pad__axis-label">World Z rotation only</p>}>
       <div class="teldra-mobile-transform-pad__axes" role="group" aria-label="Move along world axis">
         {(["x", "y", "z"] as const).map(value =>
@@ -155,15 +161,16 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       <span aria-hidden="true" class="teldra-mobile-transform-pad__contact">◎　◎</span>
       <output data-testid="mobile-transform-delta" aria-live="off">{label()}</output>
     </div>
+    </div></Show>
     <div class="teldra-mobile-transform-pad__actions" role="group" aria-label="Touch transform actions">
       <button type="button" onClick={() => { cue(680); props.onApply(); }}>Apply</button>
       <button type="button" onClick={() => { cue(320); props.onCancel(); }}>Cancel</button>
     </div>
-    <div class="teldra-mobile-transform-pad__feedback">
+    <Show when={expanded()}><div class="teldra-mobile-transform-pad__feedback">
       <label><input type="checkbox" checked={haptics()} onChange={e => setHaptics(e.currentTarget.checked)} />Haptics</label>
       <label><input type="checkbox" checked={sound()} onChange={e => setSound(e.currentTarget.checked)} />Sound</label>
       <span>Numeric editing remains available in Inspector</span>
-    </div>
+    </div></Show>
     <p class="teldra-mobile-transform-pad__announcement" role="status">{announcement()}</p>
   </section>;
 }
