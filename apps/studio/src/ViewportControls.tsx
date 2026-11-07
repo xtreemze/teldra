@@ -97,12 +97,12 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary>Appearance</summary><div class="teldra-view-controls__panel-content">
       <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>
-      <label><input type="checkbox" aria-label="Inspect floor textures without lighting" checked={appearance().floorTextureInspection}
+      <label><input type="checkbox" aria-label="Inspect floor textures without lighting" disabled={!appearance().texturesEnabled} checked={appearance().floorTextureInspection}
         onChange={event => {props.runtime.setAppearance({floorTextureInspection:event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Inspect floor textures (unlit)</label>
       <label>Light intensity <input aria-label="Light intensity" type="range" min="0.25" max="2" step="0.05" value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
       <label>Shadow detail <input aria-label="Shadow detail" type="range" min="0" max="100" step="5" value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
       <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
-      <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Shadow detail recovers dark tones without modifying project materials or light sources; 0 disables grading. Absent texture detail cannot be recreated. Adjustments affect this view only.</p>
+      <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Floor texture inspection is a reversible self-lit image preview, independent of scene lights. Shadow detail changes display grading only; 0 disables grading. These controls do not modify source materials or project data.</p>
     </div></details>
     <div class="teldra-view-controls__mobile">
       <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
@@ -141,7 +141,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
               <label><input type="checkbox" checked={appearance().texturesEnabled}
                 onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures</label>
               <label><input type="checkbox" aria-label="Mobile inspect floor textures without lighting"
-                checked={appearance().floorTextureInspection} onChange={event => {
+                disabled={!appearance().texturesEnabled} checked={appearance().floorTextureInspection} onChange={event => {
                   props.runtime.setAppearance({floorTextureInspection:event.currentTarget.checked});setAppearance(props.runtime.appearance());
                 }} />Inspect floor textures (unlit)</label>
               <label>Light intensity <input aria-label="Mobile light intensity" type="range" min="0.25" max="2" step="0.05"
