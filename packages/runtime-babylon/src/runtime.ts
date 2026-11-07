@@ -21,6 +21,7 @@ import { applySourceLighting, assignSourceLights, applySourceLightPlacements } f
 import { sourceMaterialProjection } from "./source-material.js";
 import { applyPreviewShadowDetail, SH3D_EDITING_SHADOW_DETAIL } from "./preview-shadow-detail.js";
 import { FloorTextureInspector } from "./floor-texture-inspector.js";
+import { FloorMinificationInspector, type FloorMinificationMode } from "./floor-minification-inspector.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
@@ -45,7 +46,7 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
-  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number; floorInspectionMaterials: number; floorUnlitMaterials: number; activeGroundMeshes: number };
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number; floorTextureSamplerCount: number; floorInspectionMaterials: number; floorUnlitMaterials: number; activeGroundMeshes: number };
   renderStats(): { backend: BabylonBackend; reverseDepth: boolean; nearPlane: number; farPlane: number; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
@@ -64,8 +65,8 @@ export interface BabylonTwinRuntime {
   fit(canonicalId?: string): boolean;
   resetView(): void;
   fitHome(): boolean;
-  appearance(): {texturesEnabled: boolean; lightGain: number; shadowDetail: number; floorTextureInspection: boolean};
-  setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number; shadowDetail?: number; floorTextureInspection?: boolean}): void;
+  appearance(): {texturesEnabled: boolean; lightGain: number; shadowDetail: number; floorTextureInspection: boolean; floorMinification: FloorMinificationMode};
+  setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number; shadowDetail?: number; floorTextureInspection?: boolean; floorMinification?: FloorMinificationMode}): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
   setSelection(canonicalId: string | null): void;
@@ -139,6 +140,7 @@ export async function createBabylonTwinRuntime(
   // Preserve original renderer materials while giving floor imagery a genuine
   // emissive, light-independent inspection path.
   const floorInspector = new FloorTextureInspector();
+  const floorMinification = new FloorMinificationInspector(engine.getCaps().maxAnisotropy ?? 1);
   const materialTextures = new Map<Material, BaseTexture | null>();
 
   let physicalMeshes: AbstractMesh[] = [];
@@ -455,6 +457,7 @@ export async function createBabylonTwinRuntime(
         roomTexturesBound: roomTexturesBound.length,
         roomTexturesReady: roomTexturesBound.filter(mesh =>
           (mesh.material as StandardMaterial).diffuseTexture?.isReady() === true).length,
+        floorTextureSamplerCount: floorMinification.textureCount,
         floorInspectionMaterials: floorInspector.materialCount,
         floorUnlitMaterials: floorInspector.activeCount,
         // Include merged/batched physical meshes, not just unbatched source parts:
@@ -510,8 +513,9 @@ export async function createBabylonTwinRuntime(
       });
       return fitCamera(defaultCamera, home.length ? home : physicalMeshes);
     },
-    appearance: () => ({texturesEnabled, lightGain, shadowDetail, floorTextureInspection}),
+    appearance: () => ({texturesEnabled, lightGain, shadowDetail, floorTextureInspection, floorMinification: floorMinification.currentMode}),
     setAppearance(settings) {
+      if (settings.floorMinification !== undefined) floorMinification.setMode(settings.floorMinification);
       if (settings.floorTextureInspection === true && !texturesEnabled &&
           settings.texturesEnabled !== true) {
         throw new Error("Enable textures before inspecting floor images.");
@@ -693,6 +697,7 @@ export async function createBabylonTwinRuntime(
               mesh.material instanceof StandardMaterial && mesh.material.diffuseTexture &&
               mesh.material.diffuseTexture) {
             floorInspector.register(mesh.material);
+            floorMinification.register(mesh.material);
           }
         }
         if (hasSourceLighting) {
@@ -786,6 +791,7 @@ export async function createBabylonTwinRuntime(
       furniture.dispose();
       selectionOutline.dispose();
       floorInspector.restore();
+      floorMinification.restore();
       instrumentation.dispose();
       scene.dispose();
       engine.dispose();
