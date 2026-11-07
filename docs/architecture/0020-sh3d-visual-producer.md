@@ -153,3 +153,34 @@ expose the near/far clip planes and the reversed-Z state. The current
 renderer may still have exact-overlap or material-specific errors: validate
 against the actual 21D floor at identical poses on Android WebGPU before
 closing the visual-fidelity issue.
+
+
+### Floor-distance / minification diagnosis
+
+The 21D floor images retain non-black texels, but on Android the user reports
+that floor visibility changes significantly with camera distance. Some floor
+UVs repeat a single source image approximately seven to nine times over a room,
+so mipmap LOD and angular minification have a substantial impact on detail.
+The converter's glTF sampler deliberately requests repeat wrapping and
+trilinear mipmapping (`minFilter=9987`, `magFilter=9729`); these must remain
+portable source defaults.
+
+Studio offers a *view-only*, reversible floor-minification A/B selector in both
+mobile and desktop Appearance panels:
+
+- **Source trilinear**: restore the exact Babylon sampler properties produced
+  by the glTF source and previous renderer state
+- **Anisotropic (up to 8×)**: retain mipmaps and improve angled texel detail,
+  capped to the GPU capability
+- **Base image only (diagnostic)**: sample the full-resolution source level and
+  bypass mipmap selection. This can introduce texture aliasing/shimmer and high
+  texture-fetch pressure, so is not a default or a recommended final fidelity
+  fix
+
+All modes preserve original image bytes, UV scales, material Kd, geometry,
+lighting and canonical/project state. They allow testing the **same camera
+position** without a reload. If base-level filtering restores a floor that
+becomes black under trilinear filtering, inspect GPU mipmap generation and
+sampling behavior. If it does not, investigate occlusion or normal shader
+response rather than applying arbitrary diffuse/emissive compensation. A
+recognizable pattern cannot be guaranteed at arbitrarily small pixel footprints.
