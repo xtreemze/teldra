@@ -65,7 +65,7 @@ export function panCamera(camera: ArcRotateCamera, right: number, up: number): v
   stopCameraMotion(camera);
   const inverse = camera.getViewMatrix().clone().invert();
   const delta = Vector3.TransformNormal(new Vector3(right, up, 0), inverse).scale(camera.radius * 0.1);
-  camera.setTarget(camera.target.add(delta));
+  camera.setTarget(camera.target.add(delta), false, false, true);
 }
 
 export function fitCamera(camera: ArcRotateCamera, meshes: AbstractMesh[]): boolean {
@@ -90,7 +90,7 @@ export function fitCamera(camera: ArcRotateCamera, meshes: AbstractMesh[]): bool
   const limitingHalfFov = Math.min(verticalHalfFov, horizontalHalfFov);
   const divisor = camera.mode === Camera.ORTHOGRAPHIC_CAMERA
     ? Math.tan(limitingHalfFov) : Math.sin(limitingHalfFov);
-  camera.setTarget(minimum.add(maximum).scale(0.5));
+  camera.setTarget(minimum.add(maximum).scale(0.5), false, false, true);
   camera.radius = Math.max(camera.lowerRadiusLimit ?? 0.01, extent * 1.15 / Math.max(divisor, 0.001));
   camera.minZ = Math.max(0.001, camera.radius / 10000);
   camera.maxZ = Math.max(1000, camera.radius * 100);

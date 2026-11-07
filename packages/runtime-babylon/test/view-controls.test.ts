@@ -27,7 +27,9 @@ describe("disposable viewport controls", () => {
       expect(camera.orthoRight).toBeCloseTo(camera.orthoTop! * 2);
       expect(cameraState(camera).projection).toBe("orthographic");
       expect(cameraState(camera).axes).toHaveLength(6);
+      orientCamera(camera, "+y");
       expect(fitCamera(camera, [mesh])).toBe(true);
+      expect(camera.beta).toBe(0.001);
       expect(mesh.position.asArray()).toEqual([4, 0, 0]);
       mesh.setEnabled(false); expect(fitCamera(camera, [mesh])).toBe(false);
     } finally { scene.dispose(); engine.dispose(); }
