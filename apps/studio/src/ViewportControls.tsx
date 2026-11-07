@@ -11,8 +11,12 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   const [mobileViewOpen, setMobileViewOpen] = createSignal(false);
   const [probeArmed, setProbeArmed] = createSignal(false);
   const [surfaceProbe, setSurfaceProbe] = createSignal<ReturnType<BabylonTwinRuntime["inspectSurfaceAt"]>>(null);
+  const [gpuEvidence, setGpuEvidence] = createSignal<Awaited<ReturnType<BabylonTwinRuntime["inspectGpuAt"]>> | null>(null);
+  const [gpuReading, setGpuReading] = createSignal(false);
+  const [probeRequest, setProbeRequest] = createSignal(0);
   const armSurfaceProbe = () => {
     setProbeArmed(true);
+    setGpuEvidence(null);
     setMobileViewOpen(false);
     setMessage("Tap the dark floor once to identify the visible surface.");
   };
@@ -30,6 +34,19 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       `Source Kd: ${p.originalKd?.join(", ") ?? "unavailable"}`,
       `Normal: ${p.worldNormal?.join(", ") ?? "unavailable"}`,
     ].join("\n") : "";
+  };
+  const gpuProbeDetails = () => {
+    const result=gpuEvidence();
+    if (!result) return "";
+    const rgb=(p:readonly number[]|null)=>p ? p.join(", ") : "unavailable";
+    return [
+      `GPU framebuffer RGB: ${rgb(result.framebufferRgb)}`,
+      ...(result.framebufferError ? [`Framebuffer readback: ${result.framebufferError}`] : []),
+      `GPU floor texture size: ${result.textureSize?.join(" × ") ?? "no texture at picked surface"}`,
+      ...result.mips.map(level =>
+        `Mip ${level.level} (${level.size.join(" × ")}): RGB ${rgb(level.rgb)}${level.error ? " — " + level.error : ""}`),
+      "A black framebuffer with non-black GPU mip levels implicates geometry/shading; black mips implicate texture upload or mip generation.",
+    ].join("\n");
   };
   const orient = (direction: ViewDirection) => props.runtime.orient(direction);
   const fit = (selection = false) => setMessage(props.runtime.fit(selection ? props.selectedId : undefined)
@@ -70,6 +87,19 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       const picked = props.runtime.inspectSurfaceAt(event.clientX, event.clientY);
       setSurfaceProbe(picked);
       setProbeArmed(false);
+      // Babylon readback is asynchronous on WebGPU. Never gate rendering or
+      // source editing on it; display errors explicitly rather than black zeros.
+      const request=probeRequest()+1;
+      setProbeRequest(request);
+      setGpuReading(true);
+      void props.runtime.inspectGpuAt(event.clientX,event.clientY).then(result=>{
+        if (probeRequest() === request) setGpuEvidence(result);
+      }).catch(reason=>{
+        if (probeRequest() === request) setGpuEvidence({
+          framebufferRgb:null,framebufferError: reason instanceof Error ? reason.message.slice(0,240) : "Readback unavailable",
+          textureSize:null,mips:[],
+        });
+      }).finally(()=>{if(probeRequest()===request)setGpuReading(false);});
       setMessage(picked
         ? `Surface: ${picked.canonicalId ?? picked.mesh}; ${picked.texture ?? "no texture"}; ${picked.distanceMetres} m`
         : "No visible surface at the selected point.");
@@ -143,6 +173,8 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       </button>
       <Show when={surfaceProbe()}>
         <output data-testid="surface-probe-desktop" aria-label="Identified surface" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{surfaceProbeDetails()}</output>
+        <Show when={gpuReading()}><small role="status">Reading GPU floor texels…</small></Show>
+        <Show when={gpuEvidence()}><output data-testid="gpu-floor-evidence-desktop" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{gpuProbeDetails()}</output></Show>
       </Show>
       <label>Floor texture minification
         <select aria-label="Floor texture minification" value={appearance().floorMinification} onChange={event=>{
@@ -204,6 +236,8 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
               </button>
               <Show when={surfaceProbe()}>
                 <output data-testid="surface-probe-mobile" aria-label="Mobile identified surface" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{surfaceProbeDetails()}</output>
+                <Show when={gpuReading()}><small role="status">Reading GPU floor texels…</small></Show>
+                <Show when={gpuEvidence()}><output data-testid="gpu-floor-evidence-mobile" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{gpuProbeDetails()}</output></Show>
               </Show>
               <label>Floor texture minification
                 <select aria-label="Mobile floor texture minification" value={appearance().floorMinification} onChange={event=>{

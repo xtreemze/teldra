@@ -204,3 +204,30 @@ same point at two camera distances and note whether its canonical identity or
 texture changes. If they do, inspect occlusion/depth ordering. If identity
 and source texture remain identical, investigate texture sampling and
 material/light evaluation rather than mesh visibility.
+
+
+### On-device GPU floor-pixel and mip evidence
+
+The View → Appearance → Identify visible surface probe additionally performs a
+user-initiated, asynchronous, bounded GPU readback. It samples **one framebuffer
+pixel** at the tapped position and **one texel** from each of the base, middle,
+and final mip levels of the actual texture attached to the picked surface.
+Successful samples are reported as numeric RGB values, and unavailable GPU
+readback is reported as an explicit error rather than silently treated as black.
+
+The reference 21D source image audit found floor-image means approximately
+(206,171,117) for wood, (144,145,149) for gray, and (42,56,62) for dark
+blue-gray. These are average image values, *not* expected exact point texels.
+The final 1×1 mip should roughly follow the source image's average when
+the GPU mip chain is correctly generated in its applicable color space.
+Do not compare a single level-zero texel against a whole-image mean.
+
+If the distant framebuffer is RGB≈(0,0,0) but the source texture's GPU
+mips remain non-black, investigate shader evaluation, visibility, alpha or
+depth. If the base GPU texel is valid and progressively smaller mips are
+black, investigate mip generation, sRGB handling and sampler state before
+introducing any corrective lighting. An unsupported or rejected readback
+is inconclusive. The pixel probe does not modify geometry, mipmaps, source
+texture bytes, lighting or saved project data. GPU readback can stall on
+mobile platforms and therefore is never run per-frame or during normal
+navigation.

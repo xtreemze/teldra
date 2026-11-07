@@ -58,3 +58,69 @@ export function describeSurfacePick(picked: PickingInfo | null, identity: TwinRe
     distanceMetres: Math.round(picked.distance * 1000) / 1000,
   };
 }
+
+
+export interface GpuMipSample {
+  readonly level: number;
+  readonly size: readonly [number, number];
+  readonly rgb: readonly [number, number, number] | null;
+  readonly error: string | null;
+}
+
+export interface GpuFloorEvidence {
+  readonly framebufferRgb: readonly [number, number, number] | null;
+  readonly framebufferError: string | null;
+  readonly mips: readonly GpuMipSample[];
+  readonly textureSize: readonly [number, number] | null;
+}
+
+/** Select only a base-level, middle-level and final 1px mip diagnostic.
+ * We never read entire images, dump proprietary bitmaps or mutate sampling.
+ */
+export function diagnosticMipLevels(width: number, height: number): number[] {
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) ||
+      width < 1 || height < 1 || width > 16384 || height > 16384) return [];
+  const last = Math.floor(Math.log2(Math.max(width, height)));
+  return [...new Set([0, Math.floor(last / 2), last])];
+}
+
+export function normalizeGpuRgb(data: ArrayBufferView | null): [number, number, number] | null {
+  if (!data || data.byteLength < 3) return null;
+  if (data instanceof Float32Array) {
+    if (data.length < 3) return null;
+    return [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round((data[i] ?? 0) * 255)))) as [number, number, number];
+  }
+  if (data instanceof Uint8Array || data instanceof Uint8ClampedArray) {
+    return [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0];
+  }
+  return null;
+}
+
+/** Opt-in readback of *already bound GPU texture* mip-level texels.
+ * readPixels is asynchronous for WebGPU and can be unavailable depending on
+ * browser/GPU texture usage flags. Failures are recorded, never hidden or
+ * interpreted as a black pixel.
+ */
+export async function inspectGpuMips(texture: import("@babylonjs/core/Materials/Textures/baseTexture").BaseTexture): Promise<{
+  readonly textureSize: readonly [number, number];
+  readonly mips: readonly GpuMipSample[];
+}> {
+  const size = texture.getSize();
+  const dims: [number, number] = [size.width, size.height];
+  const result: GpuMipSample[] = [];
+  for (const level of diagnosticMipLevels(size.width, size.height)) {
+    const width = Math.max(1, Math.floor(size.width / Math.pow(2, level)));
+    const height = Math.max(1, Math.floor(size.height / Math.pow(2, level)));
+    try {
+      const raw = await texture.readPixels(0, level, null, true, false,
+        Math.floor(width / 2), Math.floor(height / 2), 1, 1);
+      const rgb = normalizeGpuRgb(raw ?? null);
+      result.push({level, size:[width,height],rgb,
+        error: rgb ? null : "GPU texture readback returned no compatible pixel data"});
+    } catch (reason) {
+      result.push({level,size:[width,height],rgb:null,
+        error: reason instanceof Error ? reason.message.slice(0, 240) : "GPU texture readback unsupported"});
+    }
+  }
+  return {textureSize:dims,mips:result};
+}
