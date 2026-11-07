@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mobileSheetSwipe } from "./MobileSheetHandle";
+import { mobileSheetSwipe } from "./MobileSheetDetent";
 
 describe("mobile sheet detents", () => {
   it("expands a half-height sheet with an upward swipe", () => {
