@@ -22,7 +22,7 @@ import { sourceMaterialProjection } from "./source-material.js";
 import { applyPreviewShadowDetail, SH3D_EDITING_SHADOW_DETAIL } from "./preview-shadow-detail.js";
 import { FloorTextureInspector } from "./floor-texture-inspector.js";
 import { FloorMinificationInspector, type FloorMinificationMode } from "./floor-minification-inspector.js";
-import { describeSurfacePick, type SurfaceProbe } from "./surface-probe.js";
+import { describeSurfacePick, normalizeGpuRgb, inspectGpuMips, type SurfaceProbe, type GpuFloorEvidence } from "./surface-probe.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
@@ -73,6 +73,7 @@ export interface BabylonTwinRuntime {
   setSelection(canonicalId: string | null): void;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
   inspectSurfaceAt(clientX: number, clientY: number): SurfaceProbe | null;
+  inspectGpuAt(clientX: number, clientY: number): Promise<GpuFloorEvidence>;
   onPick(listener: (identity: TwinRenderIdentity | null) => void): () => void;
   start(): void;
   stop(): void;
@@ -750,6 +751,36 @@ export async function createBabylonTwinRuntime(
       return describeSurfacePick(hit, resolvePickedMesh(hit?.pickedMesh, hit?.faceId));
     },
 
+    async inspectGpuAt(clientX: number, clientY: number): Promise<GpuFloorEvidence> {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0 ||
+          clientX < rect.left || clientX >= rect.right ||
+          clientY < rect.top || clientY >= rect.bottom) {
+        return {framebufferRgb:null,framebufferError:"Outside viewport",textureSize:null,mips:[]};
+      }
+      const px = Math.max(0,Math.min(engine.getRenderWidth()-1,
+        Math.floor((clientX-rect.left)*engine.getRenderWidth()/rect.width)));
+      const py = Math.max(0,Math.min(engine.getRenderHeight()-1,
+        Math.floor((rect.bottom-clientY)*engine.getRenderHeight()/rect.height)));
+      let framebufferRgb: [number,number,number] | null = null;
+      let framebufferError: string | null = null;
+      try {
+        // Explicit one-pixel, on-demand framebuffer readback only.
+        framebufferRgb = normalizeGpuRgb(await engine.readPixels(px,py,1,1,true,true));
+        if (!framebufferRgb) framebufferError = "No compatible framebuffer pixel returned";
+      } catch(reason) {
+        framebufferError = reason instanceof Error ? reason.message.slice(0,240) : "Framebuffer readback unsupported";
+      }
+      const picked = scene.pick(clientX-rect.left, clientY-rect.top,
+        mesh => isMeshInteractable(mesh) && mesh.getTotalVertices() > 0,
+        false, scene.cameraToUseForPointers ?? undefined);
+      const material = picked?.pickedMesh?.material;
+      const texture = material instanceof StandardMaterial ? material.diffuseTexture :
+        material instanceof PBRMaterial ? material.albedoTexture : null;
+      if (!texture) return {framebufferRgb,framebufferError,textureSize:null,mips:[]};
+      const levels = await inspectGpuMips(texture);
+      return {framebufferRgb,framebufferError,...levels};
+    },
     onPick(listener): () => void {
       let down: {x: number; y: number} | undefined;
       let dragged = false;
