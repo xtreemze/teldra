@@ -8,6 +8,7 @@ export interface CanvasTouchPoint {
   readonly x: number;
   readonly y: number;
   readonly time: number;
+  readonly pointerType?: "touch" | "pen";
 }
 export type CanvasGestureIntent =
   | {readonly type: "longpress" | "doubletap"; readonly x: number; readonly y: number}
@@ -17,11 +18,12 @@ interface Contact {
   readonly startX: number;
   readonly startY: number;
   readonly startedAt: number;
+  readonly pointerType: "touch" | "pen";
   x: number;
   y: number;
 }
 type Session = "single" | "multi" | "three" | "blocked" | "held" | null;
-interface RecentTap { readonly x: number; readonly y: number; readonly time: number }
+interface RecentTap { readonly x: number; readonly y: number; readonly time: number; readonly pointerType: "touch" | "pen" }
 const MOVE_TOLERANCE = 10;
 const HOLD_MS = 480;
 const DOUBLE_TAP_MS = 320;
@@ -44,9 +46,18 @@ export class CanvasGestureArbiter {
       this.session = "single";
       this.historyDirection = null;
     }
+    const pointerType = p.pointerType ?? "touch";
+    const mixed = [...this.contacts.values()].some(c => c.pointerType !== pointerType);
     this.contacts.set(p.pointerId, {
-      startX: p.x, startY: p.y, x: p.x, y: p.y, startedAt: p.time,
+      startX: p.x, startY: p.y, x: p.x, y: p.y, startedAt: p.time, pointerType,
     });
+    if (mixed) {
+      this.session = "blocked";
+      this.recentTap = null;
+      this.historyDirection = null;
+      this.suppressUntil = Math.max(this.suppressUntil, p.time + 500);
+      return;
+    }
     if (this.contacts.size === 2) {
       this.session = "multi";
       this.recentTap = null;
@@ -55,7 +66,7 @@ export class CanvasGestureArbiter {
       const contacts = [...this.contacts.values()];
       const first = Math.min(...contacts.map(c => c.startedAt));
       const stationary = contacts.every(c => Math.hypot(c.x - c.startX, c.y - c.startY) <= 14);
-      this.session = stationary && p.time - first <= 280 ? "three" : "blocked";
+      this.session = contacts.every(c => c.pointerType === "touch") && stationary && p.time - first <= 280 ? "three" : "blocked";
       this.historyDirection = null;
       this.suppressUntil = Math.max(this.suppressUntil, p.time + 700);
     } else if (this.contacts.size > 3) {
@@ -125,13 +136,13 @@ export class CanvasGestureArbiter {
       p.time - c.startedAt <= 300 &&
       Math.hypot(c.x - c.startX, c.y - c.startY) <= MOVE_TOLERANCE) {
       const last = this.recentTap;
-      if (last && p.time - last.time <= DOUBLE_TAP_MS &&
+      if (last && last.pointerType === c.pointerType && p.time - last.time <= DOUBLE_TAP_MS &&
         Math.hypot(p.x - last.x, p.y - last.y) <= 28) {
         intent = {type: "doubletap", x: p.x, y: p.y};
         this.recentTap = null;
         this.suppressUntil = Math.max(this.suppressUntil, p.time + 350);
       } else {
-        this.recentTap = {x: p.x, y: p.y, time: p.time};
+        this.recentTap = {x: p.x, y: p.y, time: p.time, pointerType: c.pointerType};
       }
     }
     if (this.session !== "single") {
