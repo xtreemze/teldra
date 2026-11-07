@@ -44,7 +44,7 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
-  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number };
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number };
   renderStats(): { backend: BabylonBackend; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
@@ -425,7 +425,21 @@ export async function createBabylonTwinRuntime(
         sampleCount: sorted.length, cpuFrameMsP50: percentile(0.5), cpuFrameMsP95: percentile(0.95) };
     },
     assetSummary() {
+      // Report the actual post-GLB, post-Phong-projection state on room surfaces.
+      // This distinguishes embedded/ready images from a texture successfully bound
+      // to the StandardMaterial currently rendered by Babylon.
+      const roomTexturedParts = renderMeshes.filter(mesh => {
+        const id = identityByMesh.get(mesh)?.canonicalId ?? "";
+        return /^(sh3d:)?room:/.test(id) &&
+          typeof mesh.material?.metadata?.gltf?.extras?.teldraSourceMaterial?.map_Kd === "string";
+      });
+      const roomTexturesBound = roomTexturedParts.filter(mesh =>
+        mesh.material instanceof StandardMaterial && mesh.material.diffuseTexture !== null);
       return {
+        roomTexturedParts: roomTexturedParts.length,
+        roomTexturesBound: roomTexturesBound.length,
+        roomTexturesReady: roomTexturesBound.filter(mesh =>
+          (mesh.material as StandardMaterial).diffuseTexture?.isReady() === true).length,
         lightingProfile,
         localLightSources: scene.lights.filter(light=>light.name.startsWith("sh3d-local-")).length,
         meshParts: loadedMeshParts,
