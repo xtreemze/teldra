@@ -60,6 +60,9 @@ jobs:
       - name: Diagnose 21D near-coplanar architectural surfaces
         run: python3 tools/diagnostics/audit_21d_depth.py
 
+      - name: Audit 21D floor polygon intersections
+        run: python3 tools/diagnostics/audit_21d_polygon_overlap.py
+
       - name: Test
         run: pnpm test
 
