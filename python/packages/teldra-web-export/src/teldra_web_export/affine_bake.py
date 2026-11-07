@@ -217,11 +217,14 @@ def bake_static_furniture_glb(
         matrices[pair] = _placement_matrix(entry.get("matrix", ()))
     if not matrices:
         raise WebSceneExportError("No validated furniture placements to rebake.")
+    if any(not isinstance(node, dict) for node in doc.get("nodes", [])):
+        raise WebSceneExportError("Source GLB node records must be objects.")
+    if len(doc.get("nodes", [])) > _MAX_VERTICES:
+        raise WebSceneExportError("Source GLB contains too many scene nodes.")
 
-    for node in doc.get("nodes", []):
-        if any(index in node.get("children", []) for index in range(len(doc.get("nodes", [])))):
-            # A flattened native export does not use hierarchy anywhere.
-            raise WebSceneExportError("Parented source GLB nodes require hierarchy-aware regeneration.")
+    if any(node.get("children") for node in doc.get("nodes", [])):
+        # A flattened native export does not use hierarchy anywhere.
+        raise WebSceneExportError("Parented source GLB nodes require hierarchy-aware regeneration.")
 
     rebuilt = copy.deepcopy(doc)
     binary = bytearray(packed)
