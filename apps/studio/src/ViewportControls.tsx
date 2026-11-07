@@ -92,7 +92,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--help"><summary>Navigation help</summary><div class="teldra-view-controls__panel-content">
       <p>Blender-style navigation: middle-drag to orbit, Shift+middle-drag to pan, scroll to zoom. Left-drag orbit and right-drag pan remain available. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
-      <p>Focus the 3D canvas: G move, R rotate, S requests scale (currently unavailable for IFC geometry). After G/R, X/Y/Z constrain, type a number, Enter applies, Esc cancels. IFC furniture rotation is upright Z only.</p>
+      <p>Focus the 3D canvas: G move, R rotate, S requests scale only for validated IFC mapped geometry; unsupported scale operations remain disabled. After G/R, X/Y/Z constrain, type a number, Enter applies, Esc cancels. IFC furniture rotation is upright Z only.</p>
       <p>Numpad 1 front, 3 right, 7 top, 5 projection, 2/4/6/8 orbit, Shift+numpad pan, numpad decimal frames selection, Home fits scene, Shift+Home resets view. Arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection. Ctrl/Command+S saves; Ctrl/Command+Z undoes, Shift+Ctrl/Command+Z redoes.</p>
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary>Appearance</summary><div class="teldra-view-controls__panel-content">
