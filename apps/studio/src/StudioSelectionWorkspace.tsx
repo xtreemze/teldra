@@ -299,6 +299,13 @@ export function StudioSelectionWorkspace(
     tactile("menu");
   };
   createEffect(() => { selectionVersion(); viewport(); projectPlacements(); });
+  createEffect(() => {
+    const current = viewport();
+    props.controller.setAffineProjectionValidator(current
+      ? (id, delta) => current.assertFurnitureAffineProjectable(id, delta)
+      : null);
+    onCleanup(() => props.controller.setAffineProjectionValidator(null));
+  });
   const keydown = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.isComposing || !workspaceRoot) return;
     const canvas = workspaceRoot.querySelector<HTMLCanvasElement>(".teldra-twin-viewport__canvas");
