@@ -161,11 +161,12 @@ export class CanvasGestureArbiter {
 
   /** A cancelled, interrupted or lost pointer cannot produce any command. */
   abort(now: number): void {
+    const hadContacts = this.contacts.size > 0;
     this.contacts.clear();
     this.session = null;
     this.recentTap = null;
     this.historyDirection = null;
-    this.suppressUntil = Math.max(this.suppressUntil, now + 400);
+    if (hadContacts) this.suppressUntil = Math.max(this.suppressUntil, now + 400);
   }
 
   /** Swallowed only for touch-generated clicks after gesture ownership changed. */
