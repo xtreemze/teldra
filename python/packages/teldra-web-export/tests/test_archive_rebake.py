@@ -68,9 +68,7 @@ def fixture(tmp_path):
         building_sha256="a" * 64,
         source_bindings={"pieceOfFurniture:chair": ("chair", GUID)},
     )
-    assert attach_furniture_geometry(source, glb_path) == {
-        "representedElements": 1, "triangles": 1
-    }
+    assert attach_furniture_geometry(source, glb_path) == {"representedElements": 1, "triangles": 1}
     source_ifc = source.to_string().encode()
     current = ifcopenshell.file.from_string(source_ifc.decode())
     item = current.by_guid(GUID).Representation.Representations[0].Items[0]
@@ -106,10 +104,12 @@ def fixture(tmp_path):
     scene["scene"]["assetSha256"] = _sha(glb)
     twin = {
         "schemaVersion": "0.1.0",
-        "building": {"ifcSchema": "IFC4", "refs": [{
-            "id": "chair", "ifcGlobalId": GUID, "kind": "furniture", "name": "Chair"
-        }]},
-        "devices": [], "bindings": [],
+        "building": {
+            "ifcSchema": "IFC4",
+            "refs": [{"id": "chair", "ifcGlobalId": GUID, "kind": "furniture", "name": "Chair"}],
+        },
+        "devices": [],
+        "bindings": [],
     }
     record = {
         "version": 2,
@@ -131,8 +131,11 @@ def fixture(tmp_path):
         "formatVersion": "0.1.0",
         "building": {"path": "building.ifc", "sha256": _sha(current_ifc)},
         "twin": {"path": "twin.json", "sha256": _sha(entries["twin.json"])},
-        "derived": [{"path": name, "sha256": _sha(entries[name])} for name in entries
-                    if name not in ("building.ifc", "twin.json")],
+        "derived": [
+            {"path": name, "sha256": _sha(entries[name])}
+            for name in entries
+            if name not in ("building.ifc", "twin.json")
+        ],
     }
     entries["project.json"] = _json(manifest)
     return entries
@@ -156,15 +159,17 @@ def test_rebases_exact_canonical_ifc_and_preserves_source_assets(tmp_path):
     output_manifest = json.loads(updated["scene.manifest.json"])
     assert output_manifest["source"]["buildingSha256"] == _sha(updated["building.ifc"])
     assert output_manifest["scene"]["assetSha256"] == _sha(updated["building.glb"])
-    for record in [json.loads(updated["project.json"])["building"],
-                   json.loads(updated["project.json"])["twin"],
-                   *json.loads(updated["project.json"])["derived"]]:
+    for record in [
+        json.loads(updated["project.json"])["building"],
+        json.loads(updated["project.json"])["twin"],
+        *json.loads(updated["project.json"])["derived"],
+    ]:
         assert _sha(updated[record["path"]]) == record["sha256"]
     assert result.archive == rebake_static_teldra_archive(data).archive
 
     before_doc, before_bin = _source_chunks(original["building.glb"])
     after_doc, after_bin = _source_chunks(updated["building.glb"])
-    assert before_bin == after_bin[:len(before_bin)]
+    assert before_bin == after_bin[: len(before_bin)]
     assert before_doc["materials"] == after_doc["materials"]
     assert before_doc["nodes"][0]["extras"] == after_doc["nodes"][0]["extras"]
     original_mesh = before_doc["meshes"][0]["primitives"][0]
