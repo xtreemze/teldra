@@ -16,22 +16,26 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     const keydown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const key = event.key.toLowerCase();
-      const arrows: Record<string, [number, number]> = {arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1]};
-      if (arrows[key]) {
-        const [x, y] = arrows[key];
+      const arrows: Record<string, [number, number]> = {
+        arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1],
+      };
+      const numpad: Record<string, [number, number]> = {
+        Numpad4: [-1, 0], Numpad6: [1, 0], Numpad8: [0, 1], Numpad2: [0, -1],
+      };
+      const direction = arrows[key] ?? numpad[event.code];
+      if (direction) {
+        const [x, y] = direction;
         if (event.shiftKey) props.runtime.pan(x, y);
-        else { const current = props.runtime.viewState(); if (current) {
-          // Keyboard orbit uses the same camera as pointer gestures.
-          props.runtime.orbit(x * 0.15, -y * 0.15);
-        }}
-      } else if (key === "+" || key === "=") props.runtime.zoom(0.8);
-      else if (key === "-") props.runtime.zoom(1.25);
+        else props.runtime.orbit(x * 0.15, -y * 0.15);
+      } else if (key === "+" || key === "=" || event.code === "NumpadAdd") props.runtime.zoom(0.8);
+      else if (key === "-" || event.code === "NumpadSubtract") props.runtime.zoom(1.25);
       else if (key === "f") fit(Boolean(event.shiftKey && props.selectedId));
-      else if (key === "home") props.runtime.resetView();
-      else if (key === "1") orient("-z");
-      else if (key === "3") orient("+x");
-      else if (key === "7") orient("+y");
-      else if (key === "5") props.runtime.setProjection(view()?.projection === "orthographic" ? "perspective" : "orthographic");
+      else if (key === "home") { if (event.shiftKey) props.runtime.resetView(); else fit(); }
+      else if (key === "1" || event.code === "Numpad1") orient("-z");
+      else if (key === "3" || event.code === "Numpad3") orient("+x");
+      else if (key === "7" || event.code === "Numpad7") orient("+y");
+      else if (key === "5" || event.code === "Numpad5") props.runtime.setProjection(view()?.projection === "orthographic" ? "perspective" : "orthographic");
+      else if (event.code === "NumpadDecimal") fit(Boolean(props.selectedId));
       else return;
       event.preventDefault();
     };
@@ -86,8 +90,9 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       </fieldset>}</For>
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--help"><summary>Navigation help</summary><div class="teldra-view-controls__panel-content">
-      <p>Drag to orbit; right-drag or Ctrl-drag to pan; scroll to zoom. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
-      <p>Focus the 3D view: arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection, Home resets. 1 front, 3 right, 7 top, 5 changes projection.</p>
+      <p>Blender-style navigation: middle-drag to orbit, Shift+middle-drag to pan, scroll to zoom. Left-drag orbit and right-drag pan remain available. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
+      <p>Focus the 3D canvas: G move, R rotate, S requests scale (currently unavailable for IFC geometry). After G/R, X/Y/Z constrain, type a number, Enter applies, Esc cancels. IFC furniture rotation is upright Z only.</p>
+      <p>Numpad 1 front, 3 right, 7 top, 5 projection, 2/4/6/8 orbit, Shift+numpad pan, numpad decimal frames selection, Home fits scene, Shift+Home resets view. Arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection. Ctrl/Command+S saves; Ctrl/Command+Z undoes, Shift+Ctrl/Command+Z redoes.</p>
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary>Appearance</summary><div class="teldra-view-controls__panel-content">
       <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>

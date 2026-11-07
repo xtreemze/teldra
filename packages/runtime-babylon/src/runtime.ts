@@ -112,6 +112,8 @@ export async function createBabylonTwinRuntime(
   });
 
   let defaultCamera: ArcRotateCamera | undefined;
+  // Canvas navigation follows Blender when a middle mouse button is available.
+  let releaseBlenderPointer: (() => void) | undefined;
   let loadedMeshParts = 0;
   let lightingProfile = "preview";
   let previewLight: HemisphericLight | undefined;
@@ -164,7 +166,61 @@ export async function createBabylonTwinRuntime(
     );
     scene.activeCamera = defaultCamera;
     scene.cameraToUseForPointers = defaultCamera;
-    defaultCamera.attachControl(canvas, true);
+    // Preserve left orbit / right pan and touch gestures. Babylon's pointer
+    // input does not reliably recognize MMB on every target, so own only that
+    // button here, using the same camera, without a parallel navigation model.
+    defaultCamera.attachControl(canvas, true, false);
+    const pointers = defaultCamera.inputs.attached.pointers as {buttons: number[]} | undefined;
+    if (pointers) pointers.buttons = [0, 2];
+    let middle: {id: number; x: number; y: number; pan: boolean} | null = null;
+    const onDown = (event: PointerEvent) => {
+      if (event.button !== 1 || middle) return;
+      middle = {id: event.pointerId, x: event.clientX, y: event.clientY, pan: event.shiftKey};
+      stopCameraMotion(defaultCamera!);
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    const onMove = (event: PointerEvent) => {
+      if (!middle || event.pointerId !== middle.id) return;
+      const dx = event.clientX - middle.x, dy = event.clientY - middle.y;
+      middle.x = event.clientX; middle.y = event.clientY;
+      const camera = defaultCamera!;
+      if (middle.pan) panCamera(camera, -dx / 150, dy / 150);
+      else {
+        stopCameraMotion(camera);
+        camera.alpha -= dx / 200;
+        camera.beta = Math.max(camera.lowerBetaLimit ?? 0.001,
+          Math.min(camera.upperBetaLimit ?? Math.PI - 0.001, camera.beta + dy / 200));
+      }
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    const onUp = (event: PointerEvent) => {
+      if (!middle || event.pointerId !== middle.id) return;
+      middle = null;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    const preventMiddleAutoscroll = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    };
+    const cancelMiddle = () => { middle = null; };
+    canvas.addEventListener("pointerdown", onDown, true);
+    canvas.addEventListener("mousedown", preventMiddleAutoscroll, true);
+    canvas.addEventListener("auxclick", preventMiddleAutoscroll, true);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onUp, true);
+    window.addEventListener("blur", cancelMiddle);
+    releaseBlenderPointer = () => {
+      canvas.removeEventListener("pointerdown", onDown, true);
+      canvas.removeEventListener("mousedown", preventMiddleAutoscroll, true);
+      canvas.removeEventListener("auxclick", preventMiddleAutoscroll, true);
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onUp, true);
+      window.removeEventListener("blur", cancelMiddle);
+    };
     normalizeCanvasTabOrder();
     defaultCamera.lowerRadiusLimit = 0.01;
     defaultCamera.lowerBetaLimit = 0.001;
@@ -631,6 +687,7 @@ export async function createBabylonTwinRuntime(
       for (const unsubscribe of pickSubscriptions) unsubscribe();
       viewListeners.clear();
       tabIndexObserver.disconnect();
+      releaseBlenderPointer?.();
       furniture.dispose();
       instrumentation.dispose();
       scene.dispose();

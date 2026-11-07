@@ -77,3 +77,33 @@
  .teldra-studio-selection-workspace__project-actions output { display: none; }
  .teldra-studio-selection-workspace__scene-panel, .teldra-studio-selection-workspace__properties { top: 12.2rem; max-height: calc(100% - 19rem); }
 }
+
+/* Keyboard transform feedback is a disposable viewport overlay, not project state. */
+.teldra-studio-selection-workspace__transform-hint {
+  position: absolute;
+  z-index: 16;
+  left: 50%;
+  bottom: 4.5rem;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 2rem);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  justify-content: center;
+  padding: .5rem .8rem;
+  border: 1px solid #526d77;
+  border-radius: .5rem;
+  color: #e7edf4;
+  background: #182a35ed;
+  box-shadow: 0 .4rem 1.3rem #0006;
+  font-size: .78rem;
+  pointer-events: none;
+}
+@media (max-width: 48rem) {
+  .teldra-studio-selection-workspace__transform-hint {
+    bottom: 7.5rem;
+    font-size: .72rem;
+    text-align: center;
+  }
+}

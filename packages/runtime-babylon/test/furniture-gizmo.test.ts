@@ -68,6 +68,10 @@ describe("IFC furniture projection", () => {
       const bridge = new FurnitureGizmoBridge(scene, C, () => [mesh]);
       let calls = 0;
       const session = bridge.begin({canonicalId: "chair", original, current}, () => { calls++; });
+      expect(session.setAxisConstraint("x")).toBe(true);
+      expect(session.setAxisConstraint("y")).toBe(true);
+      expect(session.setAxisConstraint("z")).toBe(true);
+      expect(session.setAxisConstraint(null)).toBe(true);
       session.setPose(original);
       expect(calls).toBe(0);
       session.cancel();
