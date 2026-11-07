@@ -6,6 +6,8 @@ export interface IfcFurnitureEditProps {
   controller: StudioProjectController;
   canonicalId: string;
   externalVersion?: number;
+  /** Incremented by the workspace transform action to request a validated gizmo session. */
+  editRequest?: number;
   onChange?: () => void;
   onPreview?: (pose: FurnitureWorldPose | null) => void;
   onSnapChange?: (metres: number, radians: number) => void;
@@ -20,6 +22,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const [snap, setSnap] = createSignal(0);
   const [rotationSnap, setRotationSnap] = createSignal(0);
   let loadedId: string | null = null;
+  let lastHandledEditRequest = 0;
   const poseToDraft = (pose: FurnitureWorldPose) => [...pose.position, pose.yawRadians * 180 / Math.PI];
   const pose = (): FurnitureWorldPose | null => {
     const v = draft(); if (!v || !v.every(Number.isFinite) || !Number.isFinite(snap()) || snap() < 0 || !Number.isFinite(rotationSnap()) || rotationSnap() < 0) return null;
@@ -34,6 +37,13 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     finally { setBusy(false); }
   };
   const cancel = () => { setDraft(null); loadedId = null; props.onPreview?.(null); props.onEditingChange?.(false); setError(""); };
+  createEffect(() => {
+    const request = props.editRequest ?? 0;
+    if (request > 0 && request !== lastHandledEditRequest) {
+      lastHandledEditRequest = request;
+      if (!loadedId) void begin();
+    }
+  });
   createEffect(() => { props.externalVersion; const id = props.canonicalId; if (loadedId && id !== loadedId) cancel(); else if (loadedId) { try { setDraft(poseToDraft(props.controller.furniturePose(id))); props.onPreview?.(null); } catch { cancel(); } } });
   createEffect(() => { const viewport = props.viewportDraft; if (viewport && loadedId === props.canonicalId) setDraft(poseToDraft(viewport)); });
   const update = (index: number, value: number) => { setDraft((old) => old?.map((n, i) => i === index ? value : n) ?? null); const next = pose(); if (next) props.onPreview?.(next); };
