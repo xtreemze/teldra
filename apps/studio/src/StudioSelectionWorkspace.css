@@ -275,6 +275,13 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .teldra-studio-selection-workspace__mobile-scale-unavailable {
+    margin: 0;
+    padding: .15rem .3rem;
+    color: #bdcbd7;
+    font-size: .8rem;
+    line-height: 1.45;
+  }
 
   .teldra-studio-selection-workspace__transform-hint {
     z-index: 23;
