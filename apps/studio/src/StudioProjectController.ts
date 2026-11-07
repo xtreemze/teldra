@@ -195,7 +195,7 @@ export class StudioProjectController {
     return [...result.values()];
   }
   #furnitureRef(id: string) {
-    const ref = this.twin.building.refs.find((candidate) => candidate.id === id && candidate.kind === "furniture");
+    const ref = this.twin.building.refs.find((candidate) => candidate.id === id && ["furniture", "fixture", "other", "distribution-element"].includes(candidate.kind));
     if (!ref) throw new Error("Only canonical IFC furniture can be edited.");
     return ref;
   }

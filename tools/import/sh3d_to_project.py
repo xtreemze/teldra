@@ -11,7 +11,9 @@ from zipfile import ZIP_STORED, ZipFile
 
 from teldra_import_sh3d import import_home_to_ifc
 from teldra_sh3d import load_sh3d
+from teldra_sh3d.lighting import source_lighting
 from teldra_web_export import export_ifc_web_scene
+from teldra_web_export.canonical_visuals import attach_furniture_geometry
 from teldra_web_export.wavefront import export_wavefront_scene
 
 
@@ -108,11 +110,7 @@ def convert(
                 building_sha256=hashlib.sha256(
                     (staging / "building.ifc").read_bytes()
                 ).hexdigest(),
-                preview_lighting={
-                    "profile": "sh3d-preview-v1",
-                    "lightColor": home.preview_light_color,
-                    "skyColor": home.preview_sky_color,
-                },
+                preview_lighting=source_lighting(home),
                 source_layers={
                     record.source.key: {
                         "levelId": record.level_id,
@@ -126,6 +124,15 @@ def convert(
                     for source_key, global_id in imported.source_to_global_id.items()
                 },
             )
+            report["canonicalFurnitureGeometry"] = attach_furniture_geometry(
+                imported.model, staging / "building.glb"
+            )
+            imported.model.write(str(staging / "building.ifc"))
+            scene_manifest = json.loads((staging / "scene.manifest.json").read_bytes())
+            scene_manifest["source"]["buildingSha256"] = hashlib.sha256(
+                (staging / "building.ifc").read_bytes()
+            ).hexdigest()
+            (staging / "scene.manifest.json").write_bytes(_json(scene_manifest))
             visual_keys = set(report["visualScene"]["sourceKeysWithVisuals"])
             non_rendering = []
             for piece in home.furniture:

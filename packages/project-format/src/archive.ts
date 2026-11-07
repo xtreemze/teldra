@@ -719,7 +719,7 @@ export async function readScenePlacementOverrides(archive: OpenTeldraArchive, sc
   for (const placement of value.placements) {
     if (!placement || typeof placement.canonicalId !== "string" || typeof placement.ifcGlobalId !== "string" || seen.has(placement.canonicalId)) throw new TeldraArchiveError("Invalid or duplicate placement identity.");
     seen.add(placement.canonicalId);
-    if (!archive.twin.building.refs.some((ref) => ref.id === placement.canonicalId && ref.ifcGlobalId === placement.ifcGlobalId && ref.kind === "furniture") || !scene.nodes.some((node) => node.canonicalId === placement.canonicalId && node.ifcGlobalId === placement.ifcGlobalId)) throw new TeldraArchiveError("Placement identity is not a rendered canonical furniture object.");
+    if (!archive.twin.building.refs.some((ref) => ref.id === placement.canonicalId && ref.ifcGlobalId === placement.ifcGlobalId && ["furniture", "fixture", "other", "distribution-element"].includes(ref.kind)) || !scene.nodes.some((node) => node.canonicalId === placement.canonicalId && node.ifcGlobalId === placement.ifcGlobalId)) throw new TeldraArchiveError("Placement identity is not a rendered canonical furniture object.");
     if (placement.scale !== undefined && value.version !== 2) throw new TeldraArchiveError("Geometry scale requires scene reconciliation version 2.");
     assertUprightScaledMatrix(placement.matrix, placement.scale);
   }

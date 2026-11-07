@@ -81,6 +81,8 @@ class Sh3dFurniture:
     wall_binding: Sh3dWallBinding | None
     power: float | None
     light_sources: tuple[Sh3dLightSource, ...]
+    visible: bool = True
+    model_mirrored: bool = False
 
 
 @dataclass(frozen=True, slots=True)

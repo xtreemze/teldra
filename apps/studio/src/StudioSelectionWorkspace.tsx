@@ -201,7 +201,7 @@ export function StudioSelectionWorkspace(
     } catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
   };
   const startMobileFurnitureEdit = (mode: "translate" | "rotate" | "scale") => {
-    if (selectedBuildingRef()?.kind !== "furniture" || !viewport()) return;
+    if (!["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "") || !viewport()) return;
     setEditMode(mode);
     setMobileContextOpen(false);
     setMobileProjectOpen(false);
@@ -240,7 +240,7 @@ export function StudioSelectionWorkspace(
     const selectedId = selectedBuildingRef()?.id;
     const scaleSupport = selectedId ? props.controller.furnitureScaleStatus(selectedId) : null;
     const step = transformShortcut(transformModal(), event,
-      editingFurniture() ? scaleSupport?.supported === true : selectedBuildingRef()?.kind === "furniture");
+      editingFurniture() ? scaleSupport?.supported === true : ["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? ""));
     if (!step.handled) return;
     event.preventDefault(); event.stopPropagation();
     if (step.intent === "unsupported" || step.intent === "message") {
@@ -249,7 +249,7 @@ export function StudioSelectionWorkspace(
     }
     if (step.intent === "begin") {
       const ref = selectedBuildingRef();
-      if (!ref || ref.kind !== "furniture") {
+      if (!ref || !["furniture", "fixture", "other", "distribution-element"].includes(ref.kind)) {
         setTransformMessage("Select an IFC furniture object before using G, R or S.");
         return;
       }
@@ -376,7 +376,7 @@ export function StudioSelectionWorkspace(
         <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}>Undo</button>
         <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}>Redo</button>
         <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
-        <Show when={selectedBuildingRef()?.kind === "furniture"}>
+        <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
           <Show when={!editingFurniture()} fallback={
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
               <button type="button" aria-keyshortcuts="G" title="Move (G)" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); editSession?.setAxisConstraint(null); }}>Move</button>
@@ -406,7 +406,7 @@ export function StudioSelectionWorkspace(
             <strong>{selectedDevice()?.name ?? selectedBuildingRef()?.name ?? selectedBuildingRef()?.kind ?? "Selected object"}</strong>
             <small>{selectedDevice() ? "Device" : selectedBuildingRef()?.kind ?? "Building object"}</small>
           </div>
-          <Show when={selectedBuildingRef()?.kind === "furniture"}>
+          <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
           </Show>
@@ -418,7 +418,7 @@ export function StudioSelectionWorkspace(
         <div class="teldra-studio-selection-workspace__mobile-context" role="group" aria-label="Selected object actions">
           <strong>{selectedDevice()?.name ?? selectedBuildingRef()?.name ?? "Selected object"}</strong>
           <button type="button" onClick={() => {setInspectorOpen(true);setMobileContextOpen(false);}}>Details</button>
-          <Show when={selectedBuildingRef()?.kind === "furniture"}>
+          <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
             <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
             <button type="button" onClick={() => startMobileFurnitureEdit("scale")}>Scale</button>
@@ -426,7 +426,7 @@ export function StudioSelectionWorkspace(
           <button type="button" onClick={() => setMobileContextOpen(false)}>Close menu</button>
         </div>
       </Show>
-      <Show when={editingFurniture() && selectedBuildingRef()?.kind === "furniture" && !inspectorOpen()}>
+      <Show when={editingFurniture() && ["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "") && !inspectorOpen()}>
         <MobileTransformPad mode={editMode()}
           pose={() => viewportDraft() ?? props.controller.furniturePose(selectedCanonicalId()!)}
           scale={() => viewportScaleDraft() ?? (() => {
@@ -497,7 +497,7 @@ export function StudioSelectionWorkspace(
         </section>
 
         <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}>
-        <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
+        <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "") && selectedBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={() => {refreshSelection(); tactile("applied");}}
             onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
             editMode={editMode()} editRequest={editRequest()} viewportDraft={viewportDraft()} viewportScaleDraft={viewportScaleDraft()}
@@ -546,7 +546,7 @@ export function StudioSelectionWorkspace(
                   <div><dt>Source name</dt><dd>{ref().name ?? "Unnamed"}</dd></div>
                   <div><dt>Type</dt><dd>{ref().kind}</dd></div>
                   <div><dt>IFC GlobalId</dt><dd><code>{ref().ifcGlobalId}</code></dd></div>
-                  <div><dt>Editing</dt><dd>{ref().kind === "furniture" ? "Furniture placement can be edited below after IFC validation." : "This building item is sourced from IFC."}</dd></div>
+                  <div><dt>Editing</dt><dd>{["furniture", "fixture", "other", "distribution-element"].includes(ref().kind) ? "Furniture placement can be edited below after IFC validation." : "This building item is sourced from IFC."}</dd></div>
                 </dl>}</Show>
               </>
             )}

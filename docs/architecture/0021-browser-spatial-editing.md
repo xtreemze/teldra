@@ -175,3 +175,20 @@ exploration, safe-area/landscape layouts and performance certification
 remain release tasks under #72. Full-viewport long-press object actions,
 three-finger history and double-tap framing are tracked by #90 and must
 not be represented as part of the isolated pad.
+
+
+## Complete SH3D geometry and camera-independent illumination
+
+The complete default demo includes native triangle geometry for 185 furniture/light/proxy
+entities (781,744 triangles) in owned IFC mapped representations. This makes its
+source furniture compatible with the existing canonical mapped-scale command, gizmo,
+undo and archive reconciliation paths. Source materials, original GLB and original SH3D
+are retained. Safe represented lights/proxies use the same validated transform adapter.
+
+The derived source-light profile carries 18 lamp emitters and four explicitly named
+window daylight emitters. Each mesh receives its four nearest local emitters plus four
+directional fill lights; assignment uses geometry position, never camera distance.
+Imported lamp positions follow edits, previews, cancel and undo. Window fill is an
+interactive raster approximation without ray-traced occlusion or calibrated lumens.
+A real-profile probe rendered identical RGB (146,142,132) at camera radii 8 and 40 m.
+Selection has a nonpickable aggregate bounds outline, including while transforming.

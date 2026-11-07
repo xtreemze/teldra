@@ -1,4 +1,5 @@
 import {
+  createEffect,
   createSignal,
   Show,
   onCleanup,
@@ -54,6 +55,14 @@ export function TwinViewport(props: TwinViewportProps) {
     createSignal<TwinRenderIdentity | null | undefined>(undefined);
 
   const resize = () => runtime?.resize();
+
+  createEffect(() => {
+    const current = readyRuntime();
+    const id = props.selectedCanonicalId === undefined
+      ? selected()?.canonicalId ?? null
+      : props.selectedCanonicalId;
+    current?.setSelection(id);
+  });
 
   onMount(() => {
     window.addEventListener("resize", resize);

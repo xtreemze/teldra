@@ -52,9 +52,11 @@ have not been verified; no blanket license is asserted for these files.
 ## Published Studio demo
 
 `21D-demo.teldra` is the complete conversion, losslessly repacked with ZIP deflate
-for delivery (55,967,121 bytes). `demo-manifest.json` pins its SHA-256 and source
-archive identity. Every uncompressed entry matches the verified complete conversion.
+for delivery (68,731,813 bytes). `demo-manifest.json` pins its SHA-256 and source
+archive identity. The current complete conversion also places native furniture tessellations in IFC so uniform scaling is canonical. Materials, images and original SH3D remain preserved.
 The Pages build checks this receipt before copying the file to `/studio/21D.teldra`.
 Studio opens it automatically; `?demo=sample` retains the small authored test room.
 Run `git lfs pull` before local development/builds. Source-hidden ceiling geometry
 remains available through the hidden-content and level visibility controls.
+
+The current demo includes 185 represented furniture/light/proxy entities (781,744 native triangles) in canonical IFC. The derived renderer retains 9,512 visual parts and 467 materials, with 18 imported lamp emitters and four named-window daylight emitters. Window illumination is a raster preview approximation. Transform Apply/Undo/Redo/save/reopen now supports upright move/rotate and positive uniform scaling of represented, supported IFC elements.
