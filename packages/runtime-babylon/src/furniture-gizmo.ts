@@ -7,11 +7,21 @@ import type { Scene } from "@babylonjs/core/scene";
 
 /** IFC world metres, right-handed Z-up. This is an edit draft, not canonical state. */
 export interface FurnitureWorldPose { position: readonly [number, number, number]; yawRadians: number }
-export interface FurniturePlacement { canonicalId: string; original: FurnitureWorldPose; current: FurnitureWorldPose }
+export type GeometryScale = readonly [number, number, number];
+export interface FurniturePlacement {
+  canonicalId: string;
+  original: FurnitureWorldPose;
+  current: FurnitureWorldPose;
+  /** Source GLB geometry scale as represented in the source IFC mapping target. */
+  sourceScale?: GeometryScale;
+  /** Current canonical IFC mapped-geometry scale. */
+  currentScale?: GeometryScale;
+}
 export interface ScenePlacement { canonicalId: string; matrix: readonly number[] }
 export interface FurnitureEditSession {
   setPose(pose: FurnitureWorldPose): void;
-  setMode(mode: "translate" | "rotate"): void;
+  setMode(mode: "translate" | "rotate" | "scale"): void;
+  setScale(scale: GeometryScale): void;
   /** Constrain pointer handles to an IFC-world axis when the scene frame is axis-aligned. */
   setAxisConstraint(axis: "x" | "y" | "z" | null): boolean;
   setSnap(translationMetres: number, rotationRadians: number): void;
@@ -39,10 +49,22 @@ function validateFrame(frame: Matrix): void {
 }
 
 /** Babylon multiplication applies the left operand first (the equivalent of C D C^-1 in column notation). */
-export function furnitureSceneDelta(canonicalToScene: Matrix, original: FurnitureWorldPose, current: FurnitureWorldPose): Matrix {
+export function furnitureSceneDelta(canonicalToScene: Matrix, original: FurnitureWorldPose,
+  current: FurnitureWorldPose, ratio: GeometryScale = [1, 1, 1]): Matrix {
   validateFrame(canonicalToScene);
-  return canonicalToScene.clone().invert().multiply(poseMatrix(original).invert())
-    .multiply(poseMatrix(current)).multiply(canonicalToScene);
+  poseMatrix(original); poseMatrix(current);
+  if (ratio.length !== 3 || ratio.some(value => !Number.isFinite(value) || value <= 0 || value > 1000))
+    throw new Error("Invalid IFC geometry scale factors.");
+  const cs = Math.cos(original.yawRadians), ss = Math.sin(original.yawRadians);
+  const cc = Math.cos(current.yawRadians), sc = Math.sin(current.yawRadians);
+  const [sx, sy, sz] = ratio;
+  const a00 = cc*sx*cs + sc*sy*ss, a01 = cc*sx*ss - sc*sy*cs;
+  const a10 = sc*sx*cs - cc*sy*ss, a11 = sc*sx*ss + cc*sy*cs;
+  const canonicalDelta = Matrix.FromArray([a00,a10,0,0,a01,a11,0,0,0,0,sz,0,
+    current.position[0]-a00*original.position[0]-a01*original.position[1],
+    current.position[1]-a10*original.position[0]-a11*original.position[1],
+    current.position[2]-sz*original.position[2],1]);
+  return canonicalToScene.clone().invert().multiply(canonicalDelta).multiply(canonicalToScene);
 }
 
 export class FurnitureGizmoBridge {
@@ -53,7 +75,10 @@ export class FurnitureGizmoBridge {
     private readonly meshesForId: (id: string) => AbstractMesh[]) {}
 
   apply(placement: FurniturePlacement): void {
-    const delta = furnitureSceneDelta(this.canonicalToScene, placement.original, placement.current);
+    const ratio: GeometryScale = placement.sourceScale && placement.currentScale
+      ? placement.currentScale.map((v, i) => v / placement.sourceScale![i]!) as [number,number,number]
+      : [1,1,1];
+    const delta = furnitureSceneDelta(this.canonicalToScene, placement.original, placement.current, ratio);
     this.applyDelta(placement.canonicalId, delta);
   }
 
@@ -80,6 +105,9 @@ export class FurnitureGizmoBridge {
       const local = mesh.parent ? world.multiply(mesh.parent.getWorldMatrix().clone().invert()) : world;
       const scale = new Vector3(), rotation = new Quaternion(), position = new Vector3();
       if (!local.decompose(scale, rotation, position)) throw new Error("Cannot project furniture placement to this mesh.");
+      const reconstructed = Matrix.Compose(scale, rotation, position);
+      if (local.asArray().some((value, i) => Math.abs(value - reconstructed.asArray()[i]!) > 1e-4))
+        throw new Error("This GLB render part requires regenerated geometry; its affine scale contains shear.");
       mesh.position.copyFrom(position); mesh.scaling.copyFrom(scale);
       mesh.rotationQuaternion ??= new Quaternion(); mesh.rotationQuaternion.copyFrom(rotation);
       mesh.computeWorldMatrix(true);
