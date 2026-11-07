@@ -130,6 +130,16 @@ describe("canvas gesture arbitration", () => {
     expect(late.up(pointer(2, 30, 20, 510))).toBeNull();
   });
 
+  it("clears double-tap state across resize/visibility reset without blocking a fresh click", () => {
+    const g = new CanvasGestureArbiter();
+    g.down(pointer(1, 40, 60, 0));
+    expect(g.up(pointer(1, 40, 60, 30))).toBeNull();
+    g.abort(90); // No active contact; previous tap must still be forgotten.
+    expect(g.suppressClick(110)).toBe(false);
+    g.down(pointer(2, 40, 60, 120));
+    expect(g.up(pointer(2, 40, 60, 145))).toBeNull();
+  });
+
   it("cancels every active contact on pointer cancellation and never replays history", () => {
     const g = new CanvasGestureArbiter();
     for (let i = 1; i <= 3; i++) g.down(pointer(i, i * 90, 100, i * 10));
