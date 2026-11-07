@@ -1,4 +1,5 @@
 import { CommandProcessor, type CanonicalCommand, type CommandHistoryStatus, type CommandResolver } from "./commands.js";
+import type { FurnitureSourceDimensions } from "./furniture-dimensions.js";
 
 export interface FurnitureWorldPose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
 export type FurnitureGeometryScale = readonly [number, number, number];
@@ -8,6 +9,8 @@ export interface IfcFurnitureAdapter {
   /** Optional: only supported per-instance IFC4 mapped geometry. */
   readScale?(bytes: Uint8Array, ifcGlobalId: string): FurnitureGeometryScale;
   writeScale?(bytes: Uint8Array, ifcGlobalId: string, scale: FurnitureGeometryScale): Uint8Array;
+  /** Immutable source-provenance nominal dimensions when a SH3D import supplies them. */
+  readSourceDimensions?(bytes: Uint8Array, ifcGlobalId: string): FurnitureSourceDimensions | null;
 }
 type PoseCommand = CanonicalCommand<"ifc.furniture.pose", { readonly ifcGlobalId: string; readonly position: readonly [number, number, number]; readonly yawRadians: number }>;
 type ScaleCommand = CanonicalCommand<"ifc.furniture.geometry-scale", { readonly ifcGlobalId: string; readonly scale: FurnitureGeometryScale }>;
