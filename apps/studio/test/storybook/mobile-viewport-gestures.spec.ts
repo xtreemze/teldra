@@ -94,3 +94,21 @@ test("two-touch camera navigation and disabled gestures never produce a history 
   const report = await new AxeBuilder({page}).include("#storybook-root").analyze();
   expect(report.violations).toEqual([]);
 });
+
+test("explicit project deselection prevents stale internal picks from framing", async ({page}) => {
+  const x = Number(await page.getByTestId("touch-projected-x").textContent());
+  const y = Number(await page.getByTestId("touch-projected-y").textContent());
+  await page.mouse.click(x, y);
+  await expect(page.getByTestId("touch-selected-id")).toHaveText("wall:fixture");
+  await page.getByRole("button", {name: "Clear project selection"}).click();
+  await expect(page.getByTestId("touch-selected-id")).toHaveText("none");
+  await page.getByTestId("twin-canvas").evaluate((element, at) => {
+    for (const id of [21, 22]) {
+      element.dispatchEvent(new PointerEvent("pointerdown", {bubbles: true, cancelable: true,
+        pointerId: id, pointerType: "touch", clientX: at.x, clientY: at.y}));
+      element.dispatchEvent(new PointerEvent("pointerup", {bubbles: true, cancelable: true,
+        pointerId: id, pointerType: "touch", clientX: at.x, clientY: at.y}));
+    }
+  }, {x, y});
+  await expect(page.getByTestId("touch-intent")).toHaveText("none");
+});
