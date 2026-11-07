@@ -19,6 +19,14 @@ describe("building scene reconciliation", () => {
     expect((await readScenePlacementOverrides(saved.archive, scene))?.placements).toEqual([placement]);
     await expect(readScenePlacementOverrides(saved.archive, { ...scene, scene: { ...scene.scene, assetSha256: "0".repeat(64) } })).rejects.toThrow();
     await expect(replaceTeldraBuilding(archive, new Uint8Array([5]), scene, [{ ...placement, matrix: [2, ...placement.matrix.slice(1)] }])).rejects.toThrow("rigid");
+    const scaled = { ...placement, matrix: [2,0,0,0,0,1,0,0,0,0,1,0,2,3,0,1], scale: [2,1,1] as [number,number,number] };
+    const savedScale = await replaceTeldraBuilding(archive, new Uint8Array([7]), scene, [scaled]);
+    expect((await readScenePlacementOverrides(savedScale.archive, scene))?.version).toBe(2);
+    expect((await readScenePlacementOverrides(savedScale.archive, scene))?.placements[0]).toEqual(scaled);
+    await expect(replaceTeldraBuilding(archive, new Uint8Array([7]), scene, [{
+      ...scaled, scale: [2,2,1] as [number,number,number],
+    }])).rejects.toThrow("does not match");
+
     await expect(replaceTeldraBuilding(archive, new Uint8Array([5]), scene, [{ ...placement, canonicalId: "unknown" }])).rejects.toThrow("identity");
   });
 });

@@ -107,3 +107,16 @@
     text-align: center;
   }
 }
+
+/* IFC-mapped instance dimensions: explicit local-axis scale factors, not pose coordinates. */
+.teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] .teldra-ifc-scale-fields {
+  display: grid; grid-column: 1 / -1; grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: .5rem; padding: .6rem; min-width: 0;
+  border: 1px solid #557079; border-radius: .4rem;
+}
+.teldra-ifc-scale-fields legend { padding: 0 .3rem; color: #c8ddd8; font-size: .78rem; }
+@media(max-width:48rem) {
+  .teldra-studio-selection-workspace__inspector section[aria-label="Furniture placement"] .teldra-ifc-scale-fields {
+    grid-template-columns: 1fr;
+  }
+}

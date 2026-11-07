@@ -1,8 +1,9 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { FurnitureEditSession, FurnitureWorldPose, TwinRenderIdentity } from "@teldra/runtime-babylon";
+import type { FurnitureGeometryScale } from "@teldra/application";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
 import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit";
-import { transformShortcut, numericFurniturePose, type TransformModal } from "./transform-shortcuts";
+import { transformShortcut, numericFurniturePose, numericFurnitureScale, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
@@ -32,8 +33,9 @@ export function StudioSelectionWorkspace(
   const [actionError, setActionError] = createSignal("");
   const [viewport, setViewport] = createSignal<TwinViewportHandle>();
   const [viewportDraft, setViewportDraft] = createSignal<FurnitureWorldPose>();
+  const [viewportScaleDraft, setViewportScaleDraft] = createSignal<FurnitureGeometryScale>();
   const [editingFurniture, setEditingFurniture] = createSignal(false);
-  const [editMode, setEditMode] = createSignal<"translate" | "rotate">("translate");
+  const [editMode, setEditMode] = createSignal<"translate" | "rotate" | "scale">("translate");
   const [editRequest, setEditRequest] = createSignal(0);
   const [transformModal, setTransformModal] = createSignal<TransformModal | null>(null);
   const [transformMessage, setTransformMessage] = createSignal("");
@@ -41,6 +43,7 @@ export function StudioSelectionWorkspace(
   let editSession: FurnitureEditSession | undefined;
   let furnitureControls: FurnitureEditControls | null = null;
   let numericStartPose: FurnitureWorldPose | undefined;
+  let numericStartScale: FurnitureGeometryScale | undefined;
 
   const refreshSelection = () =>
     setSelectionVersion((version) => version + 1);
@@ -61,7 +64,7 @@ export function StudioSelectionWorkspace(
   };
 
   const selectCanonicalId = (canonicalId: string | null) => {
-    if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); }
+    if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); setEditMode("translate"); }
     props.controller.selectCanonicalId(canonicalId);
     if (canonicalId !== null) {setInspectorOpen(true); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}
     refreshSelection();
@@ -99,14 +102,25 @@ export function StudioSelectionWorkspace(
     editSession?.cancel();
     editSession?.detach();
     editSession = undefined;
-    numericStartPose = undefined;
+    numericStartPose = undefined; numericStartScale = undefined;
     setTransformModal(null);
     setEditingFurniture(false);
-    setViewportDraft(undefined);
+    setViewportDraft(undefined); setViewportScaleDraft(undefined);
     projectPlacements();
   };
   const previewNumericTransform = (modal: TransformModal | null) => {
-    if (!modal || !numericStartPose || !editSession) return;
+    if (!modal || !editSession) return;
+    if (modal.mode === "scale") {
+      if (!numericStartScale) return;
+      const scale = numericFurnitureScale(numericStartScale, modal);
+      if (scale || modal.numeric === "") {
+        const next = scale ?? numericStartScale;
+        editSession.setScale(next);
+        setViewportScaleDraft(next);
+      }
+      return;
+    }
+    if (!numericStartPose) return;
     if (modal.mode === "translate") editSession.setAxisConstraint(modal.axis);
     const pose = numericFurniturePose(numericStartPose, modal);
     if (pose || modal.numeric === "") {
@@ -120,11 +134,14 @@ export function StudioSelectionWorkspace(
     const id = selectedCanonicalId();
     if (!id || !viewport()) { setActionError("The 3D viewport is not ready for furniture editing."); return; }
     try {
-      editSession = viewport()!.beginFurnitureEdit(props.controller.furniturePlacement(id), setViewportDraft);
+      editSession = viewport()!.beginFurnitureEdit(props.controller.furniturePlacement(id), setViewportDraft,
+        undefined, setViewportScaleDraft);
       editSession.setMode(editMode());
       setEditingFurniture(true);
       if (transformModal()) {
         numericStartPose = props.controller.furniturePose(id);
+        const support = props.controller.furnitureScaleStatus(id);
+        numericStartScale = support.supported ? support.scale : undefined;
         previewNumericTransform(transformModal());
       }
       setActionError("");
@@ -146,7 +163,10 @@ export function StudioSelectionWorkspace(
       else changeHistory(event.shiftKey ? "redo" : "undo");
       return;
     }
-    const step = transformShortcut(transformModal(), event);
+    const selectedId = selectedBuildingRef()?.id;
+    const scaleSupport = selectedId ? props.controller.furnitureScaleStatus(selectedId) : null;
+    const step = transformShortcut(transformModal(), event,
+      editingFurniture() ? scaleSupport?.supported === true : selectedBuildingRef()?.kind === "furniture");
     if (!step.handled) return;
     event.preventDefault(); event.stopPropagation();
     if (step.intent === "unsupported" || step.intent === "message") {
@@ -156,7 +176,7 @@ export function StudioSelectionWorkspace(
     if (step.intent === "begin") {
       const ref = selectedBuildingRef();
       if (!ref || ref.kind !== "furniture") {
-        setTransformMessage("Select an IFC furniture object before using G or R.");
+        setTransformMessage("Select an IFC furniture object before using G, R or S.");
         return;
       }
       if (!viewport()) {
@@ -167,6 +187,8 @@ export function StudioSelectionWorkspace(
       setEditMode(mode);
       if (editingFurniture()) {
         numericStartPose = viewportDraft() ?? props.controller.furniturePose(ref.id);
+        const support = props.controller.furnitureScaleStatus(ref.id);
+        numericStartScale = viewportScaleDraft() ?? (support.supported ? support.scale : undefined);
         editSession?.setMode(mode);
         if (mode === "translate") editSession?.setAxisConstraint(null);
       } else {
@@ -221,7 +243,11 @@ export function StudioSelectionWorkspace(
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
               <button type="button" aria-keyshortcuts="G" title="Move (G)" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); editSession?.setAxisConstraint(null); }}>Move</button>
               <button type="button" aria-keyshortcuts="R" title="Rotate about IFC world Z (R)" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
-              <button type="button" disabled title="Requires IFC geometry editing support; visual-only scaling is forbidden">Scale</button>
+              <button type="button" aria-keyshortcuts="S" aria-pressed={editMode() === "scale"}
+                disabled={!props.controller.furnitureScaleStatus(selectedCanonicalId()!).supported}
+                title={(() => { const support = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
+                  return support.supported ? "Local IFC geometry scale (S)" : support.reason; })()}
+                onClick={() => { setEditMode("scale"); editSession?.setMode("scale"); }}>Scale</button>
             </div>
           }>
             <button type="button" disabled={!viewport()} title={viewport() ? "Manipulate selected furniture with 3D gizmos" : "3D scene is still loading"} onClick={() => { setInspectorOpen(true); setEditRequest((request) => request + 1); }}>Edit transform</button>
@@ -232,7 +258,7 @@ export function StudioSelectionWorkspace(
       </div>
       <Show when={transformModal() || transformMessage()}>
         <div class="teldra-studio-selection-workspace__transform-hint" role="status" aria-live="polite" data-testid="transform-shortcut-status">
-          <Show when={transformModal()}>{modal => <span>{modal().mode === "translate" ? "Move (G)" : "Rotate (R)"} {modal().axis?.toUpperCase() ?? ""} {modal().numeric} · X/Y/Z constrain · Enter apply · Esc cancel</span>}</Show>
+          <Show when={transformModal()}>{modal => <span>{modal().mode === "translate" ? "Move (G)" : modal().mode === "rotate" ? "Rotate (R)" : "Scale (S)"} {modal().axis?.toUpperCase() ?? ""} {modal().numeric} · X/Y/Z constrain · Enter apply · Esc cancel</span>}</Show>
           <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
         </div>
       </Show>
@@ -283,8 +309,11 @@ export function StudioSelectionWorkspace(
         <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
             onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
-            editRequest={editRequest()} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
-            onPreview={(pose) => { if (pose) { editSession?.setPose(pose); setViewportDraft(pose); } else { setViewportDraft(undefined); projectPlacements(); } }} />
+            editMode={editMode()} editRequest={editRequest()} viewportDraft={viewportDraft()} viewportScaleDraft={viewportScaleDraft()}
+            onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
+            onPreview={(pose) => { if (pose) { editSession?.setPose(pose); setViewportDraft(pose); } else { setViewportDraft(undefined); projectPlacements(); } }}
+            onScalePreview={(scale) => { if (scale) { editSession?.setScale(scale); setViewportScaleDraft(scale); } else { setViewportScaleDraft(undefined); projectPlacements(); } }}
+            onScaleUnavailable={reason => setTransformMessage("Scale (S) is not available: " + reason)} />
         </>}</Show>
 
         <section

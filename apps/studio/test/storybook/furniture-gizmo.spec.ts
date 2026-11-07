@@ -25,3 +25,15 @@ test("upright rotation ring stages a world-Z yaw", async ({page}) => {
   await expect(page.getByTestId("gizmo-drag")).toHaveText("ended");
   expect(Math.abs(JSON.parse(await page.getByTestId("gizmo-pose").textContent() ?? "{}").yawRadians)).toBeGreaterThan(.5);
 });
+
+
+test("scale gizmo mode supports local XYZ factors and cancel restores the source", async ({page}) => {
+  await page.goto(story);
+  await expect(page.getByTestId("gizmo-status")).toHaveText("ready");
+  await page.getByRole("button",{name:"Scale",exact:true}).click();
+  await expect(page.getByTestId("gizmo-scale")).toHaveText("1,1,1");
+  await page.getByRole("button",{name:"Set scale XYZ",exact:true}).click();
+  await expect(page.getByTestId("gizmo-scale")).toHaveText("1.5,1,0.75");
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(page.getByTestId("gizmo-scale")).toHaveText("1,1,1");
+});

@@ -1,19 +1,57 @@
 # Browser spatial editing and Pages delivery
 
-Status: implemented for upright IFC4 furniture placement and authored device placement.
+Status: implemented for upright IFC4 furniture placement and authored device placement; IFC4 mapped-instance scale is experimental and type-gated.
 
 The browser edits canonical IFC through `@teldra/application` commands and the pinned
 `@teldra/ifc-edit` web-ifc 0.0.78 adapter. Babylon gizmos expose drafts only. Apply
-commits world-metre XYZ and Z yaw; Cancel restores the committed pose. Scaling,
-wall/topology changes, non-metre IFC, tilted or dependent placement hierarchies are
-rejected or not offered. Source furniture material/geometry remains unchanged.
+commits world-metre XYZ and Z yaw; Cancel restores the committed pose. Arbitrary
+object-mode scaling, wall/topology changes, non-metre IFC, tilted or dependent
+placement hierarchies are rejected. Source materials, representation maps and
+GlobalIds remain unchanged. A restricted mapped-instance geometry scaling path
+is described below.
 
 Studio now exposes an **Edit transform** action in the viewport project toolbar for a selected
 IFC furniture item. It validates the supported IFC4 placement contract before attaching
 Move/Rotate gizmos. The inspector remains the accessible precision-input, snap, Apply and Cancel
-surface. **Scale is not enabled** until an IFC-backed geometry/dimension command and
-validated derived-scene reconciliation exist (tracked in #82). A Babylon-only scale
-preview must not be presented as a saved architectural edit.
+surface. **Scale is enabled only** when the selected furniture has a uniquely owned
+IFC4 Body/MappedRepresentation with one IfcMappedItem and an identity-aligned
+mapping target. Representation-free imported SH3D furniture and unsupported
+parametric IFC types still cannot be scaled. Babylon-only scaling is forbidden.
+
+## IFC4 mapped-instance scale contract (restricted)
+
+For a supported IfcFurniture, scaling writes a fresh
+IfcCartesianTransformationOperator3DnonUniform as the uniquely owned
+IfcMappedItem.MappingTarget. It never changes the shared
+IfcRepresentationMap, source shape geometry, IfcFurniture GlobalId,
+IfC placement hierarchy or unrelated instances. The source and current
+mapping factors are captured in local IFC XYZ coordinates. All values
+must be finite, strictly positive and at most 1000. Nonidentity axes,
+offset mapping origins, shared editable shape chains, missing ShapeRepresentations
+and other representation kinds fail closed.
+
+In Studio, the Scale gizmo and S shortcut control a *disposable preview*.
+Uniform scaling and per-axis X/Y/Z factors are represented in a local-scale
+draft, alongside the pose draft. Enter/Apply sends one application
+command for pose and scale, with one IFC undo/redo snapshot. Cancel leaves
+canonical bytes unchanged; numerical controls remain available for accessibility.
+For simple supported geometry, a per-item affine projection updates the
+unchanged GLB preview. Nonuniform transformations requiring shear that Babylon
+cannot represent are rejected before IFC commit. A future conversion pipeline
+must regenerate GLB derivatives for these cases.
+
+Scene placement reconciliation records with geometry-scale ratios use version
+2 of the derived, hash-bound scene placement record; version 1 is still
+recognized for rigid-only projects. Scale ratios and matrices are validated
+on archive parsing and then cross-checked against authoritative source/current
+IFC geometry during browser opening. The canonical IFC remains authoritative.
+These overrides are projection artifacts, not an alternate representation owner.
+
+This is **not** support for arbitrary IFC solid scaling, wall editing, source
+SH3D visual assets without IFC geometry, multi-item mapped representations,
+rotated mapping origins, tilted placements or dependent hierarchies. Issue #82
+continues to track broader IFC representation authoring, derived-asset
+regeneration, full 21D fixture certification and hardware tests.
 
 Canonical device placement is optional IFC-world metre/Z-up position and a normalized
 quaternion. Device placement is authored data, not a physical smart-home command.
@@ -77,10 +115,9 @@ patterns while keeping IFC authoring authority in application commands.
   or a rotation angle (R → Z → 45 → Enter). **Backspace** corrects numbers.
   **Enter** commits using the IFC application command; **Escape** discards
   the draft. Pointer gizmos and inspector fields synchronize during editing.
-- **S** does not apply a Babylon-only scale: the current IFC placement
-  contract contains no geometry or dimension scaling. Bonsai itself warns
-  against IFC object-mode scaling. Issue #82 specifies IFC-backed scale
-  authoring before any saved scale gizmo is enabled.
+- **S** starts scaling **only** for IFC furniture with a validated per-instance
+  mapped geometry target; incompatible representations remain disabled with an
+  explanation. Bonsai warns against arbitrary IFC object-mode scaling.
 - **MMB** drag orbits, **Shift+MMB** pans, wheel zooms. Left-drag orbit and
   right-drag pan remain supported. Numpad 1/3/7 show front/right/top views,
   5 toggles projection, 2/4/6/8 orbit, Shift+numpad pans, and numpad
