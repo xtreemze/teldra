@@ -57,9 +57,6 @@ jobs:
       - name: Verify assembled Pages application
         run: node tools/site/measure-studio.mjs && node tools/site/assemble-pages.mjs && node tools/site/verify-pages.mjs
 
-      - name: Audit real 21D room materials and UVs
-        run: python3 tools/diagnostics/audit_21d_floor.py
-
       - name: Test
         run: pnpm test
 
@@ -110,6 +107,8 @@ jobs:
         working-directory: python
     steps:
       - uses: actions/checkout@v7
+        with:
+          lfs: true
 
       - uses: astral-sh/setup-uv@v10.2.0
         with:
@@ -133,3 +132,6 @@ jobs:
 
       - name: Test
         run: uv run --locked pytest
+
+      - name: Inspect embedded floor texture images in real 21D
+        run: uv run --locked python ../tools/diagnostics/audit_21d_floor.py
