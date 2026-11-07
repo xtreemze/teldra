@@ -43,7 +43,10 @@ export function touchTransformPose(
   if (mode === "rotate") {
     const a = angle(...current) - angle(...start);
     const raw = Math.atan2(Math.sin(a), Math.cos(a));
-    const delta = snap > 0 ? Math.round(raw / snap) * snap : raw;
+    // The inspector applies snapping to absolute world yaw, not relative
+    // gesture distance. Match its final value to prevent Apply jumps.
+    const delta = Math.abs(raw) < 0.005 ? 0 :
+      snap > 0 ? Math.round((base.yawRadians + raw) / snap) * snap - base.yawRadians : raw;
     return {
       pose: { position: [...base.position] as [number, number, number],
         yawRadians: base.yawRadians + delta },
@@ -52,9 +55,11 @@ export function touchTransformPose(
   }
 
   const metres = (midpoint(...start).y - midpoint(...current).y) / PIXELS_PER_METRE;
-  const delta = snap > 0 ? Math.round(metres / snap) * snap : metres;
   const position: [number, number, number] = [...base.position];
   const index = {x: 0, y: 1, z: 2}[axis];
+  // Match IfcFurnitureEdit's absolute world-position snapping.
+  const delta = Math.abs(metres) < 0.002 ? 0 :
+    snap > 0 ? Math.round((base.position[index]! + metres) / snap) * snap - base.position[index]! : metres;
   position[index] = position[index]! + delta;
   return { pose: {position, yawRadians: base.yawRadians}, delta };
 }
