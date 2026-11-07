@@ -31,7 +31,7 @@ export class StudioProjectController {
   #sourceNominalDimensions = new Map<string, FurnitureSourceDimensions>();
   #dimensionsUnsupported = new Map<string, string>();
   /** Installed only by a loaded renderer that has inspected physical GLB mesh parts. */
-  #affineProjectionValidator?: (canonicalId: string, canonicalDelta: readonly number[]) => void;
+  #affineProjectionValidator: ((canonicalId: string, canonicalDelta: readonly number[]) => void) | undefined;
   #undo: ("twin" | "ifc")[] = [];
   #redo: ("twin" | "ifc")[] = [];
   #revision: number;
