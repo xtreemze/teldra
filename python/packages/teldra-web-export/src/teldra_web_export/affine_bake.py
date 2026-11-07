@@ -165,9 +165,8 @@ def _node_matrices(doc: Mapping[str, Any]) -> list[np.ndarray]:
         children = node.get("children", [])
         if not isinstance(children, list):
             raise WebSceneExportError("Invalid GLB child relationships.")
-        if (
-            any(not isinstance(child, int) for child in children)
-            or len(set(children)) != len(children)
+        if any(not isinstance(child, int) for child in children) or len(set(children)) != len(
+            children
         ):
             raise WebSceneExportError("Invalid GLB node child relationships.")
         for child in children:
