@@ -44,7 +44,7 @@ export interface BabylonClientPoint {
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
-  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number };
+  assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number; floorInspectionMaterials: number; floorUnlitMaterials: number };
   renderStats(): { backend: BabylonBackend; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
@@ -63,8 +63,8 @@ export interface BabylonTwinRuntime {
   fit(canonicalId?: string): boolean;
   resetView(): void;
   fitHome(): boolean;
-  appearance(): {texturesEnabled: boolean; lightGain: number; shadowDetail: number};
-  setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number; shadowDetail?: number}): void;
+  appearance(): {texturesEnabled: boolean; lightGain: number; shadowDetail: number; floorTextureInspection: boolean};
+  setAppearance(settings: {texturesEnabled?: boolean; lightGain?: number; shadowDetail?: number; floorTextureInspection?: boolean}): void;
   load(glbUrl: string): Promise<void>;
   projectNode(nodeKey: string): BabylonClientPoint | null;
   setSelection(canonicalId: string | null): void;
@@ -128,7 +128,9 @@ export async function createBabylonTwinRuntime(
   const loadGate = new OneShotLoad();
   let renderMeshes: AbstractMesh[] = [];
   const lightBases = new Map<import("@babylonjs/core/Lights/light").Light, number>();
-  let texturesEnabled = true, lightGain = 1, shadowDetail = 0;
+  let texturesEnabled = true, lightGain = 1, shadowDetail = 0, floorTextureInspection = false;
+  // Preserve each imported floor material's original renderer-only lighting flag.
+  const floorSourceMaterials = new Map<StandardMaterial, boolean>();
   const materialTextures = new Map<Material, BaseTexture | null>();
 
   let physicalMeshes: AbstractMesh[] = [];
@@ -440,6 +442,8 @@ export async function createBabylonTwinRuntime(
         roomTexturesBound: roomTexturesBound.length,
         roomTexturesReady: roomTexturesBound.filter(mesh =>
           (mesh.material as StandardMaterial).diffuseTexture?.isReady() === true).length,
+        floorInspectionMaterials: floorSourceMaterials.size,
+        floorUnlitMaterials: [...floorSourceMaterials.keys()].filter(material => material.disableLighting).length,
         lightingProfile,
         localLightSources: scene.lights.filter(light=>light.name.startsWith("sh3d-local-")).length,
         meshParts: loadedMeshParts,
@@ -488,8 +492,15 @@ export async function createBabylonTwinRuntime(
       });
       return fitCamera(defaultCamera, home.length ? home : physicalMeshes);
     },
-    appearance: () => ({texturesEnabled, lightGain, shadowDetail}),
+    appearance: () => ({texturesEnabled, lightGain, shadowDetail, floorTextureInspection}),
     setAppearance(settings) {
+      if (settings.floorTextureInspection !== undefined) {
+        floorTextureInspection = settings.floorTextureInspection;
+        for (const [material, original] of floorSourceMaterials) {
+          // View-only inspection; no source color, UV or project mutation.
+          material.disableLighting = floorTextureInspection ? true : original;
+        }
+      }
       if (settings.shadowDetail !== undefined) {
         applyPreviewShadowDetail(scene, settings.shadowDetail);
         shadowDetail = settings.shadowDetail;
@@ -651,6 +662,15 @@ export async function createBabylonTwinRuntime(
           for (const part of batch.parts) batchByPart.set(part.mesh, batch);
           const parts = meshesByCanonicalId.get(identity.canonicalId) ?? [];
           parts.push(batch.mesh); meshesByCanonicalId.set(identity.canonicalId, parts);
+        }
+        // The floor material is explicitly source-bound and textured.
+        // No walls, furniture, or untextured ceilings are affected.
+        for (const [mesh, identity] of stagedIdentities) {
+          if (/^(sh3d:)?room:/.test(identity.canonicalId) &&
+              mesh.material instanceof StandardMaterial && mesh.material.diffuseTexture &&
+              !floorSourceMaterials.has(mesh.material)) {
+            floorSourceMaterials.set(mesh.material, mesh.material.disableLighting);
+          }
         }
         if (hasSourceLighting) {
           previewLight?.dispose();
