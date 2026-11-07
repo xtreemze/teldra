@@ -37,7 +37,7 @@ test("surface identification can be armed without editing the SH3D scene", async
   await page.getByText("Appearance",{exact:true}).click();
   await page.getByRole("button",{name:"Identify visible surface",exact:true}).click();
   await expect(page.getByText("Tap the dark floor once to identify the visible surface.")).toBeVisible();
-  await expect(page.getByRole("button",{name:"Tap a floor to identify it",exact:true})).toBeVisible();
+  await expect(page.getByRole("button",{name:"Identify visible surface",exact:true})).toHaveText("Tap a floor to identify it");
   const status=page.getByTestId("source-asset-summary");
   await expect(status).toContainText('"sourcePhongMaterials":1');
 });
