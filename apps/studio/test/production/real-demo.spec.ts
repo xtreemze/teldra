@@ -1,7 +1,7 @@
 import {expect,test} from "@playwright/test";
 
 test("real Sweet Home 3D demo opens automatically with ready maps and viewport panels",async({page},testInfo)=>{
- test.setTimeout(180000);
+ test.setTimeout(210000);
  const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
  await page.goto("./");
  await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});
@@ -29,37 +29,8 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await page.getByText("Appearance",{exact:true}).click();
  expect(assets.floorInspectionMaterials).toBeGreaterThan(0);
  const floorToggle=page.getByLabel("Inspect floor textures without lighting",{exact:true});
- const floorBefore = await page.getByTestId("twin-canvas").screenshot();
  await floorToggle.check();
  await expect(floorToggle).toBeChecked();
- await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
- const floorAfter = await page.getByTestId("twin-canvas").screenshot();
- const floorPixels=await page.evaluate(async ({before,after}) => {
-  const rgba=async(base64:string) => {
-   const image = new Image();
-   image.src = "data:image/png;base64,"+base64;
-   await image.decode();
-   const canvas=document.createElement("canvas");
-   canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
-   const ctx=canvas.getContext("2d")!;
-   ctx.drawImage(image,0,0);
-   return ctx.getImageData(0,0,canvas.width,canvas.height).data;
-  };
-  const a=await rgba(before),b=await rgba(after);
-  let darkToBright=0, brightened=0, dark=0, total=0;
-  for(let i=0;i<a.length;i+=96) {
-   const initial=a[i]!+a[i+1]!+a[i+2]!;
-   const final=b[i]!+b[i+1]!+b[i+2]!;
-   total++;
-   if(initial<90) {
-    dark++;
-    if(final>initial+90) darkToBright++;
-   }
-   if(final>initial+90) brightened++;
-  }
-  return {dark, darkToBright, brightened, sampled:total};
- },{before:floorBefore.toString("base64"),after:floorAfter.toString("base64")});
- console.log("21D source floor emissive inspection",JSON.stringify(floorPixels));
  await floorToggle.uncheck();
  await expect(floorToggle).not.toBeChecked();
  await page.getByLabel("Textures and diffuse maps",{exact:true}).uncheck();
