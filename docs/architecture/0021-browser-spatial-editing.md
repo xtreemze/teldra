@@ -102,6 +102,57 @@ retain the prior conservative shear restriction. More general IFC solid
 authoring and derived GLB regeneration for these unsupported cases are still
 tracked in issue #82, as are real GPU and mobile hardware certifications.
 
+## Verified static GLB derivative rebaking
+
+Teldra also supplies an **opt-in offline rebaker** for supported static IFC
+furniture/fixture/proxy geometry when the runtime's two-node affine hierarchy
+is insufficient or when a durable, rebaselined derivative is required. It
+does **not** change IFC geometry authoring or silently substitute mesh-only
+scale for a canonical IFC command.
+
+The saved `.teldra` must already contain authoritative IFC changes and a
+hash-bound `teldra/scene-placement-overrides.json` record with its original
+`teldra/scene-source.ifc`. The rebaker independently checks the project
+manifest, original/current IFC SHA-256, original scene GLB SHA-256, scene
+nodeKey/GlobalId identities, and **each** saved local-scale ratio and affine
+matrix against the original/current IFC placements and mapped geometry. Its
+first implementation supports IFC4-owned Body/MappedRepresentation instances
+with unchanged `IfcTriangulatedFaceSet` vertices and indexed triangles,
+identity mapping origins/axes, positive local scale and metre units.
+
+Unlike the live Babylon hierarchy projection, a durable static rebake writes
+new POSITION/NORMAL/TANGENT float32 accessors for selected render parts. Each
+source glTF node is transformed into its own local frame through
+`W⁻¹ × D_scene × W`, where `W` is the saved source node's parent-to-world
+matrix and `D_scene` is the exact IFC-derived global affine delta. Static
+parent chains may contain unrelated objects; only the selected mesh is cloned,
+so unrelated sibling/child mesh geometry is untouched. Indexed triangles,
+TEXCOORDs, source materials, textures, images, node metadata, GlobalIds, and
+the original GLB binary prefix remain unchanged. If a source mesh is shared,
+the selected node receives a separate mesh record. The source GLB stays
+immutable.
+
+The output archive updates the GLB and scene manifest together, with new
+SHA-256 hashes binding both to the **current IFC**. Consumed placement-delta
+and scene-source-IFC files are dropped. Subsequent edits therefore start
+from the rebaked GLB and current IFC as matching scene baselines. It also
+retains `source.sh3d` and unrelated project assets verbatim. The command
+refuses to overwrite an existing destination:
+
+```bash
+cd python
+uv run python ../tools/import/rebake_static_scene.py edited.teldra rebuilt.teldra
+```
+
+Only static packed, indexed triangle data with valid source node world
+matrices qualifies. This path **rejects** animations, skinning, morph targets,
+GPU instancing, compressed/quantized/sparse/interleaved accessors, negative
+or singular transforms, unsupported IFC solids and topology changes. The
+archive pipeline must be explicit and opt-in; the browser Studio continues
+using its verified runtime affine projection and does **not** invoke this
+Python rebaker automatically. Future browser orchestration requires an
+atomic derived-asset transaction and dedicated memory/runtime certification.
+
 ## IFC4 mapped-instance scale contract (restricted)
 
 For a supported IfcFurniture, scaling writes a fresh
