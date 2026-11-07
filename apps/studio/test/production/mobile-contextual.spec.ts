@@ -30,7 +30,10 @@ test("mobile Studio keeps the viewport primary and exposes contextual IFC editin
   await expect(page.getByRole("group", {name: "Touch editing mode"})).toBeVisible();
   await page.getByRole("button", {name: "Numbers", exact: true}).click();
   await expect(page.getByLabel("Position X (m)", {exact: true})).toBeVisible();
-  await page.getByRole("button", {name: "Cancel", exact: true}).click();
+  await page.getByRole("button", {name: "Gestures", exact: true}).click();
+  await expect(page.getByRole("group", {name: "Touch editing mode"})).toBeVisible();
+  await page.getByRole("group", {name: "Touch transform actions"})
+    .getByRole("button", {name: "Cancel", exact: true}).click();
 
   await page.getByRole("button", {name: "Project", exact: true}).click();
   await expect(page.getByRole("group", {name: "Mobile project menu"})).toBeVisible();
