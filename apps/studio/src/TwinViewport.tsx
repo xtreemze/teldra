@@ -100,10 +100,10 @@ export function TwinViewport(props: TwinViewportProps) {
     };
     const touchPoint = (event: PointerEvent) => ({
       pointerId: event.pointerId, x: event.clientX, y: event.clientY,
-      time: performance.now(),
+      time: performance.now(), pointerType: event.pointerType === "pen" ? "pen" as const : "touch" as const,
     });
     const onDown = (event: PointerEvent) => {
-      if (event.pointerType !== "touch" || !enabled() || event.target !== canvas) return;
+      if (!["touch", "pen"].includes(event.pointerType) || !enabled() || event.target !== canvas) return;
       gestures.down(touchPoint(event));
       clearHold();
       if (gestures.activeContacts === 1) {
@@ -114,7 +114,7 @@ export function TwinViewport(props: TwinViewportProps) {
       }
     };
     const onMove = (event: PointerEvent) => {
-      if (event.pointerType !== "touch" || !gestures.activeContacts) return;
+      if (!["touch", "pen"].includes(event.pointerType) || !gestures.activeContacts) return;
       const result = gestures.move(touchPoint(event));
       if (result.cancelHold) clearHold();
       if (result.blockCamera) {
@@ -123,13 +123,13 @@ export function TwinViewport(props: TwinViewportProps) {
       }
     };
     const onUp = (event: PointerEvent) => {
-      if (event.pointerType !== "touch" || !gestures.activeContacts) return;
+      if (!["touch", "pen"].includes(event.pointerType) || !gestures.activeContacts) return;
       const intent = gestures.up(touchPoint(event));
       clearHold();
       handleIntent(intent);
     };
     const onCancel = (event: PointerEvent) => {
-      if (event.pointerType !== "touch") return;
+      if (!["touch", "pen"].includes(event.pointerType)) return;
       gestures.abort(performance.now());
       clearHold();
     };
