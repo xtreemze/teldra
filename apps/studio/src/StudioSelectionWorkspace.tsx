@@ -202,16 +202,8 @@ export function StudioSelectionWorkspace(
     try {
       editSession = viewport()!.beginFurnitureEdit(props.controller.furniturePlacement(id), setViewportDraft,
         undefined, setViewportScaleDraft);
-      if (editMode() === "scale") {
-        // Availability is only authoritative after prepareFurnitureEditing has loaded IFC.
-        const support = props.controller.furnitureScaleStatus(id);
-        if (!support.supported) {
-          setEditMode("translate");
-          editSession.setMode("translate");
-          setTransformMessage("Scale unavailable: " + support.reason + " Move and Rotate remain available.");
-          tactile("error");
-        } else editSession.setMode("scale");
-      } else editSession.setMode(editMode());
+      // IfcFurnitureEdit already rejects unsupported Scale before calling this callback.
+      editSession.setMode(editMode());
       setEditingFurniture(true);
       if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);
       if (transformModal()) {
