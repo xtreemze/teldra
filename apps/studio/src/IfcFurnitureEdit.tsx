@@ -156,7 +156,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const updateMeasured = (index:number,value:number) => {
     const status=measuredStatus(), bounds=props.measuredGeometry;
     if (!status.supported || !bounds) {
-      setInvalidMeasuredIndex(index); setError(status.reason); return;
+      setInvalidMeasuredIndex(index); setError(status.supported ? "Verified triangle geometry is unavailable." : status.reason); return;
     }
     if(!Number.isFinite(value) || value<=0 || value>1000) {
       setInvalidMeasuredIndex(index);
@@ -254,7 +254,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
           </Show>
           <Show when={props.measuredGeometry}>
             {bounds => <Show when={measuredStatus().supported} fallback={
-              <p role="status" class="teldra-studio-selection-workspace__hint">{measuredStatus().reason}</p>
+              <p role="status" class="teldra-studio-selection-workspace__hint">{(() => {const state=measuredStatus();return state.supported ? "" : state.reason;})()}</p>
             }>
               <fieldset class="teldra-ifc-scale-fields teldra-ifc-nominal-dimensions"
                 aria-describedby="teldra-measured-dimensions-description">
