@@ -52,7 +52,14 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  expect(picked).not.toBeNull();
  await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText(picked!);
  await page.screenshot({path:testInfo.outputPath("real-home-desktop.png")});
- await page.setViewportSize({width:390,height:844});await page.reload();
+ expect(errors).toEqual([]);
+});
+
+test("real Sweet Home 3D demo mobile view opens with scene and appearance controls",async({page},testInfo)=>{
+ test.setTimeout(180000);
+ const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
+ await page.setViewportSize({width:390,height:844});
+ await page.goto("./");
  await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});
  await expect(page.getByRole("button",{name:"Scene",exact:true})).toHaveAttribute("aria-expanded","false");
  await page.getByRole("button",{name:"Scene",exact:true}).click();
