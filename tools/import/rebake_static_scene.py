@@ -5,7 +5,7 @@ Usage (from the Teldra Python workspace):
 
 An existing IFC edit and hash-bound placement reconciliation are required.
 This does *not* create or modify an IFC scale command, and is not a generic
-GLB conversion tool. Only static flattened SH3D triangle render parts qualify.
+GLB conversion tool. Static packed triangle parts, including verified parented hierarchies, qualify.
 """
 
 from __future__ import annotations
