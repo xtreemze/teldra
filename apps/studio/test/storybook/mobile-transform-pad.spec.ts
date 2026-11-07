@@ -40,3 +40,17 @@ test("rotation uses two-touch twist without changing the object's dimensions", a
   expect(pose.position).toEqual([1, 2, 3]);
   expect(pose.yawRadians).toBeCloseTo(Math.PI / 2);
 });
+
+test("compact mobile controls reveal touch guidance without changing the pose", async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto("/iframe.html?id=studio-mobiletransformpad--collapsed&viewMode=story");
+  const toggle = page.getByRole("button", {name: /Touch move/});
+  const surface = page.getByRole("group", {name: "Two-finger transform touch area"});
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await expect(surface).toBeHidden();
+  const pose = await page.getByTestId("mobile-transform-pose").textContent();
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(surface).toBeVisible();
+  expect(await page.getByTestId("mobile-transform-pose").textContent()).toEqual(pose);
+});
