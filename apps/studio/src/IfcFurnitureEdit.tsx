@@ -50,9 +50,14 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     try {
       const current = await props.controller.prepareFurnitureEditing(id);
       if (generation === beginGeneration && id === props.canonicalId) {
+        const support = props.controller.furnitureScaleStatus(id);
+        if (props.editMode === "scale" && !support.supported) {
+          setError("Scale unavailable: " + support.reason);
+          props.onEditingChange?.(false);
+          return;
+        }
         loadedId = id;
         setDraft(poseToDraft(current));
-        const support = props.controller.furnitureScaleStatus(id);
         setScaleDraft(support.supported ? [...support.scale] : null);
         setScaleReason(support.supported ? "" : support.reason);
         props.onEditingChange?.(true);
