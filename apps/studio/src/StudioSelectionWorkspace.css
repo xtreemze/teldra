@@ -180,6 +180,17 @@
     box-shadow: 0 .8rem 2rem #0009;
   }
   .teldra-studio-selection-workspace__mobile-project-menu p { margin: .3rem; color: #ffb6a9; }
+  .teldra-studio-selection-workspace__gesture-guide {
+    display: grid;
+    gap: .3rem;
+    border-top: 1px solid #526b78;
+    padding-top: .5rem;
+    color: #dce9ef;
+    font-size: .8rem;
+    line-height: 1.45;
+  }
+  .teldra-studio-selection-workspace__gesture-guide p { margin: .15rem 0; color: inherit; }
+  .teldra-studio-selection-workspace__gesture-guide strong { color: #8ee2d1; }
 
   .teldra-studio-selection-workspace__scene-panel,
   .teldra-studio-selection-workspace__properties {

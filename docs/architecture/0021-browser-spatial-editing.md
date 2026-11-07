@@ -192,3 +192,49 @@ Imported lamp positions follow edits, previews, cancel and undo. Window fill is 
 interactive raster approximation without ray-traced occlusion or calibrated lumens.
 A real-profile probe rendered identical RGB (146,142,132) at camera radii 8 and 40 m.
 Selection has a nonpickable aggregate bounds outline, including while transforming.
+
+## Full-viewport mobile gesture arbitration
+
+The mobile canvas now uses a single deterministic touch recognizer for
+**long-press object actions**, **double-tap framing of the selected object**
+and **three-finger horizontal project history**. It replaces the previous
+workspace-level independent long-press timer. Scene navigation remains
+Babylon-owned: one finger orbits, two fingers pan and pinch-zoom, and the
+runtime's existing pointer-gizmo interface remains available. The editor
+touch surface is still dedicated to IFC Move/Rotate/Scale previews; camera
+gestures never silently become edits.
+
+The recognizer tracks touch/pen pointer IDs, monotonic event times,
+movement thresholds and cancellation. A stationary touch **or pen** long
+press is preserved as an alternative to the visible object menu. Mixed
+pen/touch contacts cannot trigger history. A long press requires one stationary
+contact for at least 480 ms; a double tap requires two brief taps within 320 ms
+and a 28 CSS-pixel spatial threshold, and only frames when the object is
+already selected. Three touches must begin promptly and move coherently
+at least 80 CSS pixels horizontally with limited vertical movement before
+a single undo (left) or redo (right) intent can be emitted. Late fourth
+fingers, interrupted pointers, mixed input and long drags do not dispatch
+history. Multi-touch motion is intercepted before Babylon pointer camera
+handlers **only while three or more tracked touches are active**; pointer
+release still reaches Babylon so existing camera inputs clean up.
+A capture-phase click guard prevents a second tap, multi-finger gesture
+or long-press release from leaking through the renderer's pick listener.
+
+The workspace gates gesture history on the existing project timeline,
+blocks all gestures during IFC editing or a pending modal, and offers
+equivalent Undo/Redo buttons in Project. A mobile Project-menu guide
+lists gestures and their fallbacks. Recognized actions provide visible
+status, capability-checked haptics, and optional synthetic confirmation
+tones. Sound is **off by default** and shared with the isolated two-finger
+transform pad. A single lazy Web Audio context is reused; blocked autoplay,
+missing audio or vibration support, and reduced-motion preferences never
+block editing. These gestures never call Home Assistant command adapters.
+
+Unit and Storybook browser tests verify arbitration, thresholds,
+cancellation, suppression of stray picks, disabled editing behavior and
+the existing camera paths. Browser simulation does **not** certify
+physical three-finger gestures, browser/OS-reserved gestures, iOS Safari,
+Android WebView, TalkBack, VoiceOver, or device vibration. Continue those
+acceptance gates under #72/#90. If a platform reserves three-finger
+history, use the visible Undo/Redo controls rather than intercepting an
+OS accessibility gesture.

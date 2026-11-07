@@ -87,3 +87,41 @@ test("shares canonical selection between viewport and device inspector without d
 
   expect(accessibility.violations).toEqual([]);
 });
+
+test("three-finger gestures use canonical project history and keep numeric editing intact", async ({page}) => {
+  await page.setViewportSize({width: 390, height: 844});
+  await page.goto("/iframe.html?id=studio-selectionworkspace--golden-home&viewMode=story");
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+
+  await page.getByRole("button", {name: "Scene", exact: true}).click();
+  await page.getByRole("list", {name: "Devices", exact: true})
+    .getByRole("button", {name: /Living room floor lamp/}).click();
+  await page.getByRole("group", {name: "Mobile selection actions"})
+    .getByRole("button", {name: "Details"}).click();
+  const name = page.getByRole("textbox", {name: "Device name"});
+  const original = await name.inputValue();
+  await name.fill("Gesture history test");
+  await page.getByRole("button", {name: "Apply name"}).click();
+  await expect(page.getByTestId("canonical-device-name")).toHaveText("Gesture history test");
+
+  const swipe = async (direction: -1 | 1) => {
+    await page.getByTestId("twin-canvas").evaluate((canvas, sign) => {
+      const pointer = (type: string, id: number, x: number) =>
+        canvas.dispatchEvent(new PointerEvent(type, {bubbles: true, cancelable: true,
+          pointerType: "touch", pointerId: id, clientX: x, clientY: 440}));
+      for (const [id, x] of [[1, 125], [2, 195], [3, 265]]) pointer("pointerdown", id, x);
+      for (const [id, x] of [[1, 125], [2, 195], [3, 265]]) pointer("pointermove", id, x + 100 * sign);
+      for (const [id, x] of [[1, 125], [2, 195], [3, 265]]) pointer("pointerup", id, x + 100 * sign);
+    }, direction);
+  };
+  await swipe(-1);
+  await expect(page.getByTestId("canonical-device-name")).toHaveText(original);
+  await expect(page.getByTestId("transform-shortcut-status")).toContainText("Undid");
+  await swipe(1);
+  await expect(page.getByTestId("canonical-device-name")).toHaveText("Gesture history test");
+  await expect(page.getByTestId("transform-shortcut-status")).toContainText("Redid");
+
+  await page.getByRole("button", {name: "Project", exact: true}).click();
+  await page.getByRole("button", {name: "Touch gesture guide"}).click();
+  await expect(page.getByRole("group", {name: "Mobile touch gesture guide"})).toContainText("three fingers");
+});

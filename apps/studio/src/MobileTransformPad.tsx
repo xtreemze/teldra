@@ -2,6 +2,7 @@ import {createEffect, createSignal, onCleanup, Show} from "solid-js";
 import type {FurnitureGeometryScale, FurnitureWorldPose} from "@teldra/application";
 import {touchTransformPose, touchScalePreview, type ScaleAxis, type TouchPoint, type TouchTransformMode, type WorldAxis} from "./mobile-transform";
 import "./MobileTransformPad.css";
+import {signalMobileTone} from "./mobile-feedback";
 
 interface MobileTransformPadProps {
   readonly mode: TouchTransformMode;
@@ -17,6 +18,8 @@ interface MobileTransformPadProps {
   readonly scaleAvailable?: boolean;
   readonly hapticsEnabled?: boolean;
   readonly onHapticsChange?: (enabled: boolean) => void;
+  readonly soundEnabled?: boolean;
+  readonly onSoundChange?: (enabled: boolean) => void;
   readonly startExpanded?: boolean;
 }
 
@@ -30,12 +33,12 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
   const [scaleAxis, setScaleAxis] = createSignal<ScaleAxis>("all");
   const [localHaptics, setLocalHaptics] = createSignal(true);
   const haptics = () => props.hapticsEnabled ?? localHaptics();
-  const [sound, setSound] = createSignal(false);
+  const [localSound, setLocalSound] = createSignal(false);
+  const sound = () => props.soundEnabled ?? localSound();
   const [label, setLabel] = createSignal("Use two fingers in the touch area to preview a transform.");
   const [announcement, setAnnouncement] = createSignal("");
   const [active, setActive] = createSignal(false);
   const [expanded, setExpanded] = createSignal(props.startExpanded ?? false);
-  let audio: AudioContext | undefined;
   let lastCue = 0;
   const contacts = new Map<number, TouchPoint>();
   let gesture: {
@@ -55,21 +58,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     if (haptics()) {
       try { navigator.vibrate?.(8); } catch { /* Unsupported devices remain silent. */ }
     }
-    if (!sound()) return;
-    try {
-      audio ??= new AudioContext();
-      if (audio.state === "suspended") void audio.resume();
-      const oscillator = audio.createOscillator();
-      const gain = audio.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.012, audio.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.045);
-      oscillator.connect(gain);
-      gain.connect(audio.destination);
-      oscillator.start();
-      oscillator.stop(audio.currentTime + 0.05);
-    } catch { /* Web Audio is optional, never an editing requirement. */ }
+    if (sound()) signalMobileTone(frequency, true);
   };
 
   // Switching tools/axes invalidates a gesture's original coordinate frame.
@@ -82,7 +71,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       props.mode === "scale" ? "Pinch with two fingers to scale validated IFC geometry (" + scaleAxis().toUpperCase() + ")." :
       "Slide two fingers vertically to move along world " + axis().toUpperCase() + ".");
   });
-  onCleanup(() => { contacts.clear(); gesture = null; if (audio) void audio.close(); });
+  onCleanup(() => { contacts.clear(); gesture = null; });
 
   const down = (event: PointerEvent) => {
     if (event.pointerType !== "touch") return;
@@ -214,7 +203,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
     </div>
     <Show when={expanded()}><div class="teldra-mobile-transform-pad__feedback">
       <label><input type="checkbox" checked={haptics()} onChange={e => { setLocalHaptics(e.currentTarget.checked); props.onHapticsChange?.(e.currentTarget.checked); }} />Haptics</label>
-      <label><input type="checkbox" checked={sound()} onChange={e => setSound(e.currentTarget.checked)} />Sound</label>
+      <label><input type="checkbox" checked={sound()} onChange={e => { setLocalSound(e.currentTarget.checked); props.onSoundChange?.(e.currentTarget.checked); }} />Sound</label>
       <span>Numeric editing remains available in Inspector</span>
     </div></Show>
     <p class="teldra-mobile-transform-pad__announcement" role="status">{announcement()}</p>

@@ -12,6 +12,7 @@ import type {
 } from "@teldra/runtime-babylon";
 import "./TwinViewport.css";
 import { ViewportControls } from "./ViewportControls";
+import { CanvasGestureArbiter, type CanvasGestureIntent } from "./viewport-touch-gestures";
 
 export interface TwinViewportClientPoint {
   readonly clientX: number;
@@ -38,6 +39,9 @@ export interface TwinViewportProps {
   readonly glbUrl: string;
   readonly onReady?: (handle: TwinViewportHandle) => void;
   readonly onSelect?: (identity: TwinRenderIdentity | null) => void;
+  /** Optional mobile-only, non-IFC canvas gesture intents; handlers own undo/redo gating. */
+  readonly onTouchGesture?: (kind: "menu" | "undo" | "redo" | "frame", identity?: TwinRenderIdentity) => void;
+  readonly gesturesDisabled?: boolean;
 }
 
 export function TwinViewport(props: TwinViewportProps) {
@@ -64,8 +68,103 @@ export function TwinViewport(props: TwinViewportProps) {
     current?.setSelection(id);
   });
 
+
   onMount(() => {
     window.addEventListener("resize", resize);
+
+    // One arbiter for all canvas touches. Babylon owns one/two-finger camera
+    // navigation; three-finger move events are isolated from its pointer input.
+    // Capture-phase click suppression runs ahead of runtime.onPick().
+    const gestures = new CanvasGestureArbiter();
+    let holdTimer: ReturnType<typeof setTimeout> | undefined;
+    const enabled = () => !props.gesturesDisabled &&
+      window.matchMedia("(max-width: 48rem)").matches;
+    const clearHold = () => {
+      if (holdTimer !== undefined) clearTimeout(holdTimer);
+      holdTimer = undefined;
+    };
+    const handleIntent = (intent: CanvasGestureIntent | null) => {
+      if (!intent || !runtime || !enabled()) return;
+      if (!("x" in intent)) {
+        props.onTouchGesture?.(intent.type);
+        return;
+      }
+      const picked = runtime.pick(intent.x, intent.y);
+      if (!picked) return;
+      if (intent.type === "longpress") {
+        props.onTouchGesture?.("menu", picked);
+      } else {
+        // Explicit null means the owner cleared selection. Only undefined
+        // opts into the viewport's internal selection fallback.
+        const selectedId = props.selectedCanonicalId === undefined
+          ? selected()?.canonicalId ?? null : props.selectedCanonicalId;
+        if (picked.canonicalId === selectedId && runtime.fit(picked.canonicalId))
+          props.onTouchGesture?.("frame", picked);
+      }
+    };
+    const touchPoint = (event: PointerEvent) => ({
+      pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+      time: performance.now(), pointerType: event.pointerType === "pen" ? "pen" as const : "touch" as const,
+    });
+    const onDown = (event: PointerEvent) => {
+      if (!["touch", "pen"].includes(event.pointerType) || !enabled() || event.target !== canvas) return;
+      gestures.down(touchPoint(event));
+      clearHold();
+      if (gestures.activeContacts === 1) {
+        holdTimer = setTimeout(() => {
+          holdTimer = undefined;
+          handleIntent(gestures.hold(performance.now()));
+        }, 500);
+      }
+    };
+    const onMove = (event: PointerEvent) => {
+      if (!["touch", "pen"].includes(event.pointerType) || !gestures.activeContacts) return;
+      const result = gestures.move(touchPoint(event));
+      if (result.cancelHold) clearHold();
+      if (result.blockCamera) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    const onUp = (event: PointerEvent) => {
+      if (!["touch", "pen"].includes(event.pointerType) || !gestures.activeContacts) return;
+      const intent = gestures.up(touchPoint(event));
+      clearHold();
+      handleIntent(intent);
+    };
+    const onCancel = (event: PointerEvent) => {
+      if (!["touch", "pen"].includes(event.pointerType)) return;
+      gestures.abort(performance.now());
+      clearHold();
+    };
+    const reset = () => { gestures.abort(performance.now()); clearHold(); };
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== "visible") reset();
+    };
+    const onClickCapture = (event: MouseEvent) => {
+      if (!gestures.suppressClick(performance.now())) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    canvas.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("pointermove", onMove, true);
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onCancel, true);
+    window.addEventListener("blur", reset);
+    window.addEventListener("resize", reset);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    canvas.addEventListener("click", onClickCapture, true);
+    onCleanup(() => {
+      clearHold();
+      canvas.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("pointermove", onMove, true);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onCancel, true);
+      window.removeEventListener("blur", reset);
+      window.removeEventListener("resize", reset);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      canvas.removeEventListener("click", onClickCapture, true);
+    });
 
     void (async () => {
       try {
