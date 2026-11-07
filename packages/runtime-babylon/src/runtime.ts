@@ -112,6 +112,8 @@ export async function createBabylonTwinRuntime(
   });
 
   let defaultCamera: ArcRotateCamera | undefined;
+  // Canvas navigation follows Blender when a middle mouse button is available.
+  let releaseBlenderPointer: (() => void) | undefined;
   let loadedMeshParts = 0;
   let lightingProfile = "preview";
   let previewLight: HemisphericLight | undefined;
@@ -164,7 +166,29 @@ export async function createBabylonTwinRuntime(
     );
     scene.activeCamera = defaultCamera;
     scene.cameraToUseForPointers = defaultCamera;
-    defaultCamera.attachControl(canvas, true);
+    // Keep existing primary-button orbit and secondary-button pan for compatibility.
+    // The middle button orbits; Shift+middle pans, as in Blender.
+    defaultCamera.attachControl(canvas, true, false, 2);
+    const pointers = defaultCamera.inputs.attached.pointers as
+      | { buttons: number[]; panningMouseButton: number }
+      | undefined;
+    if (pointers) {
+      pointers.buttons = [0, 1, 2];
+      const onDown = (event: PointerEvent) => {
+        if (event.button !== 1) return;
+        pointers.panningMouseButton = event.shiftKey ? 1 : 2;
+        event.preventDefault(); // Suppress browser middle-button autoscroll.
+      };
+      const onUp = () => { pointers.panningMouseButton = 2; };
+      canvas.addEventListener("pointerdown", onDown, true);
+      window.addEventListener("pointerup", onUp, true);
+      window.addEventListener("pointercancel", onUp, true);
+      releaseBlenderPointer = () => {
+        canvas.removeEventListener("pointerdown", onDown, true);
+        window.removeEventListener("pointerup", onUp, true);
+        window.removeEventListener("pointercancel", onUp, true);
+      };
+    }
     normalizeCanvasTabOrder();
     defaultCamera.lowerRadiusLimit = 0.01;
     defaultCamera.lowerBetaLimit = 0.001;
@@ -631,6 +655,7 @@ export async function createBabylonTwinRuntime(
       for (const unsubscribe of pickSubscriptions) unsubscribe();
       viewListeners.clear();
       tabIndexObserver.disconnect();
+      releaseBlenderPointer?.();
       furniture.dispose();
       instrumentation.dispose();
       scene.dispose();
