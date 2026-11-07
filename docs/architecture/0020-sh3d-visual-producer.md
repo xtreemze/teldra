@@ -132,3 +132,24 @@ or level. Fitting ignores hidden meshes, and an empty scene safely leaves the
 camera unchanged. Framing selection uses the workspace's canonical selection.
 Camera/layer controls never rewrite IFC placement, twin records, source
 metadata, undo history, project dirty state or physical automation state.
+
+
+### Camera-distance and depth stability
+
+Room textures can naturally lose *fine detail* when viewed from farther away due
+to mipmapping, but their overall material brightness must not collapse to black
+with camera distance. The former near/far policy used `radius/10000` and
+`radius*100` (a 1,000,000:1 range), severely reducing depth precision and
+allowing nearly coplanar surfaces to contend for visibility. The camera now
+uses a conservative depth range based on the bounds of the imported home and
+the live camera radius/position, including wheel/pinch zoom and panning.
+
+On WebGPU the renderer uses reversed-Z depth by default to reduce precision
+loss on distant architectural surfaces. This is engine-level rasterization and
+does not alter model geometry, texture coordinates, source images or lights.
+Diagnostic A/B flags are `?depth=standard` and `?depth=reverse`, and
+`?renderer=webgl` can be combined with either. Runtime render statistics
+expose the near/far clip planes and the reversed-Z state. The current
+renderer may still have exact-overlap or material-specific errors: validate
+against the actual 21D floor at identical poses on Android WebGPU before
+closing the visual-fidelity issue.
