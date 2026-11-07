@@ -2,6 +2,12 @@ import { createEffect, createSignal, For, Show, onMount, onCleanup } from "solid
 import type { FurnitureWorldPose } from "@teldra/application";
 import type { StudioProjectController } from "./StudioProjectController";
 
+export interface FurnitureEditControls {
+  /** Commit exactly the current validated draft through the IFC application command. */
+  apply(): boolean;
+  cancel(): void;
+}
+
 export interface IfcFurnitureEditProps {
   controller: StudioProjectController;
   canonicalId: string;
@@ -12,6 +18,7 @@ export interface IfcFurnitureEditProps {
   onPreview?: (pose: FurnitureWorldPose | null) => void;
   onSnapChange?: (metres: number, radians: number) => void;
   onEditingChange?: (editing: boolean) => void;
+  onControlsReady?: (controls: FurnitureEditControls | null) => void;
   viewportDraft?: FurnitureWorldPose | undefined;
 }
 /** A draft is visual only until Apply issues the IFC-aware application command. */
@@ -23,6 +30,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const [rotationSnap, setRotationSnap] = createSignal(0);
   let loadedId: string | null = null;
   let lastHandledEditRequest = 0;
+  let beginGeneration = 0;
   const poseToDraft = (pose: FurnitureWorldPose) => [...pose.position, pose.yawRadians * 180 / Math.PI];
   const pose = (): FurnitureWorldPose | null => {
     const v = draft(); if (!v || !v.every(Number.isFinite) || !Number.isFinite(snap()) || snap() < 0 || !Number.isFinite(rotationSnap()) || rotationSnap() < 0) return null;
@@ -32,12 +40,26 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   };
   const begin = async () => {
     if (busy() || loadedId !== null) return;
-    const id = props.canonicalId; setBusy(true); setError("");
-    try { const current = await props.controller.prepareFurnitureEditing(id); if (id === props.canonicalId) { loadedId = id; setDraft(poseToDraft(current)); props.onEditingChange?.(true); updateSnapping(); } }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
-    finally { setBusy(false); }
+    const id = props.canonicalId, generation = ++beginGeneration;
+    setBusy(true); setError("");
+    try {
+      const current = await props.controller.prepareFurnitureEditing(id);
+      if (generation === beginGeneration && id === props.canonicalId) {
+        loadedId = id;
+        setDraft(poseToDraft(current));
+        props.onEditingChange?.(true);
+        updateSnapping();
+      }
+    } catch (err) {
+      if (generation === beginGeneration) setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (generation === beginGeneration) setBusy(false);
+    }
   };
-  const cancel = () => { setDraft(null); loadedId = null; props.onPreview?.(null); props.onEditingChange?.(false); setError(""); };
+  const cancel = () => {
+    ++beginGeneration; setBusy(false); setDraft(null); loadedId = null;
+    props.onPreview?.(null); props.onEditingChange?.(false); setError("");
+  };
   createEffect(() => {
     const request = props.editRequest ?? 0;
     if (request === 0) { lastHandledEditRequest = 0; return; }
@@ -56,14 +78,28 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   onMount(() => {
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && loadedId) { event.preventDefault(); cancel(); } };
     window.addEventListener("keydown", escape);
-    onCleanup(() => window.removeEventListener("keydown", escape));
+    props.onControlsReady?.({apply: applyDraft, cancel});
+    onCleanup(() => {
+      ++beginGeneration;
+      window.removeEventListener("keydown", escape);
+      props.onControlsReady?.(null);
+    });
   });
-  const apply = (event: SubmitEvent) => {
-    event.preventDefault(); const next = pose();
-    if (!next || loadedId !== props.canonicalId) { setError("Enter finite position, rotation and snap values."); return; }
-    try { props.controller.placeFurniture(props.canonicalId, next); props.onPreview?.(null); setDraft(null); loadedId = null; props.onEditingChange?.(false); setError(""); props.onChange?.(); }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+  const applyDraft = (): boolean => {
+    const next = pose();
+    if (!next || loadedId !== props.canonicalId) {
+      setError("Enter finite position, rotation and snap values."); return false;
+    }
+    try {
+      props.controller.placeFurniture(props.canonicalId, next);
+      props.onPreview?.(null); setDraft(null); loadedId = null;
+      props.onEditingChange?.(false); setError(""); props.onChange?.();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err)); return false;
+    }
   };
+  const apply = (event: SubmitEvent) => { event.preventDefault(); applyDraft(); };
   return <section aria-label="Furniture placement">
     <h3>Furniture placement</h3>
     <p>Position uses IFC world metres, Z up. Rotation is about Z.</p>
