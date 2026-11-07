@@ -75,17 +75,17 @@ export function TwinViewport(props: TwinViewportProps) {
     };
     const handleIntent = (intent: CanvasGestureIntent | null) => {
       if (!intent || !runtime || !enabled()) return;
-      if (intent.type === "undo" || intent.type === "redo") {
+      if (!("x" in intent)) {
         props.onTouchGesture?.(intent.type);
-      } else {
-        const picked = runtime.pick(intent.x, intent.y);
-        if (!picked) return;
-        if (intent.type === "longpress") {
-          props.onTouchGesture?.("menu", picked);
-        } else if (picked.canonicalId === (props.selectedCanonicalId ?? selected()?.canonicalId) &&
-          runtime.fit(picked.canonicalId)) {
-          props.onTouchGesture?.("frame", picked);
-        }
+        return;
+      }
+      const picked = runtime.pick(intent.x, intent.y);
+      if (!picked) return;
+      if (intent.type === "longpress") {
+        props.onTouchGesture?.("menu", picked);
+      } else if (picked.canonicalId === (props.selectedCanonicalId ?? selected()?.canonicalId) &&
+        runtime.fit(picked.canonicalId)) {
+        props.onTouchGesture?.("frame", picked);
       }
     };
     const touchPoint = (event: PointerEvent) => ({
