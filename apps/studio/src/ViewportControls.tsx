@@ -9,6 +9,28 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   const [appearance, setAppearance] = createSignal(props.runtime.appearance());
   const [message, setMessage] = createSignal("");
   const [mobileViewOpen, setMobileViewOpen] = createSignal(false);
+  const [probeArmed, setProbeArmed] = createSignal(false);
+  const [surfaceProbe, setSurfaceProbe] = createSignal<ReturnType<BabylonTwinRuntime["inspectSurfaceAt"]>>(null);
+  const armSurfaceProbe = () => {
+    setProbeArmed(true);
+    setMobileViewOpen(false);
+    setMessage("Tap the dark floor once to identify the visible surface.");
+  };
+  const surfaceProbeDetails = () => {
+    const p=surfaceProbe();
+    return p ? [
+      `Object: ${p.canonicalId ?? "(unmapped)"}`,
+      `Mesh: ${p.mesh}`,
+      `Material: ${p.material ?? "(none)"} (${p.materialType ?? "unknown"})`,
+      `Image: ${p.texture ?? "(no texture)"}; ready: ${p.textureReady}`,
+      `Sampler: ${p.samplingMode ?? "none"}; anisotropy: ${p.anisotropy ?? "none"}`,
+      `UV: ${p.uv?.join(", ") ?? "unavailable"}`,
+      `Distance: ${p.distanceMetres} m`,
+      `Diffuse: ${p.diffuseRgb?.join(", ") ?? "unavailable"}`,
+      `Source Kd: ${p.originalKd?.join(", ") ?? "unavailable"}`,
+      `Normal: ${p.worldNormal?.join(", ") ?? "unavailable"}`,
+    ].join("\n") : "";
+  };
   const orient = (direction: ViewDirection) => props.runtime.orient(direction);
   const fit = (selection = false) => setMessage(props.runtime.fit(selection ? props.selectedId : undefined)
     ? (selection ? "Selection framed" : "Visible scene framed") : "No visible geometry to frame");
@@ -40,8 +62,25 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       else return;
       event.preventDefault();
     };
+    // Use pointer-up rather than click: mobile browsers may suppress synthetic
+    // clicks after canvas gestures. This never changes selection or source data.
+    const onProbePointer = (event: PointerEvent) => {
+      if (!probeArmed() || !event.isPrimary ||
+          (event.pointerType === "mouse" && event.button !== 0)) return;
+      const picked = props.runtime.inspectSurfaceAt(event.clientX, event.clientY);
+      setSurfaceProbe(picked);
+      setProbeArmed(false);
+      setMessage(picked
+        ? `Surface: ${picked.canonicalId ?? picked.mesh}; ${picked.texture ?? "no texture"}; ${picked.distanceMetres} m`
+        : "No visible surface at the selected point.");
+    };
     props.canvas.addEventListener("keydown", keydown);
-    onCleanup(() => { unsubscribe(); props.canvas.removeEventListener("keydown", keydown); });
+    props.canvas.addEventListener("pointerup", onProbePointer, true);
+    onCleanup(() => {
+      unsubscribe();
+      props.canvas.removeEventListener("keydown", keydown);
+      props.canvas.removeEventListener("pointerup", onProbePointer, true);
+    });
   });
   return <div class="teldra-view-controls">
     <div class="teldra-view-controls__bar" role="group" aria-label="Camera controls">
@@ -99,6 +138,12 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>
       <label><input type="checkbox" aria-label="Inspect floor textures without lighting" disabled={!appearance().texturesEnabled} checked={appearance().floorTextureInspection}
         onChange={event => {props.runtime.setAppearance({floorTextureInspection:event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Inspect floor textures (unlit)</label>
+      <button type="button" aria-label="Identify visible surface" onClick={armSurfaceProbe}>
+        {probeArmed() ? "Tap a floor to identify it" : "Identify visible surface"}
+      </button>
+      <Show when={surfaceProbe()}>
+        <output data-testid="surface-probe-desktop" aria-label="Identified surface" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{surfaceProbeDetails()}</output>
+      </Show>
       <label>Floor texture minification
         <select aria-label="Floor texture minification" value={appearance().floorMinification} onChange={event=>{
           props.runtime.setAppearance({floorMinification:event.currentTarget.value as "source"|"anisotropic"|"base-level"});
@@ -154,6 +199,12 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
                 disabled={!appearance().texturesEnabled} checked={appearance().floorTextureInspection} onChange={event => {
                   props.runtime.setAppearance({floorTextureInspection:event.currentTarget.checked});setAppearance(props.runtime.appearance());
                 }} />Inspect floor textures (unlit)</label>
+              <button type="button" aria-label="Mobile identify visible surface" onClick={armSurfaceProbe}>
+                {probeArmed() ? "Tap a floor to identify it" : "Identify visible surface"}
+              </button>
+              <Show when={surfaceProbe()}>
+                <output data-testid="surface-probe-mobile" aria-label="Mobile identified surface" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{surfaceProbeDetails()}</output>
+              </Show>
               <label>Floor texture minification
                 <select aria-label="Mobile floor texture minification" value={appearance().floorMinification} onChange={event=>{
                   props.runtime.setAppearance({floorMinification:event.currentTarget.value as "source"|"anisotropic"|"base-level"});
