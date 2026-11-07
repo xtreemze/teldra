@@ -53,6 +53,8 @@ export interface BabylonTwinRuntime {
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
   /** Exact indexed triangle extents in the original IFC local axes. */
   measureFurnitureGeometry(canonicalId: string, original: FurnitureWorldPose): FurnitureMeasuredBounds;
+  /** Pure preflight: no canonical IFC change or scene mutation. */
+  assertFurnitureAffineProjectable(canonicalId: string, canonicalDelta: readonly number[]): void;
   beginFurnitureEdit(placement: FurniturePlacement, onPreview: (pose: FurnitureWorldPose) => void,
     onDragState?: (dragging: boolean) => void, onScalePreview?: (scale: import("./furniture-gizmo.js").GeometryScale) => void): FurnitureEditSession;
   setHiddenSourceContentVisible(visible: boolean): void;
@@ -405,6 +407,9 @@ export async function createBabylonTwinRuntime(
     },
     measureFurnitureGeometry(canonicalId, original) {
       return furniture.measureSourceGeometry(canonicalId, original);
+    },
+    assertFurnitureAffineProjectable(canonicalId, canonicalDelta) {
+      furniture.assertAffineProjectable(canonicalId, canonicalDelta);
     },
     applyScenePlacements(placements) {
       for (const placement of placements) {
