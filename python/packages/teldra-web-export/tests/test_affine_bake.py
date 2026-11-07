@@ -61,7 +61,9 @@ def _values(doc, binary, accessor_index: int) -> np.ndarray:
     size = {"VEC3": 3, "VEC2": 2, "VEC4": 4, "SCALAR": 1}[accessor["type"]]
     dtype = {5126: "<f4", 5125: "<u4", 5123: "<u2"}[accessor["componentType"]]
     offset = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
-    return np.frombuffer(binary, dtype=dtype, count=accessor["count"] * size, offset=offset).reshape(
+    return np.frombuffer(
+        binary, dtype=dtype, count=accessor["count"] * size, offset=offset
+    ).reshape(
         (-1, size)
     )
 
