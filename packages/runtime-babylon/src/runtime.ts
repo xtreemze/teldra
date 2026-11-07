@@ -22,6 +22,7 @@ import { sourceMaterialProjection } from "./source-material.js";
 import { applyPreviewShadowDetail, SH3D_EDITING_SHADOW_DETAIL } from "./preview-shadow-detail.js";
 import { FloorTextureInspector } from "./floor-texture-inspector.js";
 import { FloorMinificationInspector, type FloorMinificationMode } from "./floor-minification-inspector.js";
+import { describeSurfacePick, type SurfaceProbe } from "./surface-probe.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
@@ -71,6 +72,7 @@ export interface BabylonTwinRuntime {
   projectNode(nodeKey: string): BabylonClientPoint | null;
   setSelection(canonicalId: string | null): void;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
+  inspectSurfaceAt(clientX: number, clientY: number): SurfaceProbe | null;
   onPick(listener: (identity: TwinRenderIdentity | null) => void): () => void;
   start(): void;
   stop(): void;
@@ -734,6 +736,18 @@ export async function createBabylonTwinRuntime(
     setSelection(canonicalId){selectionId=canonicalId;},
     pick(clientX: number, clientY: number): TwinRenderIdentity | null {
       return pickAtClient(clientX, clientY);
+    },
+    inspectSurfaceAt(clientX: number, clientY: number): SurfaceProbe | null {
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left, y = clientY - rect.top;
+      if (rect.width <= 0 || rect.height <= 0 || x < 0 || y < 0 ||
+          x >= rect.width || y >= rect.height) return null;
+      // Do not filter by identity: a non-source overlay may be exactly the
+      // surface obscuring a valid textured room floor.
+      const hit = scene.pick(x, y,
+        mesh => isMeshInteractable(mesh) && mesh.getTotalVertices() > 0,
+        false, scene.cameraToUseForPointers ?? undefined);
+      return describeSurfacePick(hit, resolvePickedMesh(hit?.pickedMesh, hit?.faceId));
     },
 
     onPick(listener): () => void {
