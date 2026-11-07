@@ -159,6 +159,55 @@ def test_rejects_stale_hash_bad_identity_and_unsupported_static_geometry(tmp_pat
     assert source == (tmp_path / "scene.glb").read_bytes()
 
 
+def test_parented_cross_identity_geometry_is_rebaked_in_its_local_frame(tmp_path):
+    source, manifest = scene(tmp_path)
+    doc, bin_data = _source_chunks(source)
+    # The chair and unrelated table share a transformed parent. Rebaking must
+    # preserve parent transforms and move only the chair's triangle vertices.
+    q = np.sin(np.pi / 4)
+    parent = {
+        "name": "shared-parent",
+        "translation": [1, 2, 3],
+        "rotation": [0, 0, q, q],
+        "children": [0, 1],
+    }
+    doc["nodes"].append(parent)
+    doc["scenes"][0]["nodes"] = [2]
+    encoded = json.dumps(doc, separators=(",", ":")).encode()
+    encoded += b" " * (-len(encoded) % 4)
+    body = struct.pack("<II", len(encoded), 0x4E4F534A) + encoded
+    body += struct.pack("<II", len(bin_data), 0x004E4942) + bin_data
+    original = struct.pack("<4sII", b"glTF", 2, len(body) + 12) + body
+    manifest["scene"]["assetSha256"] = hashlib.sha256(original).hexdigest()
+    result = bake_static_furniture_glb(original, manifest, [_placement(AFFINE)])
+    output, binary = _source_chunks(result.glb)
+    assert output["nodes"][2] == parent
+    assert output["nodes"][1] == doc["nodes"][1]
+    assert output["meshes"][1] == doc["meshes"][1]
+    before = _values(doc, bin_data, doc["meshes"][0]["primitives"][0]["attributes"]["POSITION"])
+    after = _values(
+        output, binary,
+        output["meshes"][output["nodes"][0]["mesh"]]["primitives"][0]["attributes"]["POSITION"],
+    )
+    frame = np.eye(4)
+    frame[:3, :3] = [
+        [0, -1, 0],
+        [1, 0, 0],
+        [0, 0, 1],
+    ]
+    frame[:3, 3] = [1, 2, 3]
+    canonical_to_scene = np.array(
+        [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]
+    )
+    delta = np.asarray(AFFINE).reshape(4, 4, order="F")
+    delta_scene = canonical_to_scene @ delta @ np.linalg.inv(canonical_to_scene)
+    for old, new in zip(before, after, strict=True):
+        source_world = frame @ np.array([*old, 1])
+        expected_world = delta_scene @ source_world
+        actual_world = frame @ np.array([*new, 1])
+        assert actual_world == pytest.approx(expected_world, abs=2e-6)
+
+
 def test_rejects_parented_mesh_animations_and_broken_accessors(tmp_path):
     source, manifest = scene(tmp_path)
     old, binary = _source_chunks(source)
@@ -178,7 +227,9 @@ def test_rejects_parented_mesh_animations_and_broken_accessors(tmp_path):
 
     bad_cases = (
         lambda d: d["nodes"][0].update(translation=[1, 0, 0]),
-        lambda d: d["nodes"][0].update(children=[1]),
+        lambda d: d["nodes"][0].update(children=[0]),
+        lambda d: d["nodes"][0].update(matrix=[1] * 16, translation=[1, 0, 0]),
+        lambda d: d["nodes"][0].update(scale=[-1, 1, 1]),
         lambda d: d.update(animations=[{"channels": [], "samplers": []}]),
         lambda d: d["meshes"][0]["primitives"][0].update(mode=1),
         lambda d: d["accessors"][0].update(sparse={"count": 1}),
