@@ -76,7 +76,7 @@ export class CanvasGestureArbiter {
       return {blockCamera: false, cancelHold: true};
     }
     if (this.contacts.size >= 3) {
-      if (this.session === "three" && !this.historyDirection) {
+      if (this.session === "three") {
         const all = [...this.contacts.values()];
         const dx = all.reduce((sum, v) => sum + v.x - v.startX, 0) / 3;
         const dy = all.reduce((sum, v) => sum + v.y - v.startY, 0) / 3;
@@ -86,6 +86,10 @@ export class CanvasGestureArbiter {
         if (p.time - youngest <= SWIPE_MS && Math.abs(dx) >= SWIPE_X &&
           Math.abs(dy) <= SWIPE_Y && Math.abs(dx) > 1.6 * Math.abs(dy) && consistent) {
           this.historyDirection = dx < 0 ? "undo" : "redo";
+        } else {
+          // A reversed, vertical or dispersed swipe loses its candidate.
+          // Do not commit a command based on an earlier transient direction.
+          this.historyDirection = null;
         }
       }
       return {blockCamera: true, cancelHold: true};
@@ -109,6 +113,10 @@ export class CanvasGestureArbiter {
     if (!c) return null;
     c.x = p.x; c.y = p.y;
     let intent: CanvasGestureIntent | null = null;
+    if (this.session === "three" && this.contacts.size === 3) {
+      // Re-evaluate the *release* positions before accepting history.
+      this.move(p);
+    }
     if (this.session === "three" && this.contacts.size === 3 && this.historyDirection) {
       intent = {type: this.historyDirection};
       this.session = "blocked";
