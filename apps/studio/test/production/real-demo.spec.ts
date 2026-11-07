@@ -16,6 +16,9 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  expect(assets.roomTexturedParts).toBe(13);
  expect(assets.roomTexturesBound).toBe(13);
  expect(assets.roomTexturesReady).toBe(13);
+ // The 21D export contains exactly coplanar ground/background surfaces; these
+ // must not render on top of textured SH3D floors after view-layer batching.
+ expect(assets.activeGroundMeshes).toBe(0);
  const canvas=(await page.getByTestId("twin-canvas").boundingBox())!;
  expect(canvas.width).toBeGreaterThan(1400); expect(canvas.height).toBeGreaterThan(900);
  for(const role of ["Project actions","Camera controls","3D orientation gizmo"]){
