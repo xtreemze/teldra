@@ -7,6 +7,7 @@ import type { Scene } from "@babylonjs/core/scene";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import type { Node } from "@babylonjs/core/node";
 import { factorUprightFurnitureMatrix } from "./affine-furniture.js";
+import { measureFurnitureTriangleBounds, type FurnitureMeasuredBounds } from "./furniture-bounds.js";
 
 /** IFC world metres, right-handed Z-up. This is an edit draft, not canonical state. */
 export interface FurnitureWorldPose { position: readonly [number, number, number]; yawRadians: number }
@@ -86,6 +87,7 @@ export function furnitureSceneDelta(canonicalToScene: Matrix, original: Furnitur
 
 export class FurnitureGizmoBridge {
   private readonly baseWorld = new Map<AbstractMesh, Matrix>();
+  private readonly sourceMeasurements = new Map<string, FurnitureMeasuredBounds>();
   private readonly affineGroups = new Map<string, {
     root: TransformNode; pre: TransformNode;
     parentByMesh: Map<AbstractMesh, Node | null>;
@@ -94,6 +96,16 @@ export class FurnitureGizmoBridge {
   private manager: GizmoManager | undefined;
   constructor(private readonly scene: Scene, private readonly canonicalToScene: Matrix,
     private readonly meshesForId: (id: string) => AbstractMesh[]) {}
+
+  measureSourceGeometry(canonicalId: string, original: FurnitureWorldPose): FurnitureMeasuredBounds {
+    const cached = this.sourceMeasurements.get(canonicalId);
+    if (cached) return cached;
+    validateFrame(this.canonicalToScene);
+    const parts = this.meshesForId(canonicalId);
+    const measured = measureFurnitureTriangleBounds(parts, this.canonicalToScene, original, this.baseWorld);
+    this.sourceMeasurements.set(canonicalId, measured);
+    return measured;
+  }
 
   apply(placement: FurniturePlacement): void {
     const ratio: GeometryScale = placement.sourceScale && placement.currentScale
@@ -379,5 +391,6 @@ export class FurnitureGizmoBridge {
     this.active?.cancel();
     for (const [id, group] of this.affineGroups) this.dropAffineGroup(id, group);
     this.baseWorld.clear();
+    this.sourceMeasurements.clear();
   }
 }
