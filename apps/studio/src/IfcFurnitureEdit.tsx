@@ -1,5 +1,6 @@
 import { createEffect, createSignal, For, Show, onMount, onCleanup } from "solid-js";
 import type { FurnitureGeometryScale, FurnitureWorldPose } from "@teldra/application";
+import type { FurnitureMeasuredBounds } from "@teldra/runtime-babylon";
 import type { StudioProjectController } from "./StudioProjectController";
 
 export interface FurnitureEditControls {
@@ -19,6 +20,9 @@ export interface IfcFurnitureEditProps {
   onScalePreview?: (scale: FurnitureGeometryScale | null) => void;
   onScaleUnavailable?: (reason: string) => void;
   viewportScaleDraft?: FurnitureGeometryScale | undefined;
+  /** Verified original GLB triangle bounds in source IFC local XYZ, not SH3D provenance. */
+  measuredGeometry?: FurnitureMeasuredBounds | null | undefined;
+  measuredGeometryError?: string | undefined;
   editMode?: "translate" | "rotate" | "scale";
   onSnapChange?: (metres: number, radians: number) => void;
   onEditingChange?: (editing: boolean) => void;
@@ -31,6 +35,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const [scaleDraft, setScaleDraft] = createSignal<number[] | null>(null);
   const [scaleReason, setScaleReason] = createSignal("");
   const [invalidDimensionIndex, setInvalidDimensionIndex] = createSignal<number | null>(null);
+  const [invalidMeasuredIndex, setInvalidMeasuredIndex] = createSignal<number | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [snap, setSnap] = createSignal(0);
@@ -60,7 +65,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
           return;
         }
         loadedId = id;
-        setInvalidDimensionIndex(null);
+        setInvalidDimensionIndex(null); setInvalidMeasuredIndex(null);
         setDraft(poseToDraft(current));
         setScaleDraft(support.supported ? [...support.scale] : null);
         setScaleReason(support.supported ? "" : support.reason);
@@ -74,7 +79,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     }
   };
   const cancel = () => {
-    ++beginGeneration; setBusy(false); setDraft(null); setScaleDraft(null); setInvalidDimensionIndex(null); loadedId = null;
+    ++beginGeneration; setBusy(false); setDraft(null); setScaleDraft(null); setInvalidDimensionIndex(null); setInvalidMeasuredIndex(null); loadedId = null;
     props.onPreview?.(null); props.onScalePreview?.(null);
     props.onEditingChange?.(false); setError("");
   };
@@ -103,7 +108,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     if (!next) return;
     setScaleDraft(next);
     if (next.every(v => Number.isFinite(v) && v > 0 && v <= 1000)) {
-      try { props.onScalePreview?.(next as [number,number,number]); setInvalidDimensionIndex(null); setError(""); }
+      try { props.onScalePreview?.(next as [number,number,number]); setInvalidDimensionIndex(null); setInvalidMeasuredIndex(null); setError(""); }
       catch (err) {
         setScaleDraft(prior);
         setError(err instanceof Error ? err.message : String(err));
@@ -132,11 +137,41 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
       // properties remain immutable and Apply still creates one IFC command.
       props.onScalePreview?.(scale);
       setScaleDraft([...scale]);
-      setInvalidDimensionIndex(null);
+      setInvalidDimensionIndex(null); setInvalidMeasuredIndex(null);
       setError("");
     } catch (error) {
       setInvalidDimensionIndex(index);
       setError(error instanceof Error ? error.message : String(error));
+    }
+  };
+  const measuredStatus = () => {
+    const bounds = props.measuredGeometry;
+    const scale = scaleDraft();
+    if (!bounds) return {supported:false as const,reason:props.measuredGeometryError ?? "Verified triangle extents unavailable."};
+    if (!scale || scale.length!==3 || scale.some(v=>!Number.isFinite(v) || v<=0 || v>1000))
+      return {supported:false as const,reason:"Enter valid IFC scale factors first."};
+    return props.controller.furnitureMeasuredSizeStatus(props.canonicalId,bounds.size,
+      scale as [number,number,number]);
+  };
+  const updateMeasured = (index:number,value:number) => {
+    const status=measuredStatus(), bounds=props.measuredGeometry;
+    if (!status.supported || !bounds) {
+      setInvalidMeasuredIndex(index); setError(status.reason); return;
+    }
+    if(!Number.isFinite(value) || value<=0 || value>1000) {
+      setInvalidMeasuredIndex(index);
+      setError("Measured local-axis extents must be finite, positive and no greater than 1000 metres.");
+      return;
+    }
+    try {
+      const requested=[...status.current] as [number,number,number];
+      requested[index]=value;
+      const scale=props.controller.furnitureScaleForMeasuredSize(props.canonicalId,bounds.size,requested);
+      props.onScalePreview?.(scale);
+      setScaleDraft([...scale]);setInvalidMeasuredIndex(null);setInvalidDimensionIndex(null);setError("");
+    } catch(error) {
+      setInvalidMeasuredIndex(index);
+      setError(error instanceof Error?error.message:String(error));
     }
   };
   const updateSnapping = () => {
@@ -154,8 +189,8 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     });
   });
   const applyDraft = (): boolean => {
-    if (invalidDimensionIndex() !== null) {
-      setError("Correct the invalid nominal dimension before applying the IFC edit.");
+    if (invalidDimensionIndex() !== null || invalidMeasuredIndex() !== null) {
+      setError("Correct the invalid nominal or measured dimension before applying the IFC edit.");
       return false;
     }
     const next = pose();
@@ -216,6 +251,35 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
                   changes only the IFC mapped-instance scale, not the original source dimensions or mesh.
                 </p>
               </fieldset>
+          </Show>
+          <Show when={props.measuredGeometry}>
+            {bounds => <Show when={measuredStatus().supported} fallback={
+              <p role="status" class="teldra-studio-selection-workspace__hint">{measuredStatus().reason}</p>
+            }>
+              <fieldset class="teldra-ifc-scale-fields teldra-ifc-nominal-dimensions"
+                aria-describedby="teldra-measured-dimensions-description">
+                <legend>Measured triangle extents (IFC local metres)</legend>
+                <For each={["Measured width (m)", "Measured depth (m)", "Measured height (m)"]}>{(label,index)=>
+                  <label>{label}
+                    <input type="number" min="0.000001" max="1000" step="any"
+                      aria-invalid={invalidMeasuredIndex()===index()}
+                      value={(() => {const status=measuredStatus();
+                        return status.supported?Number(status.current[index()]!.toPrecision(12)):undefined;})()}
+                      onChange={event=>updateMeasured(index(),event.currentTarget.valueAsNumber)} />
+                  </label>
+                }</For>
+                <p id="teldra-measured-dimensions-description" class="teldra-studio-selection-workspace__hint">
+                  Actual indexed triangles in the object's original local IFC axes:
+                  {bounds().triangles.toLocaleString()} triangles, {bounds().meshParts} render parts.
+                  Extents are not a minimum-volume bounding box or the SH3D nominal sizes.
+                </p>
+              </fieldset>
+            </Show>}
+          </Show>
+          <Show when={!props.measuredGeometry && props.measuredGeometryError}>
+            <p class="teldra-studio-selection-workspace__hint">
+              Measured triangle extents unavailable: {props.measuredGeometryError}
+            </p>
           </Show>
         </Show>
         <button type="submit">Apply placement</button><button type="button" onClick={cancel}>Cancel</button>
