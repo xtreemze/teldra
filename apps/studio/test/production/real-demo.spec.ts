@@ -33,11 +33,12 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await expect(view.getByRole("button",{name:"Top",exact:true})).toBeVisible();
  await view.getByText("Layers",{exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ const mobileCanvas=(await page.getByTestId("twin-canvas").boundingBox())!;
  const viewButton=(await page.getByRole("button",{name:"View",exact:true}).boundingBox())!;
  const visibility=(await page.getByText("Show hidden source content",{exact:true}).boundingBox())!;
- expect(viewButton.x).toBeGreaterThanOrEqual(canvas.x);
- expect(viewButton.x+viewButton.width).toBeLessThanOrEqual(canvas.x+canvas.width+1);
- expect(visibility.x+visibility.width).toBeLessThanOrEqual(canvas.x+canvas.width+1);
+ expect(viewButton.x).toBeGreaterThanOrEqual(mobileCanvas.x);
+ expect(viewButton.x+viewButton.width).toBeLessThanOrEqual(mobileCanvas.x+mobileCanvas.width+1);
+ expect(visibility.x+visibility.width).toBeLessThanOrEqual(mobileCanvas.x+mobileCanvas.width+1);
  await page.screenshot({path:testInfo.outputPath("real-home-mobile.png")});
  expect(errors).toEqual([]);
 });
