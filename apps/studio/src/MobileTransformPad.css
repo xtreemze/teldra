@@ -1,0 +1,94 @@
+.teldra-mobile-transform-pad { display: none; }
+
+/* Reserved, explicit touch area; it never competes with Babylon camera/gizmo events. */
+@media (max-width: 48rem) {
+  .teldra-mobile-transform-pad {
+    display: grid;
+    position: absolute;
+    z-index: 18;
+    right: max(.5rem, env(safe-area-inset-right));
+    bottom: max(1.75rem, env(safe-area-inset-bottom));
+    width: min(20rem, calc(100% - 1rem));
+    gap: .4rem;
+    padding: .6rem;
+    border: 1px solid #547080;
+    border-radius: .8rem;
+    background: #14222def;
+    color: #e7edf4;
+    box-shadow: 0 .55rem 2rem #0008;
+    backdrop-filter: blur(12px);
+    font: .78rem/1.4 var(--teldra-font-body, system-ui, sans-serif);
+  }
+  .teldra-mobile-transform-pad__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .5rem;
+  }
+  .teldra-mobile-transform-pad__header span,
+  .teldra-mobile-transform-pad__feedback span,
+  .teldra-mobile-transform-pad__axis-label {
+    color: #b8c8d2;
+    font-size: .71rem;
+  }
+  .teldra-mobile-transform-pad__axis-label { margin: 0; }
+  .teldra-mobile-transform-pad__axes { display: flex; gap: .4rem; }
+  .teldra-mobile-transform-pad__axes button {
+    flex: 1;
+    min-height: 2.75rem;
+    padding: .3rem;
+    border: 1px solid #526b7a;
+    border-radius: .45rem;
+    background: #253a49;
+    color: #e7edf4;
+    font: inherit;
+    font-weight: 700;
+  }
+  .teldra-mobile-transform-pad__axes button[aria-pressed="true"] {
+    border-color: #81dccb;
+    background: #22514e;
+  }
+  .teldra-mobile-transform-pad :focus-visible { outline: 3px solid #7de0d0; outline-offset: 2px; }
+  .teldra-mobile-transform-pad__surface {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    min-height: 7.8rem;
+    gap: .35rem;
+    padding: .65rem;
+    border: 1px dashed #628598;
+    border-radius: .6rem;
+    background: #213542;
+    text-align: center;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    overscroll-behavior: contain;
+  }
+  .teldra-mobile-transform-pad__surface.is-active {
+    border: 1px solid #81dccb;
+    background: #21483f;
+    box-shadow: inset 0 0 0 1px #81dccb;
+  }
+  .teldra-mobile-transform-pad__contact { font-size: 1.4rem; color: #81dccb; }
+  .teldra-mobile-transform-pad__surface output { max-width: 100%; overflow-wrap: anywhere; }
+  .teldra-mobile-transform-pad__feedback {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .45rem .75rem;
+  }
+  .teldra-mobile-transform-pad__feedback label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.4rem;
+    gap: .35rem;
+  }
+  .teldra-mobile-transform-pad__feedback input { width: 1.1rem; height: 1.1rem; accent-color: #81dccb; }
+  .teldra-mobile-transform-pad__announcement { margin: 0; font-size: .72rem; color: #b8c8d2; }
+  .teldra-mobile-transform-pad__announcement:empty { display: none; }
+}
+@media (max-width: 48rem) and (max-height: 35rem) {
+  .teldra-mobile-transform-pad { bottom: .25rem; width: min(17rem, calc(100% - 1rem)); }
+  .teldra-mobile-transform-pad__surface { min-height: 4.6rem; }
+}
