@@ -107,7 +107,7 @@ export function StudioSelectionWorkspace(
   };
   const previewNumericTransform = (modal: TransformModal | null) => {
     if (!modal || !numericStartPose || !editSession) return;
-    editSession.setAxisConstraint(modal.mode === "translate" ? modal.axis : null);
+    if (modal.mode === "translate") editSession.setAxisConstraint(modal.axis);
     const pose = numericFurniturePose(numericStartPose, modal);
     if (pose || modal.numeric === "") {
       const next = pose ?? numericStartPose;
@@ -168,7 +168,7 @@ export function StudioSelectionWorkspace(
       if (editingFurniture()) {
         numericStartPose = viewportDraft() ?? props.controller.furniturePose(ref.id);
         editSession?.setMode(mode);
-        editSession?.setAxisConstraint(null);
+        if (mode === "translate") editSession?.setAxisConstraint(null);
       } else {
         setInspectorOpen(true);
         setEditRequest((request) => request + 1);
@@ -220,7 +220,7 @@ export function StudioSelectionWorkspace(
           <Show when={!editingFurniture()} fallback={
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
               <button type="button" aria-keyshortcuts="G" title="Move (G)" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); editSession?.setAxisConstraint(null); }}>Move</button>
-              <button type="button" aria-keyshortcuts="R" title="Rotate about IFC world Z (R)" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); editSession?.setAxisConstraint(null); }}>Rotate</button>
+              <button type="button" aria-keyshortcuts="R" title="Rotate about IFC world Z (R)" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
               <button type="button" disabled title="Requires IFC geometry editing support; visual-only scaling is forbidden">Scale</button>
             </div>
           }>
