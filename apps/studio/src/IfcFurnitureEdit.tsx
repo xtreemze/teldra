@@ -94,11 +94,17 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   createEffect(() => { const scale = props.viewportScaleDraft; if (scale && loadedId === props.canonicalId) setScaleDraft([...scale]); });
   const update = (index: number, value: number) => { setDraft((old) => old?.map((n, i) => i === index ? value : n) ?? null); const next = pose(); if (next) props.onPreview?.(next); };
   const updateScale = (index: number, value: number) => {
-    const next = scaleDraft()?.map((v, i) => i === index ? value : v);
+    const prior = scaleDraft();
+    const next = prior?.map((v, i) => i === index ? value : v);
     if (!next) return;
     setScaleDraft(next);
-    if (next.every(v => Number.isFinite(v) && v > 0 && v <= 1000))
-      props.onScalePreview?.(next as [number, number, number]);
+    if (next.every(v => Number.isFinite(v) && v > 0 && v <= 1000)) {
+      try { props.onScalePreview?.(next as [number,number,number]); setError(""); }
+      catch (err) {
+        setScaleDraft(prior);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }
   };
   const updateSnapping = () => {
     if ([snap(), rotationSnap()].every(value => Number.isFinite(value) && value >= 0))
