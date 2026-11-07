@@ -6,6 +6,7 @@ import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit
 import { transformShortcut, numericFurniturePose, numericFurnitureScale, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
+import { signalMobileFeedback } from "./mobile-feedback";
 import { MobileTransformPad } from "./MobileTransformPad";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
@@ -28,10 +29,18 @@ export function StudioSelectionWorkspace(
 ) {
   const [selectionVersion, setSelectionVersion] = createSignal(0);
   const [sceneOpen, setSceneOpen] = createSignal(typeof window === "undefined" || !window.matchMedia("(max-width: 48rem)").matches);
-  const [inspectorOpen, setInspectorOpen] = createSignal(Boolean(props.controller.selectedCanonicalId));
+  const [inspectorOpen, setInspectorOpen] = createSignal(
+    Boolean(props.controller.selectedCanonicalId) &&
+    (typeof window === "undefined" || !window.matchMedia("(max-width: 48rem)").matches),
+  );
   const [search, setSearch] = createSignal("");
   const [saving, setSaving] = createSignal(false);
   const [actionError, setActionError] = createSignal("");
+  const [mobileProjectOpen, setMobileProjectOpen] = createSignal(false);
+  const [mobileContextOpen, setMobileContextOpen] = createSignal(false);
+  const [mobileHapticsEnabled, setMobileHapticsEnabled] = createSignal(true);
+  const tactile = (kind: "select" | "menu" | "edit" | "applied" | "error") =>
+    signalMobileFeedback(kind, mobileHapticsEnabled());
   const [viewport, setViewport] = createSignal<TwinViewportHandle>();
   const [viewportDraft, setViewportDraft] = createSignal<FurnitureWorldPose>();
   const [viewportScaleDraft, setViewportScaleDraft] = createSignal<FurnitureGeometryScale>();
@@ -67,9 +76,20 @@ export function StudioSelectionWorkspace(
   };
 
   const selectCanonicalId = (canonicalId: string | null) => {
-    if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); setEditMode("translate"); }
+    // An onPick fired when the held pointer is released must not close its menu.
+    if (canonicalId === props.controller.selectedCanonicalId && mobileContextOpen()) return;
+    if (canonicalId !== props.controller.selectedCanonicalId) { stopFurnitureEdit(); setEditRequest(0); }
     props.controller.selectCanonicalId(canonicalId);
-    if (canonicalId !== null) {setInspectorOpen(true); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}
+    if (canonicalId !== null) {
+      if (window.matchMedia("(max-width: 48rem)").matches) {
+        setSceneOpen(false);
+        setInspectorOpen(false);
+      } else {
+        setInspectorOpen(true);
+      }
+      tactile("select");
+    }
+    setMobileContextOpen(false);
     refreshSelection();
   };
 
@@ -170,6 +190,7 @@ export function StudioSelectionWorkspace(
         undefined, setViewportScaleDraft);
       editSession.setMode(editMode());
       setEditingFurniture(true);
+      if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);
       if (transformModal()) {
         numericStartPose = props.controller.furniturePose(id);
         const support = props.controller.furnitureScaleStatus(id);
@@ -178,6 +199,27 @@ export function StudioSelectionWorkspace(
       }
       setActionError("");
     } catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
+  };
+  const startMobileFurnitureEdit = (mode: "translate" | "rotate" | "scale") => {
+    if (selectedBuildingRef()?.kind !== "furniture" || !viewport()) return;
+    setEditMode(mode);
+    setMobileContextOpen(false);
+    setMobileProjectOpen(false);
+    setSceneOpen(false);
+    setInspectorOpen(true);
+    if (editingFurniture()) {
+      editSession?.setMode(mode);
+      if (mode === "translate") editSession?.setAxisConstraint(null);
+    } else {
+      setEditRequest((request) => request + 1);
+    }
+    tactile("edit");
+  };
+  const openMobileContext = () => {
+    if (!selectedCanonicalId() || editingFurniture()) return;
+    setMobileProjectOpen(false);
+    setMobileContextOpen(true);
+    tactile("menu");
   };
   createEffect(() => { selectionVersion(); viewport(); projectPlacements(); });
   const keydown = (event: KeyboardEvent) => {
@@ -257,12 +299,76 @@ export function StudioSelectionWorkspace(
   };
   onMount(() => {
     window.addEventListener("keydown", keydown, true);
-    onCleanup(() => window.removeEventListener("keydown", keydown, true));
+
+    // Hold is an alternative to the visible object-action menu, not a unique command.
+    // Motion, multi-touch, or active IFC gizmos must never trigger a contextual action.
+    let pending: {pointerId: number; x: number; y: number} | null = null;
+    let holdTimer: ReturnType<typeof setTimeout> | undefined;
+    const cancelHold = () => {
+      if (holdTimer !== undefined) clearTimeout(holdTimer);
+      holdTimer = undefined;
+      pending = null;
+    };
+    const pointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
+      // Any second pointer converts the gesture to navigation, not long press.
+      if (pending) cancelHold();
+      if (!window.matchMedia("(max-width: 48rem)").matches ||
+          !event.isPrimary || event.button !== 0 || editingFurniture() ||
+          !(event.target instanceof HTMLCanvasElement) ||
+          !event.target.classList.contains("teldra-twin-viewport__canvas")) return;
+      cancelHold();
+      pending = {pointerId: event.pointerId, x: event.clientX, y: event.clientY};
+      holdTimer = setTimeout(() => {
+        const point = pending;
+        cancelHold();
+        if (!point || editingFurniture()) return;
+        const hit = viewport()?.pick(point.x, point.y);
+        if (!hit) return;
+        selectRenderIdentity(hit);
+        openMobileContext();
+      }, 480);
+    };
+    const pointerMove = (event: PointerEvent) => {
+      if (pending && (event.pointerId !== pending.pointerId ||
+          Math.hypot(event.clientX - pending.x, event.clientY - pending.y) > 10)) cancelHold();
+    };
+    workspaceRoot.addEventListener("pointerdown", pointerDown, true);
+    workspaceRoot.addEventListener("pointermove", pointerMove, true);
+    workspaceRoot.addEventListener("pointerup", cancelHold, true);
+    workspaceRoot.addEventListener("pointercancel", cancelHold, true);
+    onCleanup(() => {
+      window.removeEventListener("keydown", keydown, true);
+      workspaceRoot.removeEventListener("pointerdown", pointerDown, true);
+      workspaceRoot.removeEventListener("pointermove", pointerMove, true);
+      workspaceRoot.removeEventListener("pointerup", cancelHold, true);
+      workspaceRoot.removeEventListener("pointercancel", cancelHold, true);
+      cancelHold();
+    });
   });
   onCleanup(stopFurnitureEdit);
 
   return (
     <div ref={workspaceRoot} class="teldra-studio-selection-workspace">
+      <div class="teldra-studio-selection-workspace__mobile-header" role="group" aria-label="Mobile Studio navigation">
+        <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel"
+          disabled={editingFurniture()} title={editingFurniture() ? "Apply or cancel the active transform first" : "Browse the scene"}
+          onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}>Scene</button>
+        <output aria-live="polite">{dirty() ? "Unsaved changes" : "Saved"}</output>
+        <Show when={editingFurniture()}><button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel"
+          onClick={() => setInspectorOpen(!inspectorOpen())}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
+        <button type="button" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
+          onClick={() => {setMobileProjectOpen(!mobileProjectOpen()); setMobileContextOpen(false);}}>Project</button>
+      </div>
+      <Show when={mobileProjectOpen()}>
+        <div id="teldra-mobile-project-menu" class="teldra-studio-selection-workspace__mobile-project-menu" role="group" aria-label="Mobile project menu">
+          <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => {changeHistory("undo");setMobileProjectOpen(false);}}>Undo</button>
+          <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
+          <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+          <button type="button" aria-pressed={mobileHapticsEnabled()} onClick={() => setMobileHapticsEnabled(!mobileHapticsEnabled())}>Haptics {mobileHapticsEnabled() ? "on" : "off"}</button>
+          <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
+        </div>
+      </Show>
       <div class="teldra-studio-selection-workspace__project-actions" role="group" aria-label="Project actions">
         <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}>Scene</button>
         <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}>Inspector</button>
@@ -294,7 +400,33 @@ export function StudioSelectionWorkspace(
           <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
         </div>
       </Show>
-      <Show when={editingFurniture() && selectedBuildingRef()?.kind === "furniture"}>
+      <Show when={selectedCanonicalId() && !sceneOpen() && !inspectorOpen() && !editingFurniture()}>
+        <div class="teldra-studio-selection-workspace__mobile-selection" role="group" aria-label="Mobile selection actions">
+          <div class="teldra-studio-selection-workspace__mobile-selection-label">
+            <strong>{selectedDevice()?.name ?? selectedBuildingRef()?.name ?? selectedBuildingRef()?.kind ?? "Selected object"}</strong>
+            <small>{selectedDevice() ? "Device" : selectedBuildingRef()?.kind ?? "Building object"}</small>
+          </div>
+          <Show when={selectedBuildingRef()?.kind === "furniture"}>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
+          </Show>
+          <button type="button" onClick={() => {setInspectorOpen(true);setMobileContextOpen(false);}}>Details</button>
+          <button type="button" aria-label="More object actions" aria-expanded={mobileContextOpen()} onClick={openMobileContext}>···</button>
+        </div>
+      </Show>
+      <Show when={mobileContextOpen() && selectedCanonicalId()}>
+        <div class="teldra-studio-selection-workspace__mobile-context" role="group" aria-label="Selected object actions">
+          <strong>{selectedDevice()?.name ?? selectedBuildingRef()?.name ?? "Selected object"}</strong>
+          <button type="button" onClick={() => {setInspectorOpen(true);setMobileContextOpen(false);}}>Details</button>
+          <Show when={selectedBuildingRef()?.kind === "furniture"}>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
+            <button type="button" onClick={() => startMobileFurnitureEdit("scale")}>Scale</button>
+          </Show>
+          <button type="button" onClick={() => setMobileContextOpen(false)}>Close menu</button>
+        </div>
+      </Show>
+      <Show when={editingFurniture() && selectedBuildingRef()?.kind === "furniture" && !inspectorOpen()}>
         <MobileTransformPad mode={editMode()}
           pose={() => viewportDraft() ?? props.controller.furniturePose(selectedCanonicalId()!)}
           scale={() => viewportScaleDraft() ?? (() => {
@@ -303,6 +435,21 @@ export function StudioSelectionWorkspace(
           })()}
           translationSnap={translationSnap()} rotationSnap={rotationSnap()}
           onPreview={previewTouchTransform} onScalePreview={previewTouchScale}
+          hapticsEnabled={mobileHapticsEnabled()} onHapticsChange={setMobileHapticsEnabled}
+          scaleAvailable={(() => {
+            const selected = selectedCanonicalId();
+            return selected ? props.controller.furnitureScaleStatus(selected).supported : false;
+          })()}
+          onModeChange={mode => {
+            if (mode === "scale") {
+              const state = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
+              if (!state.supported) { setActionError(state.reason); tactile("error"); return; }
+            }
+            setEditMode(mode);
+            editSession?.setMode(mode);
+            if (mode === "translate") editSession?.setAxisConstraint(null);
+            tactile("edit");
+          }}
           onApply={applyTouchTransform} onCancel={cancelTouchTransform} />
       </Show>
       <section class="teldra-studio-selection-workspace__viewport">
@@ -332,6 +479,7 @@ export function StudioSelectionWorkspace(
                     type="button"
                     aria-pressed={selectedCanonicalId() === device.id}
                     onClick={() => selectCanonicalId(device.id)}
+                    onContextMenu={(event) => {if (!window.matchMedia("(max-width: 48rem)").matches) return;event.preventDefault();selectCanonicalId(device.id);openMobileContext();}}
                   >
                     <span>{device.name}</span>
                     <code>{device.id}</code>
@@ -343,14 +491,14 @@ export function StudioSelectionWorkspace(
           <Show when={devices().length === 0}><p class="teldra-studio-selection-workspace__hint">No matching devices.</p></Show>
           <h3>Building <span class="teldra-studio-selection-workspace__count">{buildingRefs().length}</span></h3>
           <ul class="teldra-studio-selection-workspace__device-list" aria-label="Building objects">
-            <For each={buildingRefs()}>{(ref) => <li><button type="button" aria-pressed={selectedCanonicalId() === ref.id} onClick={() => selectCanonicalId(ref.id)}><span>{ref.name ?? ref.kind}</span><small>{ref.kind}</small></button></li>}</For>
+            <For each={buildingRefs()}>{(ref) => <li><button type="button" aria-pressed={selectedCanonicalId() === ref.id} onClick={() => selectCanonicalId(ref.id)} onContextMenu={(event) => {if (!window.matchMedia("(max-width: 48rem)").matches) return;event.preventDefault();selectCanonicalId(ref.id);openMobileContext();}}><span>{ref.name ?? ref.kind}</span><small>{ref.kind}</small></button></li>}</For>
           </ul>
           <Show when={buildingRefs().length === 0}><p class="teldra-studio-selection-workspace__hint">No matching building items.</p></Show>
         </section>
 
         <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}>
         <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
-          <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
+          <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={() => {refreshSelection(); tactile("applied");}}
             onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
             editMode={editMode()} editRequest={editRequest()} viewportDraft={viewportDraft()} viewportScaleDraft={viewportScaleDraft()}
             onSnapChange={(metres, radians) => { setTranslationSnap(metres); setRotationSnap(radians); editSession?.setSnap(metres, radians); }}

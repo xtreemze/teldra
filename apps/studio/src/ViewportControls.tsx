@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onMount } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { BabylonTwinRuntime, ViewDirection, ViewState } from "@teldra/runtime-babylon";
 
 export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HTMLCanvasElement; selectedId?: string | undefined}) {
@@ -8,6 +8,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   const directions = ["+x", "-x", "+y", "-y", "+z", "-z"] as const;
   const [appearance, setAppearance] = createSignal(props.runtime.appearance());
   const [message, setMessage] = createSignal("");
+  const [mobileViewOpen, setMobileViewOpen] = createSignal(false);
   const orient = (direction: ViewDirection) => props.runtime.orient(direction);
   const fit = (selection = false) => setMessage(props.runtime.fit(selection ? props.selectedId : undefined)
     ? (selection ? "Selection framed" : "Visible scene framed") : "No visible geometry to frame");
@@ -100,6 +101,50 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
       <p>Source materials, UV maps and source-preview lighting. Adjustments affect this view only.</p>
     </div></details>
+    <div class="teldra-view-controls__mobile">
+      <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
+        onClick={() => setMobileViewOpen(!mobileViewOpen())}>View</button>
+      <Show when={mobileViewOpen()}>
+        <div id="teldra-mobile-view-settings" role="group" aria-label="Mobile view settings" class="teldra-view-controls__mobile-sheet">
+          <strong>Camera</strong>
+          <div class="teldra-view-controls__mobile-grid">
+            <button type="button" onClick={() => fit()}>Fit scene</button>
+            <button type="button" disabled={!props.selectedId} onClick={() => fit(true)}>Fit selection</button>
+            <button type="button" onClick={() => orient("isometric")}>Isometric</button>
+            <button type="button" onClick={() => orient("+y")}>Top</button>
+            <button type="button" onClick={() => orient("-z")}>Front</button>
+            <button type="button" onClick={() => orient("+x")}>Right</button>
+          </div>
+          <label>Projection
+            <select aria-label="Mobile camera projection" value={view()?.projection ?? "perspective"}
+              onChange={event => props.runtime.setProjection(event.currentTarget.value as "perspective" | "orthographic")}>
+              <option value="perspective">Perspective</option>
+              <option value="orthographic">Orthographic</option>
+            </select>
+          </label>
+          <details>
+            <summary>Layers</summary>
+            <div class="teldra-view-controls__mobile-layers">
+              <For each={layerDefinitions}>{layer => <label>
+                <input type="checkbox" checked={layers().find(current => current.id === layer.id)?.visible ?? true}
+                  onChange={event => {props.runtime.setLayerVisible(layer.id, event.currentTarget.checked);setLayers(props.runtime.layers());}} />
+                {layer.label}
+              </label>}</For>
+            </div>
+          </details>
+          <details>
+            <summary>Appearance</summary>
+            <div class="teldra-view-controls__mobile-layers">
+              <label><input type="checkbox" checked={appearance().texturesEnabled}
+                onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures</label>
+              <label>Light intensity <input aria-label="Mobile light intensity" type="range" min="0.25" max="2" step="0.05"
+                value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
+            </div>
+          </details>
+          <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>
+        </div>
+      </Show>
+    </div>
     <output class="teldra-view-controls__announcement" aria-live="polite">{message()}</output>
     <output class="teldra-view-controls__diagnostic" data-testid="camera-state" aria-hidden="true">{JSON.stringify(view())}</output>
   </div>;

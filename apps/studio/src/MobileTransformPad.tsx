@@ -13,6 +13,10 @@ interface MobileTransformPadProps {
   readonly onScalePreview: (scale: FurnitureGeometryScale) => void;
   readonly onApply: () => void;
   readonly onCancel: () => void;
+  readonly onModeChange?: (mode: TouchTransformMode) => void;
+  readonly scaleAvailable?: boolean;
+  readonly hapticsEnabled?: boolean;
+  readonly onHapticsChange?: (enabled: boolean) => void;
   readonly startExpanded?: boolean;
 }
 
@@ -24,7 +28,8 @@ interface MobileTransformPadProps {
 export function MobileTransformPad(props: MobileTransformPadProps) {
   const [axis, setAxis] = createSignal<WorldAxis>("x");
   const [scaleAxis, setScaleAxis] = createSignal<ScaleAxis>("all");
-  const [haptics, setHaptics] = createSignal(true);
+  const [localHaptics, setLocalHaptics] = createSignal(true);
+  const haptics = () => props.hapticsEnabled ?? localHaptics();
   const [sound, setSound] = createSignal(false);
   const [label, setLabel] = createSignal("Use two fingers in the touch area to preview a transform.");
   const [announcement, setAnnouncement] = createSignal("");
@@ -169,6 +174,17 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       </button>
       <span>{props.mode === "rotate" ? "Two-finger twist" : props.mode === "scale" ? "Two-finger pinch" : "Two-finger axis slide"} · Preview</span>
     </div>
+    <Show when={props.onModeChange}>
+      <div class="teldra-mobile-transform-pad__modes" role="group" aria-label="Touch editing mode">
+        {(["translate", "rotate", "scale"] as const).map(mode =>
+          <button type="button" aria-pressed={props.mode === mode}
+            disabled={mode === "scale" && !props.scaleAvailable}
+            title={mode === "scale" && !props.scaleAvailable ? "This furniture has no supported IFC mapped geometry scale" : undefined}
+            onClick={() => props.onModeChange?.(mode)}>
+            {mode === "translate" ? "Move" : mode === "rotate" ? "Rotate" : "Scale"}
+          </button>)}
+      </div>
+    </Show>
     <div id="teldra-mobile-transform-details" class="teldra-mobile-transform-pad__details" hidden={!expanded()}>
     <Show when={props.mode === "translate"} fallback={
       <Show when={props.mode === "scale"} fallback={<p class="teldra-mobile-transform-pad__axis-label">World Z rotation only</p>}>
@@ -197,7 +213,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       <button type="button" onClick={() => { cue(320); props.onCancel(); }}>Cancel</button>
     </div>
     <Show when={expanded()}><div class="teldra-mobile-transform-pad__feedback">
-      <label><input type="checkbox" checked={haptics()} onChange={e => setHaptics(e.currentTarget.checked)} />Haptics</label>
+      <label><input type="checkbox" checked={haptics()} onChange={e => { setLocalHaptics(e.currentTarget.checked); props.onHapticsChange?.(e.currentTarget.checked); }} />Haptics</label>
       <label><input type="checkbox" checked={sound()} onChange={e => setSound(e.currentTarget.checked)} />Sound</label>
       <span>Numeric editing remains available in Inspector</span>
     </div></Show>

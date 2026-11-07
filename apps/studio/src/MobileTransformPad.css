@@ -44,7 +44,24 @@
     font-size: .71rem;
   }
   .teldra-mobile-transform-pad__axis-label { margin: 0; }
-  .teldra-mobile-transform-pad__axes { display: flex; gap: .4rem; }
+  .teldra-mobile-transform-pad__modes { display: flex; gap: .4rem; }
+  .teldra-mobile-transform-pad__modes button {
+    flex: 1;
+    min-width: 0;
+    min-height: 2.75rem;
+    border: 1px solid #526b7a;
+    border-radius: .45rem;
+    background: #253a49;
+    color: #e7edf4;
+    font: inherit;
+    font-weight: 650;
+  }
+  .teldra-mobile-transform-pad__modes button[aria-pressed="true"] {
+    border-color: #81dccb;
+    background: #22514e;
+  }
+  .teldra-mobile-transform-pad__modes button:disabled { opacity: .45; }
+    .teldra-mobile-transform-pad__axes { display: flex; gap: .4rem; }
   .teldra-mobile-transform-pad__axes button {
     flex: 1;
     min-height: 2.75rem;
