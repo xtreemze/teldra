@@ -115,5 +115,6 @@ function MobileGestureHarness() {
 }
 
 export const TouchGestureArbitration: Story = {
+  args: {manifest, glbUrl: "/fixtures/twin-pick.glb"},
   render: () => <MobileGestureHarness />,
 };
