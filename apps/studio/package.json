@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node ../../tools/site/prepare-home-demo.mjs && vite",
-    "build": "node ../../tools/site/prepare-home-demo.mjs && vite build",
+    "dev": "node ../../tools/site/prepare-home-demo.mjs && node ../../tools/site/generate-pwa-icons.mjs && vite",
+    "build": "node ../../tools/site/prepare-home-demo.mjs && node ../../tools/site/generate-pwa-icons.mjs && vite build && node ../../tools/site/generate-pwa-sw.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "storybook": "storybook dev -p 6006",
