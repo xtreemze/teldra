@@ -104,5 +104,12 @@ describe("immutable source-authored SH3D dimensions", () => {
     expect(duplicated).not.toBe(raw);
     expect(() => readFurnitureSourceDimensions(api, code.encode(duplicated), guid))
       .toThrow(/Duplicate source provenance property/);
+    const shared = raw.replace(
+      "(#149),#155);",
+      "(#149,#167),#155);",
+    );
+    expect(shared).not.toBe(raw);
+    expect(() => readFurnitureSourceDimensions(api, code.encode(shared), guid))
+      .toThrow(/Shared SH3D source provenance/);
   });
 });
