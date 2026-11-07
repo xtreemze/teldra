@@ -16,6 +16,7 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  expect(assets.roomTexturedParts).toBe(13);
  expect(assets.roomTexturesBound).toBe(13);
  expect(assets.roomTexturesReady).toBe(13);
+ expect(assets.floorTextureSamplerCount).toBe(3);
  // The 21D export contains exactly coplanar ground/background surfaces; these
  // must not render on top of textured SH3D floors after view-layer batching.
  expect(assets.activeGroundMeshes).toBe(0);
@@ -28,6 +29,14 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  }
  await page.getByText("Appearance",{exact:true}).click();
  expect(assets.floorInspectionMaterials).toBeGreaterThan(0);
+ const sampler = page.getByLabel("Floor texture minification",{exact:true});
+ await expect(sampler).toHaveValue("source");
+ await sampler.selectOption("base-level");
+ await expect(sampler).toHaveValue("base-level");
+ await sampler.selectOption("anisotropic");
+ await expect(sampler).toHaveValue("anisotropic");
+ await sampler.selectOption("source");
+ await expect(sampler).toHaveValue("source");
  const floorToggle=page.getByLabel("Inspect floor textures without lighting",{exact:true});
  await floorToggle.check();
  await expect(floorToggle).toBeChecked();
@@ -72,6 +81,13 @@ test("real Sweet Home 3D demo mobile view opens with scene and appearance contro
  await page.getByRole("button",{name:"View",exact:true}).click();
  const view=page.getByRole("group",{name:"Mobile view settings"});
  await expect(view.getByRole("button",{name:"Top",exact:true})).toBeVisible();
+ await view.getByText("Appearance",{exact:true}).click();
+ const mobileSampler=page.getByLabel("Mobile floor texture minification",{exact:true});
+ await expect(mobileSampler).toHaveValue("source");
+ await mobileSampler.selectOption("anisotropic");
+ await expect(mobileSampler).toHaveValue("anisotropic");
+ await mobileSampler.selectOption("source");
+ await view.getByText("Appearance",{exact:true}).click();
  await view.getByText("Layers",{exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  const mobileCanvas=(await page.getByTestId("twin-canvas").boundingBox())!;
