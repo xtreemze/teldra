@@ -37,6 +37,15 @@ describe("canvas gesture arbitration", () => {
     expect(g.suppressClick(140)).toBe(true);
   });
 
+  it("rechecks movement on release so a reversed swipe never commits stale history", () => {
+    const g = new CanvasGestureArbiter();
+    for (let i = 1; i <= 3; i++) g.down(pointer(i, i * 70, 100, i * 10));
+    for (let i = 1; i <= 3; i++) g.move(pointer(i, i * 70 - 110, 100, 100));
+    // The fingers return near their starting positions before release.
+    for (let i = 1; i <= 3; i++) g.move(pointer(i, i * 70 - 8, 100, 150));
+    expect(g.up(pointer(1, 62, 100, 170))).toBeNull();
+  });
+
   it("recognizes a coordinated right swipe as redo", () => {
     const g = new CanvasGestureArbiter();
     for (let i = 1; i <= 3; i++) g.down(pointer(i, i * 60, 100, i * 10));
