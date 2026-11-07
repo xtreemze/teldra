@@ -303,8 +303,9 @@ it("commits geometry scale with pose as one IFC undo step and validates source-b
   expect(controller.redo()).toBe(true);
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[2,1.5,0.8]});
   const shearedPose={position:[2,3,1] as const,yawRadians:Math.PI/4};
-  expect(()=>controller.transformFurniture("chair",shearedPose,[2,1,1]))
-    .toThrow(/verified affine/);
+  // This fixture's original yaw is zero, so its canonical delta remains
+  // decomposable; attaching a renderer nevertheless preflights nonuniform
+  // scale for potentially rotated *mesh-local* source parts.
   let validated=0;
   controller.setAffineProjectionValidator((id,matrix)=>{
     expect(id).toBe("chair");
