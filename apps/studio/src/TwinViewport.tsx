@@ -93,9 +93,13 @@ export function TwinViewport(props: TwinViewportProps) {
       if (!picked) return;
       if (intent.type === "longpress") {
         props.onTouchGesture?.("menu", picked);
-      } else if (picked.canonicalId === (props.selectedCanonicalId ?? selected()?.canonicalId) &&
-        runtime.fit(picked.canonicalId)) {
-        props.onTouchGesture?.("frame", picked);
+      } else {
+        // Explicit null means the owner cleared selection. Only undefined
+        // opts into the viewport's internal selection fallback.
+        const selectedId = props.selectedCanonicalId === undefined
+          ? selected()?.canonicalId ?? null : props.selectedCanonicalId;
+        if (picked.canonicalId === selectedId && runtime.fit(picked.canonicalId))
+          props.onTouchGesture?.("frame", picked);
       }
     };
     const touchPoint = (event: PointerEvent) => ({
