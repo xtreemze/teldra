@@ -20,7 +20,7 @@ test("two-finger transform pad previews without auto-committing", async ({page})
   });
   expect(await page.getByTestId("mobile-transform-pose").textContent()).not.toBe(before);
   await expect(page.getByTestId("mobile-transform-delta")).toContainText("World Z:");
-  await expect(page.getByRole("status")).toContainText("Apply placement");
+  await expect(page.locator(".teldra-mobile-transform-pad__announcement")).toContainText("Apply placement");
   const report = await new AxeBuilder({page}).include("#storybook-root").analyze();
   expect(report.violations).toEqual([]);
 });
