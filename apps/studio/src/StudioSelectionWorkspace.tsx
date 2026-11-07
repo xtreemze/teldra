@@ -76,6 +76,7 @@ export function StudioSelectionWorkspace(
   const [editRequest, setEditRequest] = createSignal(0);
   const [transformModal, setTransformModal] = createSignal<TransformModal | null>(null);
   const [transformMessage, setTransformMessage] = createSignal("");
+  const [transformPreviewError, setTransformPreviewError] = createSignal("");
   let workspaceRoot!: HTMLDivElement;
   let editSession: FurnitureEditSession | undefined;
   let furnitureControls: FurnitureEditControls | null = null;
@@ -152,29 +153,38 @@ export function StudioSelectionWorkspace(
     editSession = undefined;
     numericStartPose = undefined; numericStartScale = undefined;
     setTransformModal(null);
+    setTransformPreviewError("");
     setEditingFurniture(false);
     setViewportDraft(undefined); setViewportScaleDraft(undefined);
     projectPlacements();
   };
   const previewNumericTransform = (modal: TransformModal | null) => {
     if (!modal || !editSession) return;
-    if (modal.mode === "scale") {
-      if (!numericStartScale) return;
-      const scale = numericFurnitureScale(numericStartScale, modal);
-      if (scale || modal.numeric === "") {
-        const next = scale ?? numericStartScale;
-        editSession.setScale(next);
-        setViewportScaleDraft(next);
+    try {
+      if (modal.mode === "scale") {
+        if (!numericStartScale) return;
+        const scale = numericFurnitureScale(numericStartScale, modal);
+        if (scale || modal.numeric === "") {
+          const next = scale ?? numericStartScale;
+          editSession.setScale(next);
+          setViewportScaleDraft(next);
+          setTransformPreviewError("");
+        }
+        return;
       }
-      return;
-    }
-    if (!numericStartPose) return;
-    if (modal.mode === "translate") editSession.setAxisConstraint(modal.axis);
-    const pose = numericFurniturePose(numericStartPose, modal);
-    if (pose || modal.numeric === "") {
-      const next = pose ?? numericStartPose;
-      editSession.setPose(next);
-      setViewportDraft(next);
+      if (!numericStartPose) return;
+      if (modal.mode === "translate") editSession.setAxisConstraint(modal.axis);
+      const pose = numericFurniturePose(numericStartPose, modal);
+      if (pose || modal.numeric === "") {
+        const next = pose ?? numericStartPose;
+        editSession.setPose(next);
+        setViewportDraft(next);
+        setTransformPreviewError("");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setTransformPreviewError(message);
+      setTransformMessage(message);
     }
   };
   const previewTouchTransform = (pose: FurnitureWorldPose) => {
@@ -325,13 +335,14 @@ export function StudioSelectionWorkspace(
         setEditRequest((request) => request + 1);
       }
       setTransformModal(step.state);
+      setTransformPreviewError("");
       setTransformMessage("");
       return;
     }
     if (step.intent === "preview") {
       setTransformModal(step.state);
-      previewNumericTransform(step.state);
       setTransformMessage("");
+      previewNumericTransform(step.state);
       return;
     }
     if (step.intent === "cancel") {
@@ -342,6 +353,10 @@ export function StudioSelectionWorkspace(
       return;
     }
     if (step.intent === "confirm") {
+      if (transformPreviewError()) {
+        setTransformMessage("Cannot apply this transform: " + transformPreviewError());
+        return;
+      }
       if (!editingFurniture() || !furnitureControls) {
         setTransformMessage("Transform is not ready; wait for IFC validation.");
         return;

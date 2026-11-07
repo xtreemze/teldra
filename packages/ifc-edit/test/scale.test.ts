@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import raw from "../../../fixtures/projects/golden-home/building.ifc?raw";
 import { IfcAPI } from "web-ifc";
-import { readFurnitureGeometryScale, writeFurnitureGeometryScale } from "../src/index.js";
+import { readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions } from "../src/index.js";
 
 const guid = "16W6mYG0DO8hR8U$bz6FSv";
 const otherGuid = "0AAAAAAAAAAAAAAAAAAAAA";
@@ -62,5 +62,54 @@ describe("IFC4 mapped-instance scaling", () => {
     const exclusive = mappedFixture();
     for (const scale of [[0,1,1], [-1,1,1], [NaN,1,1], [1,Infinity,1], [1,1,1001]] as const)
       expect(() => writeFurnitureGeometryScale(api, exclusive, guid, scale)).toThrow(/finite, positive/i);
+  });
+});
+
+
+describe("immutable source-authored SH3D dimensions", () => {
+  it("reads nominal width/depth/height from source IFC provenance", async () => {
+    const api = new IfcAPI(); await api.Init();
+    const bytes = code.encode(raw);
+    expect(readFurnitureSourceDimensions(api, bytes, guid)).toEqual([0.5,0.5,1]);
+    const represented = mappedFixture();
+    const resized = writeFurnitureGeometryScale(api, represented, guid, [1.5,2,0.8]);
+    expect(readFurnitureSourceDimensions(api, represented, guid)).toEqual([0.5,0.5,1]);
+    expect(readFurnitureSourceDimensions(api, resized, guid)).toEqual([0.5,0.5,1]);
+    expect(readFurnitureGeometryScale(api, resized, guid)).toEqual([1.5,2,0.8]);
+  });
+
+  it("does not invent nominal dimensions for non-SH3D provenance", async () => {
+    const api = new IfcAPI(); await api.Init();
+    const modified = raw.replace(
+      "#157=IFCPROPERTYSINGLEVALUE('SourceSystem',$,IFCLABEL('Sweet Home 3D'),$);",
+      "#157=IFCPROPERTYSINGLEVALUE('SourceSystem',$,IFCLABEL('Other importer'),$);",
+    );
+    expect(modified).not.toEqual(raw);
+    expect(readFurnitureSourceDimensions(api, code.encode(modified), guid)).toBeNull();
+  });
+
+  it("rejects invalid and duplicated source sizes rather than presenting fabricated dimensions", async () => {
+    const api = new IfcAPI(); await api.Init();
+    const altered = raw.replace(
+      "#164=IFCPROPERTYSINGLEVALUE('SourceWidthMetres',$,IFCREAL(0.5),$);",
+      "#164=IFCPROPERTYSINGLEVALUE('SourceWidthMetres',$,IFCREAL(-0.5),$);",
+    );
+    expect(altered).not.toBe(raw);
+    expect(() => readFurnitureSourceDimensions(api, code.encode(altered), guid))
+      .toThrow(/SourceWidthMetres/);
+    const duplicated = raw.replace(
+      "(#157,#158,#159,#160,#161,#162,#163,#164,#165,#166)",
+      "(#157,#158,#159,#160,#161,#162,#163,#164,#164,#165,#166)",
+    );
+    expect(duplicated).not.toBe(raw);
+    expect(() => readFurnitureSourceDimensions(api, code.encode(duplicated), guid))
+      .toThrow(/Duplicate source provenance property/);
+    const shared = raw.replace(
+      "(#149),#155);",
+      "(#149,#167),#155);",
+    );
+    expect(shared).not.toBe(raw);
+    expect(() => readFurnitureSourceDimensions(api, code.encode(shared), guid))
+      .toThrow(/Shared SH3D source provenance/);
   });
 });

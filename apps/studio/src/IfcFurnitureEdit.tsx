@@ -30,6 +30,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const [draft, setDraft] = createSignal<number[] | null>(null);
   const [scaleDraft, setScaleDraft] = createSignal<number[] | null>(null);
   const [scaleReason, setScaleReason] = createSignal("");
+  const [invalidDimensionIndex, setInvalidDimensionIndex] = createSignal<number | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [snap, setSnap] = createSignal(0);
@@ -59,6 +60,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
           return;
         }
         loadedId = id;
+        setInvalidDimensionIndex(null);
         setDraft(poseToDraft(current));
         setScaleDraft(support.supported ? [...support.scale] : null);
         setScaleReason(support.supported ? "" : support.reason);
@@ -72,7 +74,7 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     }
   };
   const cancel = () => {
-    ++beginGeneration; setBusy(false); setDraft(null); setScaleDraft(null); loadedId = null;
+    ++beginGeneration; setBusy(false); setDraft(null); setScaleDraft(null); setInvalidDimensionIndex(null); loadedId = null;
     props.onPreview?.(null); props.onScalePreview?.(null);
     props.onEditingChange?.(false); setError("");
   };
@@ -101,11 +103,40 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     if (!next) return;
     setScaleDraft(next);
     if (next.every(v => Number.isFinite(v) && v > 0 && v <= 1000)) {
-      try { props.onScalePreview?.(next as [number,number,number]); setError(""); }
+      try { props.onScalePreview?.(next as [number,number,number]); setInvalidDimensionIndex(null); setError(""); }
       catch (err) {
         setScaleDraft(prior);
         setError(err instanceof Error ? err.message : String(err));
       }
+    }
+  };
+  const dimensionStatus = () => {
+    const scale = scaleDraft();
+    return scale && scale.length === 3 && scale.every(value => Number.isFinite(value) && value > 0 && value <= 1000)
+      ? props.controller.furnitureDimensionStatus(props.canonicalId, scale as [number, number, number])
+      : { supported: false as const, reason: "Enter valid positive scale factors first." };
+  };
+  const updateDimension = (index: number, requestedMetres: number) => {
+    const current = dimensionStatus();
+    if (!current.supported) { setInvalidDimensionIndex(index); setError(current.reason); return; }
+    if (!Number.isFinite(requestedMetres) || requestedMetres <= 0 || requestedMetres > 1000) {
+      setInvalidDimensionIndex(index);
+      setError("Nominal dimensions must be positive finite metre values no greater than 1000.");
+      return;
+    }
+    try {
+      const next = [...current.current] as [number, number, number];
+      next[index] = requestedMetres;
+      const scale = props.controller.furnitureScaleForDimensions(props.canonicalId, next);
+      // Renderer validation runs before mutating the editor draft. The source
+      // properties remain immutable and Apply still creates one IFC command.
+      props.onScalePreview?.(scale);
+      setScaleDraft([...scale]);
+      setInvalidDimensionIndex(null);
+      setError("");
+    } catch (error) {
+      setInvalidDimensionIndex(index);
+      setError(error instanceof Error ? error.message : String(error));
     }
   };
   const updateSnapping = () => {
@@ -123,6 +154,10 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
     });
   });
   const applyDraft = (): boolean => {
+    if (invalidDimensionIndex() !== null) {
+      setError("Correct the invalid nominal dimension before applying the IFC edit.");
+      return false;
+    }
     const next = pose();
     if (!next || loadedId !== props.canonicalId) {
       setError("Enter finite position, rotation and snap values."); return false;
@@ -161,6 +196,27 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
                 onInput={event => updateScale(index(), event.currentTarget.valueAsNumber)} /></label>
             }</For>
           </fieldset>
+          <Show when={dimensionStatus().supported} fallback={
+              <p class="teldra-studio-selection-workspace__hint" data-testid="nominal-dimensions-unavailable">
+                Source nominal dimensions unavailable; use the IFC scale factors above.
+              </p>
+            }>
+              <fieldset class="teldra-ifc-scale-fields teldra-ifc-nominal-dimensions" aria-describedby="teldra-nominal-dimensions-description">
+                <legend>Authored nominal dimensions (metres)</legend>
+                <For each={["Nominal width (m)", "Nominal depth (m)", "Nominal height (m)"]}>{(label, index) =>
+                  <label>{label}
+                    <input type="number" min="0.000001" max="1000" step="any"
+                      value={(() => { const state = dimensionStatus(); return state.supported ? Number(state.current[index()]!.toPrecision(12)) : undefined; })()}
+                      aria-invalid={invalidDimensionIndex() === index()}
+                      onChange={event => updateDimension(index(), event.currentTarget.valueAsNumber)} />
+                  </label>
+                }</For>
+                <p id="teldra-nominal-dimensions-description" class="teldra-studio-selection-workspace__hint">
+                  Source width, depth and height are preserved in IFC provenance. Editing these nominal values
+                  changes only the IFC mapped-instance scale, not the original source dimensions or mesh.
+                </p>
+              </fieldset>
+          </Show>
         </Show>
         <button type="submit">Apply placement</button><button type="button" onClick={cancel}>Cancel</button>
       </form>

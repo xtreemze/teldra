@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
 import goldenIfc from "../../../fixtures/projects/golden-home/building.ifc?raw";
 import { IfcAPI } from "web-ifc";
-import { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale } from "@teldra/ifc-edit";
+import { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions } from "@teldra/ifc-edit";
 import { canonicalTwinFingerprint } from "@teldra/application";
 import {
   assertTwinIntegrity,
@@ -330,6 +330,7 @@ it("roundtrips a real IFC4 mapped-instance scale through the canonical .teldra a
     readScale: (bytes: Uint8Array, id: string) => readFurnitureGeometryScale(api, bytes, id),
     writeScale: (bytes: Uint8Array, id: string, scale: readonly [number,number,number]) =>
       writeFurnitureGeometryScale(api, bytes, id, scale),
+    readSourceDimensions: (bytes: Uint8Array, id: string) => readFurnitureSourceDimensions(api, bytes, id),
   };
   const twin = structuredClone(fixture);
   twin.building.refs.push({id:"chair",ifcGlobalId:guid,kind:"furniture",name:"Chair"});
@@ -361,7 +362,15 @@ it("roundtrips a real IFC4 mapped-instance scale through the canonical .teldra a
   });
   await controller.prepareFurnitureEditing("chair");
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
-  controller.transformFurniture("chair",{position:[2,3,1],yawRadians:0},[1.25,1.5,0.8]);
+  expect(controller.furnitureDimensionStatus("chair")).toEqual({
+    supported:true,source:[0.5,0.5,1],current:[0.5,0.5,1],
+  });
+  const authoredScale = controller.furnitureScaleForDimensions("chair",[0.625,0.75,0.8]);
+  expect(authoredScale).toEqual([1.25,1.5,0.8]);
+  controller.transformFurniture("chair",{position:[2,3,1],yawRadians:0},authoredScale);
+  expect(controller.furnitureDimensionStatus("chair")).toEqual({
+    supported:true,source:[0.5,0.5,1],current:[0.625,0.75,0.8],
+  });
   expect(controller.history.undoDepth).toBe(1);
   await controller.save();
   const persisted = storage.primary?.derived as {
@@ -378,12 +387,15 @@ it("roundtrips a real IFC4 mapped-instance scale through the canonical .teldra a
   if (!reopenedIfc) throw new Error("Reopened .teldra has no canonical building.");
   expect(readFurnitureGeometryScale(api,sourceBytes,guid)).toEqual([1,1,1]);
   expect(readFurnitureGeometryScale(api,reopenedIfc,guid)).toEqual([1.25,1.5,0.8]);
+  expect(readFurnitureSourceDimensions(api,sourceBytes,guid)).toEqual([0.5,0.5,1]);
+  expect(readFurnitureSourceDimensions(api,reopenedIfc,guid)).toEqual([0.5,0.5,1]);
   const pose = readFurniturePose(api,reopenedIfc,guid);
   expect(pose.position).toEqual([2,3,1]);
   validateIfcScenePlacements(adapter,sourceBytes,reopenedIfc,reconciled!.placements);
   expect(reopenedArchive.manifest.building.sha256).toBe(await sha256Bytes(reopenedIfc));
   controller.undo();
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1,1,1]});
+  expect(controller.furnitureDimensionStatus("chair").supported).toBe(true);
   controller.redo();
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1.25,1.5,0.8]});
   await opened.session.close();

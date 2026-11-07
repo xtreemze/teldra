@@ -1,4 +1,4 @@
-import { IfcAPI, IFCRELFILLSELEMENT, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM } from "web-ifc";
+import { IfcAPI, IFCRELFILLSELEMENT, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM, IFCRELDEFINESBYPROPERTIES, IFCPROPERTYSET, IFCPROPERTYSINGLEVALUE } from "web-ifc";
 
 /** IFC world coordinates in metres, Z up; rotation is about world Z. */
 export interface FurniturePose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
@@ -194,5 +194,68 @@ export function writeFurnitureGeometryScale(api: IfcAPI, bytes: Uint8Array, guid
       null, null, origin, real(scale[0]), null, real(scale[1]), real(scale[2]));
     api.WriteLine(id, item);
     return api.SaveModel(id);
+  });
+}
+
+
+/**
+ * The immutable source-authored *nominal* SH3D dimensions (width, depth, height),
+ * expressed in IFC local X/Y/Z metres. These are not measured mesh bounds and
+ * are never rewritten by Scale. A current authored size is the nominal size
+ * times the current/source IFC MappingTarget ratio.
+ */
+export type FurnitureSourceDimensions = readonly [number, number, number];
+
+/**
+ * Returns null for other native-IFC origins. Malformed or ambiguous Teldra
+ * source provenance fails closed so a renderer cannot accidentally claim that
+ * arbitrary mesh bounds are source-authored physical dimensions.
+ */
+export function readFurnitureSourceDimensions(
+  api: IfcAPI, bytes: Uint8Array, guid: string,
+): FurnitureSourceDimensions | null {
+  return model(api, bytes, (id) => {
+    const furniture = find(api, id, guid);
+    const relations = api.GetLineIDsWithType(id, IFCRELDEFINESBYPROPERTIES);
+    const sourceSets: Line[] = [];
+    for (let i = 0; i < relations.size(); i++) {
+      const relation = api.GetLine(id, relations.get(i)) as Line;
+      if (!relation.RelatedObjects?.some((ref: any) => ref.value === furniture.expressID)) continue;
+      const setRef = relation.RelatingPropertyDefinition;
+      if (!Number.isInteger(setRef?.value)) continue;
+      const pset = api.GetLine(id, setRef.value) as Line;
+      if (pset?.type === IFCPROPERTYSET && pset.Name?.value === "Teldra_Source") {
+        if (relation.RelatedObjects?.length !== 1)
+          throw new Error("Shared SH3D source provenance cannot define one object's dimensions.");
+        sourceSets.push(pset);
+      }
+    }
+    if (!sourceSets.length) return null;
+    if (sourceSets.length !== 1) throw new Error("Duplicate SH3D source provenance property sets.");
+    const source = new Map<string, Line>();
+    for (const ref of sourceSets[0]!.HasProperties ?? []) {
+      const value = api.GetLine(id, ref.value) as Line;
+      if (value?.type !== IFCPROPERTYSINGLEVALUE) continue;
+      const name = value.Name?.value;
+      if (typeof name !== "string") continue;
+      if (source.has(name)) throw new Error("Duplicate source provenance property: " + name);
+      source.set(name, value);
+    }
+    if (source.get("SourceSystem")?.NominalValue?.value !== "Sweet Home 3D") return null;
+    if (source.get("SourceCoordinateFrame")?.NominalValue?.value !== "SH3D_PLAN_CM" ||
+        source.get("ImportTransform")?.NominalValue?.value !== "X=x;Y=-y;Z=elevation")
+      throw new Error("Unsupported SH3D dimension coordinate frame.");
+    const readLength = (name: string): number => {
+      const value = source.get(name)?.NominalValue;
+      if (typeof value?.value !== "number" ||
+          !Number.isFinite(value.value) || value.value <= 0 || value.value > 1000)
+        throw new Error("Invalid or missing SH3D source dimension: " + name);
+      return value.value;
+    };
+    return [
+      readLength("SourceWidthMetres"),
+      readLength("SourceDepthMetres"),
+      readLength("SourceHeightMetres"),
+    ];
   });
 }
