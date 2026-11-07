@@ -1,4 +1,4 @@
-import { createSignal, For, onCleanup, onMount } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { BabylonTwinRuntime, ViewDirection, ViewState } from "@teldra/runtime-babylon";
 
 export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HTMLCanvasElement; selectedId?: string | undefined}) {
@@ -8,6 +8,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   const directions = ["+x", "-x", "+y", "-y", "+z", "-z"] as const;
   const [appearance, setAppearance] = createSignal(props.runtime.appearance());
   const [message, setMessage] = createSignal("");
+  const [mobileViewOpen, setMobileViewOpen] = createSignal(false);
   const orient = (direction: ViewDirection) => props.runtime.orient(direction);
   const fit = (selection = false) => setMessage(props.runtime.fit(selection ? props.selectedId : undefined)
     ? (selection ? "Selection framed" : "Visible scene framed") : "No visible geometry to frame");
@@ -16,22 +17,26 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     const keydown = (event: KeyboardEvent) => {
       if (event.ctrlKey || event.metaKey || event.altKey) return;
       const key = event.key.toLowerCase();
-      const arrows: Record<string, [number, number]> = {arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1]};
-      if (arrows[key]) {
-        const [x, y] = arrows[key];
+      const arrows: Record<string, [number, number]> = {
+        arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, 1], arrowdown: [0, -1],
+      };
+      const numpad: Record<string, [number, number]> = {
+        Numpad4: [-1, 0], Numpad6: [1, 0], Numpad8: [0, 1], Numpad2: [0, -1],
+      };
+      const direction = arrows[key] ?? numpad[event.code];
+      if (direction) {
+        const [x, y] = direction;
         if (event.shiftKey) props.runtime.pan(x, y);
-        else { const current = props.runtime.viewState(); if (current) {
-          // Keyboard orbit uses the same camera as pointer gestures.
-          props.runtime.orbit(x * 0.15, -y * 0.15);
-        }}
-      } else if (key === "+" || key === "=") props.runtime.zoom(0.8);
-      else if (key === "-") props.runtime.zoom(1.25);
+        else props.runtime.orbit(x * 0.15, -y * 0.15);
+      } else if (key === "+" || key === "=" || event.code === "NumpadAdd") props.runtime.zoom(0.8);
+      else if (key === "-" || event.code === "NumpadSubtract") props.runtime.zoom(1.25);
       else if (key === "f") fit(Boolean(event.shiftKey && props.selectedId));
-      else if (key === "home") props.runtime.resetView();
-      else if (key === "1") orient("-z");
-      else if (key === "3") orient("+x");
-      else if (key === "7") orient("+y");
-      else if (key === "5") props.runtime.setProjection(view()?.projection === "orthographic" ? "perspective" : "orthographic");
+      else if (key === "home") { if (event.shiftKey) props.runtime.resetView(); else fit(); }
+      else if (key === "1" || event.code === "Numpad1") orient("-z");
+      else if (key === "3" || event.code === "Numpad3") orient("+x");
+      else if (key === "7" || event.code === "Numpad7") orient("+y");
+      else if (key === "5" || event.code === "Numpad5") props.runtime.setProjection(view()?.projection === "orthographic" ? "perspective" : "orthographic");
+      else if (event.code === "NumpadDecimal") fit(Boolean(props.selectedId));
       else return;
       event.preventDefault();
     };
@@ -86,8 +91,9 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       </fieldset>}</For>
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--help"><summary>Navigation help</summary><div class="teldra-view-controls__panel-content">
-      <p>Drag to orbit; right-drag or Ctrl-drag to pan; scroll to zoom. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
-      <p>Focus the 3D view: arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection, Home resets. 1 front, 3 right, 7 top, 5 changes projection.</p>
+      <p>Blender-style navigation: middle-drag to orbit, Shift+middle-drag to pan, scroll to zoom. Left-drag orbit and right-drag pan remain available. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
+      <p>Focus the 3D canvas: G move, R rotate, S requests scale (currently unavailable for IFC geometry). After G/R, X/Y/Z constrain, type a number, Enter applies, Esc cancels. IFC furniture rotation is upright Z only.</p>
+      <p>Numpad 1 front, 3 right, 7 top, 5 projection, 2/4/6/8 orbit, Shift+numpad pan, numpad decimal frames selection, Home fits scene, Shift+Home resets view. Arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection. Ctrl/Command+S saves; Ctrl/Command+Z undoes, Shift+Ctrl/Command+Z redoes.</p>
     </div></details>
     <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary>Appearance</summary><div class="teldra-view-controls__panel-content">
       <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>
@@ -95,6 +101,50 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
       <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters with stable daylight fill. Brightness is independent of camera distance. Adjustments affect this view only.</p>
     </div></details>
+    <div class="teldra-view-controls__mobile">
+      <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
+        onClick={() => setMobileViewOpen(!mobileViewOpen())}>View</button>
+      <Show when={mobileViewOpen()}>
+        <div id="teldra-mobile-view-settings" role="group" aria-label="Mobile view settings" class="teldra-view-controls__mobile-sheet">
+          <strong>Camera</strong>
+          <div class="teldra-view-controls__mobile-grid">
+            <button type="button" onClick={() => fit()}>Fit scene</button>
+            <button type="button" disabled={!props.selectedId} onClick={() => fit(true)}>Fit selection</button>
+            <button type="button" onClick={() => orient("isometric")}>Isometric</button>
+            <button type="button" onClick={() => orient("+y")}>Top</button>
+            <button type="button" onClick={() => orient("-z")}>Front</button>
+            <button type="button" onClick={() => orient("+x")}>Right</button>
+          </div>
+          <label>Projection
+            <select aria-label="Mobile camera projection" value={view()?.projection ?? "perspective"}
+              onChange={event => props.runtime.setProjection(event.currentTarget.value as "perspective" | "orthographic")}>
+              <option value="perspective">Perspective</option>
+              <option value="orthographic">Orthographic</option>
+            </select>
+          </label>
+          <details>
+            <summary>Layers</summary>
+            <div class="teldra-view-controls__mobile-layers">
+              <For each={layerDefinitions}>{layer => <label>
+                <input type="checkbox" checked={layers().find(current => current.id === layer.id)?.visible ?? true}
+                  onChange={event => {props.runtime.setLayerVisible(layer.id, event.currentTarget.checked);setLayers(props.runtime.layers());}} />
+                {layer.label}
+              </label>}</For>
+            </div>
+          </details>
+          <details>
+            <summary>Appearance</summary>
+            <div class="teldra-view-controls__mobile-layers">
+              <label><input type="checkbox" checked={appearance().texturesEnabled}
+                onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures</label>
+              <label>Light intensity <input aria-label="Mobile light intensity" type="range" min="0.25" max="2" step="0.05"
+                value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
+            </div>
+          </details>
+          <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>
+        </div>
+      </Show>
+    </div>
     <output class="teldra-view-controls__announcement" aria-live="polite">{message()}</output>
     <output class="teldra-view-controls__diagnostic" data-testid="camera-state" aria-hidden="true">{JSON.stringify(view())}</output>
   </div>;

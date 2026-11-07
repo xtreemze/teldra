@@ -684,9 +684,9 @@ function crc32(bytes: Uint8Array): number {
 /** Reconciliation of an unchanged derived GLB against a newer IFC building. */
 export const SCENE_PLACEMENT_OVERRIDES_PATH = "teldra/scene-placement-overrides.json";
 export const SCENE_SOURCE_IFC_PATH = "teldra/scene-source.ifc";
-export interface ScenePlacementOverride { readonly canonicalId: string; readonly ifcGlobalId: string; readonly matrix: readonly number[] }
+export interface ScenePlacementOverride { readonly canonicalId: string; readonly ifcGlobalId: string; readonly matrix: readonly number[]; /** Geometry-scale ratio to the source IFC in local XYZ. */ readonly scale?: readonly [number, number, number] }
 export interface ScenePlacementOverrides {
-  readonly version: 1;
+  readonly version: 1 | 2;
   readonly sourceBuildingSha256: string;
   readonly buildingSha256: string;
   readonly sceneAssetSha256: string;
@@ -714,21 +714,42 @@ export async function readScenePlacementOverrides(archive: OpenTeldraArchive, sc
   catch { throw new TeldraArchiveError("Invalid placement reconciliation JSON."); }
   if (!candidate || typeof candidate !== "object") throw new TeldraArchiveError("Invalid placement reconciliation.");
   const value = candidate as ScenePlacementOverrides;
-  if (value.version !== 1 || value.sourceBuildingSha256 !== scene.source.buildingSha256 || value.buildingSha256 !== archive.manifest.building.sha256 || value.sceneAssetSha256 !== scene.scene.assetSha256 || !Array.isArray(value.placements)) throw new TeldraArchiveError("Placement reconciliation provenance mismatch.");
+  if ((value.version !== 1 && value.version !== 2) || value.sourceBuildingSha256 !== scene.source.buildingSha256 || value.buildingSha256 !== archive.manifest.building.sha256 || value.sceneAssetSha256 !== scene.scene.assetSha256 || !Array.isArray(value.placements)) throw new TeldraArchiveError("Placement reconciliation provenance mismatch.");
   const seen = new Set<string>();
   for (const placement of value.placements) {
     if (!placement || typeof placement.canonicalId !== "string" || typeof placement.ifcGlobalId !== "string" || seen.has(placement.canonicalId)) throw new TeldraArchiveError("Invalid or duplicate placement identity.");
     seen.add(placement.canonicalId);
-    if (!archive.twin.building.refs.some((ref) => ref.id === placement.canonicalId && ref.ifcGlobalId === placement.ifcGlobalId && ["furniture", "fixture", "distribution-element", "other"].includes(ref.kind)) || !scene.nodes.some((node) => node.canonicalId === placement.canonicalId && node.ifcGlobalId === placement.ifcGlobalId)) throw new TeldraArchiveError("Placement identity is not a rendered canonical element.");
-    assertUprightSimilarityMatrix(placement.matrix);
+    if (!archive.twin.building.refs.some((ref) => ref.id === placement.canonicalId && ref.ifcGlobalId === placement.ifcGlobalId && ["furniture", "fixture", "other", "distribution-element"].includes(ref.kind)) || !scene.nodes.some((node) => node.canonicalId === placement.canonicalId && node.ifcGlobalId === placement.ifcGlobalId)) throw new TeldraArchiveError("Placement identity is not a rendered canonical furniture object.");
+    if (placement.scale !== undefined && value.version !== 2) throw new TeldraArchiveError("Geometry scale requires scene reconciliation version 2.");
+    assertUprightScaledMatrix(placement.matrix, placement.scale);
   }
   return value;
 }
-function assertUprightSimilarityMatrix(m: readonly number[]): void {
+function assertUprightRigidMatrix(m: readonly number[]): void {
   if (!Array.isArray(m) || m.length !== 16 || !m.every(Number.isFinite)) throw new TeldraArchiveError("Invalid placement matrix.");
   const near = (a: number, b: number) => Math.abs(a - b) < 1e-7;
-  const scale = m[10]!;
-  if (scale <= 0 || !near(m[2]!, 0) || !near(m[3]!, 0) || !near(m[6]!, 0) || !near(m[7]!, 0) || !near(m[8]!, 0) || !near(m[9]!, 0) || !near(m[11]!, 0) || !near(m[15]!, 1) || !near(m[0]! * m[0]! + m[1]! * m[1]!, scale * scale) || !near(m[4]! * m[4]! + m[5]! * m[5]!, scale * scale) || !near(m[0]! * m[4]! + m[1]! * m[5]!, 0) || !near(m[0]! * m[5]! - m[1]! * m[4]!, scale * scale)) throw new TeldraArchiveError("Placement matrix must be a positive uniformly scaled, upright transform.");
+  if (!near(m[2]!, 0) || !near(m[3]!, 0) || !near(m[6]!, 0) || !near(m[7]!, 0) || !near(m[8]!, 0) || !near(m[9]!, 0) || !near(m[10]!, 1) || !near(m[11]!, 0) || !near(m[15]!, 1) || !near(m[0]! * m[0]! + m[1]! * m[1]!, 1) || !near(m[4]! * m[4]! + m[5]! * m[5]!, 1) || !near(m[0]! * m[4]! + m[1]! * m[5]!, 0) || !near(m[0]! * m[5]! - m[1]! * m[4]!, 1)) throw new TeldraArchiveError("Placement matrix must be a rigid, upright transform.");
+}
+
+
+/** A scale record is only a derived projection; the IFC reader must also verify it. */
+function assertUprightScaledMatrix(m: readonly number[], scale: readonly number[] | undefined): void {
+  if (scale === undefined) { assertUprightRigidMatrix(m); return; }
+  if (!Array.isArray(scale) || scale.length !== 3 ||
+      scale.some(v => !Number.isFinite(v) || v <= 0 || v > 1000))
+    throw new TeldraArchiveError("Invalid IFC geometry scale factors.");
+  if (!Array.isArray(m) || m.length !== 16 || !m.every(Number.isFinite))
+    throw new TeldraArchiveError("Invalid geometry placement matrix.");
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+  if (!near(m[2]!,0) || !near(m[3]!,0) || !near(m[6]!,0) || !near(m[7]!,0) ||
+      !near(m[8]!,0) || !near(m[9]!,0) || !near(m[11]!,0) || !near(m[15]!,1) ||
+      !near(m[10]!,scale[2]!))
+    throw new TeldraArchiveError("Scaled furniture must remain upright and affine.");
+  const area = m[0]! * m[5]! - m[1]! * m[4]!;
+  const normSquared = m[0]!**2 + m[1]!**2 + m[4]!**2 + m[5]!**2;
+  if (!near(area, scale[0]! * scale[1]!) ||
+      !near(normSquared, scale[0]!**2 + scale[1]!**2))
+    throw new TeldraArchiveError("Scaled placement does not match its declared local-axis factors.");
 }
 
 /** Atomically replaces IFC and its hash-bound scene reconciliation in one archive. */
@@ -737,7 +758,7 @@ export async function replaceTeldraBuilding(archive: OpenTeldraArchive, building
   const sourceEntry = archive.entries.find((entry) => entry.path === (scene.source.buildingSha256 === archive.manifest.building.sha256 ? archive.manifest.building.path : SCENE_SOURCE_IFC_PATH));
   if (!sourceEntry || await sha256Bytes(sourceEntry.bytes) !== scene.source.buildingSha256) throw new TeldraArchiveError("Original scene IFC is unavailable.");
   const buildingSha256 = await sha256Bytes(buildingBytes);
-  const record: ScenePlacementOverrides = { version: 1, sourceBuildingSha256: scene.source.buildingSha256, buildingSha256, sceneAssetSha256: scene.scene.assetSha256, placements };
+  const record: ScenePlacementOverrides = { version: placements.some(p => p.scale !== undefined) ? 2 : 1, sourceBuildingSha256: scene.source.buildingSha256, buildingSha256, sceneAssetSha256: scene.scene.assetSha256, placements };
   const recordBytes = new TextEncoder().encode(`${JSON.stringify(record, null, 2)}\n`);
   const derived = (archive.manifest.derived ?? []).filter((item) => item.path !== SCENE_PLACEMENT_OVERRIDES_PATH && item.path !== SCENE_SOURCE_IFC_PATH);
   derived.push({ path: SCENE_PLACEMENT_OVERRIDES_PATH, sha256: await sha256Bytes(recordBytes) });

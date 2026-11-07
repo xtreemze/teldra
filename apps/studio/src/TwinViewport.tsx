@@ -103,7 +103,7 @@ export function TwinViewport(props: TwinViewportProps) {
           renderStats: () => readyRuntime.renderStats(),
           batchingStats: () => readyRuntime.batchingStats(),
           applyScenePlacements: (placements) => readyRuntime.applyScenePlacements(placements),
-          beginFurnitureEdit: (placement, onPreview, onDragState) => readyRuntime.beginFurnitureEdit(placement, onPreview, onDragState),
+          beginFurnitureEdit: (placement, onPreview, onDragState, onScalePreview) => readyRuntime.beginFurnitureEdit(placement, onPreview, onDragState, onScalePreview),
           projectNode(nodeKey) {
             return readyRuntime.projectNode(nodeKey);
           },

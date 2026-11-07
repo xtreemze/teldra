@@ -68,12 +68,28 @@ def attach_furniture_geometry(model, glb_path: Path) -> dict:
         mesh = model.create_entity(
             "IfcTriangulatedFaceSet", Coordinates=coordinates, CoordIndex=faces, Closed=None
         )
-        shape = model.create_entity(
+        body = model.create_entity(
             "IfcShapeRepresentation",
             ContextOfItems=context,
             RepresentationIdentifier="Body",
             RepresentationType="Tessellation",
             Items=[mesh],
+        )
+        origin = model.create_entity("IfcCartesianPoint", Coordinates=(0.0, 0.0, 0.0))
+        axis = model.create_entity("IfcAxis2Placement3D", Location=origin)
+        source = model.create_entity(
+            "IfcRepresentationMap", MappingOrigin=axis, MappedRepresentation=body
+        )
+        target = model.create_entity(
+            "IfcCartesianTransformationOperator3D", LocalOrigin=origin, Scale=1.0
+        )
+        item = model.create_entity("IfcMappedItem", MappingSource=source, MappingTarget=target)
+        shape = model.create_entity(
+            "IfcShapeRepresentation",
+            ContextOfItems=context,
+            RepresentationIdentifier="Body",
+            RepresentationType="MappedRepresentation",
+            Items=[item],
         )
         model.by_guid(guid).Representation = model.create_entity(
             "IfcProductDefinitionShape", Representations=[shape]

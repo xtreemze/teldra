@@ -15,3 +15,28 @@ for (const path of ["index.html", "onboarding/index.html", "studio/index.html"])
   }
 }
 console.log("Pages routes and nested asset references verified.");
+
+const studioDir = resolve(root, "studio");
+const manifest = JSON.parse(await readFile(resolve(studioDir, "manifest.webmanifest"), "utf8"));
+if (manifest.scope !== "./" || manifest.start_url !== "./" || manifest.display !== "standalone")
+  throw new Error("PWA must remain scoped to the /teldra/studio/ subpath.");
+for (const icon of manifest.icons) {
+  if (!icon.src.startsWith("icons/")) throw new Error("Unexpected PWA icon path.");
+  await access(resolve(studioDir, icon.src));
+}
+await access(resolve(studioDir, "favicon.svg"));
+await access(resolve(studioDir, "icons/apple-touch-icon.png"));
+const worker = await readFile(resolve(studioDir, "service-worker.js"), "utf8");
+const match = worker.match(/^const PRECACHE = (.+);$/m);
+if (!match) throw new Error("No generated service-worker precache.");
+const precache = JSON.parse(match[1]);
+for (const required of ["./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png"]) {
+  if (!precache.includes(required)) throw new Error("Missing offline PWA asset: " + required);
+}
+if (precache.some(path => /\.teldra$/i.test(path)))
+  throw new Error("Large project archives must not enter the mandatory PWA precache.");
+for (const url of precache) {
+  if (!url.startsWith("./") || url.includes("..")) throw new Error("Invalid PWA precache URL: " + url);
+  await access(resolve(studioDir, url.slice(2)));
+}
+console.log("Studio install manifest, generated icon family and offline precache verified.");

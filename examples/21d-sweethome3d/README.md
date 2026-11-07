@@ -52,7 +52,7 @@ have not been verified; no blanket license is asserted for these files.
 ## Published Studio demo
 
 `21D-demo.teldra` is the complete conversion, losslessly repacked with ZIP deflate
-for delivery (68,700,663 bytes). `demo-manifest.json` pins its SHA-256 and source
+for delivery (68,731,813 bytes). `demo-manifest.json` pins its SHA-256 and source
 archive identity. The current complete conversion also places native furniture tessellations in IFC so uniform scaling is canonical. Materials, images and original SH3D remain preserved.
 The Pages build checks this receipt before copying the file to `/studio/21D.teldra`.
 Studio opens it automatically; `?demo=sample` retains the small authored test room.

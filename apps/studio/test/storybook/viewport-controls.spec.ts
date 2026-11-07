@@ -23,6 +23,8 @@ test("navigation gizmo, camera controls and composed layers operate on the loade
   const canvas = page.getByTestId("twin-canvas"); await canvas.focus(); await canvas.press("7");
   await expect.poll(async () => (await state()).beta).toBeCloseTo(0.001);
   await canvas.press("Home");
+  await expect.poll(async () => (await state()).projection).toBe("orthographic");
+  await canvas.press("Shift+Home");
   await expect.poll(async () => (await state()).projection).toBe("perspective");
   await expect(page.getByRole("button", {name: "Fit selection", exact: true})).toBeDisabled();
   await page.getByText("Layers", {exact: true}).click();
@@ -57,11 +59,37 @@ test("viewport controls remain keyboard accessible on compact screens", async ({
   await page.setViewportSize({width: 390, height: 844});
   await page.goto("/iframe.html?id=studio-sh3d-visual-transport--textured-furniture-and-hidden-content&viewMode=story");
   await expect(page.getByTestId("viewport-status")).toHaveText("ready");
-  await page.getByText("Layers", {exact: true}).click();
+  await page.getByRole("button", {name: "View", exact: true}).click();
+  const settings = page.getByRole("group", {name: "Mobile view settings"});
+  await settings.getByText("Layers", {exact: true}).click();
   await page.getByTestId("twin-canvas").focus();
   await page.getByTestId("twin-canvas").press("5");
-  await expect(page.getByLabel("Projection", {exact: true})).toHaveValue("orthographic");
+  await expect(page.getByLabel("Mobile camera projection", {exact: true})).toHaveValue("orthographic");
   const results = await new AxeBuilder({page}).include("#storybook-root").analyze();
   expect(results.violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+
+test("Blender middle drag orbits and Shift+middle drag pans without selecting content", async ({page}) => {
+  await page.goto("/iframe.html?id=studio-sh3d-visual-transport--textured-furniture-and-hidden-content&viewMode=story");
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  const state = async () => JSON.parse(await page.getByTestId("camera-state").textContent() ?? "{}");
+  const box = await page.getByTestId("twin-canvas").boundingBox();
+  if (!box) throw new Error("Canvas missing");
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  const initial = await state();
+  await page.mouse.move(x, y);
+  await page.mouse.down({button: "middle"});
+  await page.mouse.move(x + 70, y + 25, {steps: 12});
+  await page.mouse.up({button: "middle"});
+  await expect.poll(async () => (await state()).alpha).not.toBeCloseTo(initial.alpha, 2);
+  const afterOrbit = await state();
+  await page.keyboard.down("Shift");
+  await page.mouse.move(x, y);
+  await page.mouse.down({button: "middle"});
+  await page.mouse.move(x + 70, y + 25, {steps: 12});
+  await page.mouse.up({button: "middle"});
+  await page.keyboard.up("Shift");
+  await expect.poll(async () => (await state()).target).not.toEqual(afterOrbit.target);
 });

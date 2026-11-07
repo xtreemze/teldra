@@ -1,44 +1,113 @@
 import { createEffect, createSignal, For, Show, onMount, onCleanup } from "solid-js";
-import type { FurnitureWorldPose } from "@teldra/application";
+import type { FurnitureGeometryScale, FurnitureWorldPose } from "@teldra/application";
 import type { StudioProjectController } from "./StudioProjectController";
+
+export interface FurnitureEditControls {
+  /** Commit exactly the current validated draft through the IFC application command. */
+  apply(): boolean;
+  cancel(): void;
+}
 
 export interface IfcFurnitureEditProps {
   controller: StudioProjectController;
   canonicalId: string;
   externalVersion?: number;
+  /** Incremented by the workspace transform action to request a validated gizmo session. */
+  editRequest?: number;
   onChange?: () => void;
   onPreview?: (pose: FurnitureWorldPose | null) => void;
+  onScalePreview?: (scale: FurnitureGeometryScale | null) => void;
+  onScaleUnavailable?: (reason: string) => void;
+  viewportScaleDraft?: FurnitureGeometryScale | undefined;
+  editMode?: "translate" | "rotate" | "scale";
   onSnapChange?: (metres: number, radians: number) => void;
   onEditingChange?: (editing: boolean) => void;
-  onModeChange?: (mode: "translate" | "rotate" | "scale") => void;
+  onControlsReady?: (controls: FurnitureEditControls | null) => void;
   viewportDraft?: FurnitureWorldPose | undefined;
 }
 /** A draft is visual only until Apply issues the IFC-aware application command. */
 export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const [draft, setDraft] = createSignal<number[] | null>(null);
+  const [scaleDraft, setScaleDraft] = createSignal<number[] | null>(null);
+  const [scaleReason, setScaleReason] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal("");
   const [snap, setSnap] = createSignal(0);
   const [rotationSnap, setRotationSnap] = createSignal(0);
-  const [mode, setMode] = createSignal<"translate" | "rotate" | "scale">("translate");
   let loadedId: string | null = null;
-  const poseToDraft = (pose: FurnitureWorldPose) => [...pose.position, pose.yawRadians * 180 / Math.PI, pose.uniformScale ?? 1];
+  let lastHandledEditRequest = 0;
+  let beginGeneration = 0;
+  const poseToDraft = (pose: FurnitureWorldPose) => [...pose.position, pose.yawRadians * 180 / Math.PI];
   const pose = (): FurnitureWorldPose | null => {
-    const v = draft(); if (!v || !v.every(Number.isFinite) || v[4]! <= 0 || !Number.isFinite(snap()) || snap() < 0 || !Number.isFinite(rotationSnap()) || rotationSnap() < 0) return null;
+    const v = draft(); if (!v || !v.every(Number.isFinite) || !Number.isFinite(snap()) || snap() < 0 || !Number.isFinite(rotationSnap()) || rotationSnap() < 0) return null;
     const step = snap(); const p = v.slice(0, 3).map((n) => step > 0 ? Math.round(n / step) * step : n) as [number, number, number];
     const degrees = rotationSnap() > 0 ? Math.round(v[3]! / rotationSnap()) * rotationSnap() : v[3]!;
-    return { position: p, yawRadians: degrees * Math.PI / 180, uniformScale: v[4]! };
+    return { position: p, yawRadians: degrees * Math.PI / 180 };
   };
-  const begin = async (mode: "translate" | "rotate" | "scale" = "translate") => {
-    const id = props.canonicalId; setBusy(true); setError("");
-    try { const current = await props.controller.prepareFurnitureEditing(id); if (id === props.canonicalId) { loadedId = id; setDraft(poseToDraft(current)); setMode(mode); props.onModeChange?.(mode); props.onEditingChange?.(true); updateSnapping(); } }
-    catch (err) { setError(err instanceof Error ? `${err.message}${err.cause instanceof Error ? ` ${err.cause.message}` : ""}` : String(err)); }
-    finally { setBusy(false); }
+  const begin = async () => {
+    if (busy() || loadedId !== null) return;
+    const id = props.canonicalId, generation = ++beginGeneration;
+    setBusy(true); setError("");
+    try {
+      const current = await props.controller.prepareFurnitureEditing(id);
+      if (generation === beginGeneration && id === props.canonicalId) {
+        const support = props.controller.furnitureScaleStatus(id);
+        if (props.editMode === "scale" && !support.supported) {
+          setError("Scale unavailable: " + support.reason);
+          props.onEditingChange?.(false);
+          props.onScaleUnavailable?.(support.reason);
+          return;
+        }
+        loadedId = id;
+        setDraft(poseToDraft(current));
+        setScaleDraft(support.supported ? [...support.scale] : null);
+        setScaleReason(support.supported ? "" : support.reason);
+        props.onEditingChange?.(true);
+        updateSnapping();
+      }
+    } catch (err) {
+      if (generation === beginGeneration) setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      if (generation === beginGeneration) setBusy(false);
+    }
   };
-  const cancel = () => { setDraft(null); loadedId = null; props.onPreview?.(null); props.onEditingChange?.(false); setError(""); };
-  createEffect(() => { props.externalVersion; const id = props.canonicalId; if (loadedId && id !== loadedId) cancel(); else if (loadedId) { try { setDraft(poseToDraft(props.controller.furniturePose(id))); props.onPreview?.(null); } catch { cancel(); } } });
+  const cancel = () => {
+    ++beginGeneration; setBusy(false); setDraft(null); setScaleDraft(null); loadedId = null;
+    props.onPreview?.(null); props.onScalePreview?.(null);
+    props.onEditingChange?.(false); setError("");
+  };
+  createEffect(() => {
+    const request = props.editRequest ?? 0;
+    if (request === 0) { lastHandledEditRequest = 0; return; }
+    if (request !== lastHandledEditRequest) {
+      lastHandledEditRequest = request;
+      if (!loadedId) void begin();
+    }
+  });
+  createEffect(() => { props.externalVersion; const id = props.canonicalId; if (loadedId && id !== loadedId) cancel(); else if (loadedId) {
+    try {
+      setDraft(poseToDraft(props.controller.furniturePose(id)));
+      const support = props.controller.furnitureScaleStatus(id);
+      setScaleDraft(support.supported ? [...support.scale] : null);
+      props.onPreview?.(null);
+    } catch { cancel(); }
+  } });
   createEffect(() => { const viewport = props.viewportDraft; if (viewport && loadedId === props.canonicalId) setDraft(poseToDraft(viewport)); });
+  createEffect(() => { const scale = props.viewportScaleDraft; if (scale && loadedId === props.canonicalId) setScaleDraft([...scale]); });
   const update = (index: number, value: number) => { setDraft((old) => old?.map((n, i) => i === index ? value : n) ?? null); const next = pose(); if (next) props.onPreview?.(next); };
+  const updateScale = (index: number, value: number) => {
+    const prior = scaleDraft();
+    const next = prior?.map((v, i) => i === index ? value : v);
+    if (!next) return;
+    setScaleDraft(next);
+    if (next.every(v => Number.isFinite(v) && v > 0 && v <= 1000)) {
+      try { props.onScalePreview?.(next as [number,number,number]); setError(""); }
+      catch (err) {
+        setScaleDraft(prior);
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    }
+  };
   const updateSnapping = () => {
     if ([snap(), rotationSnap()].every(value => Number.isFinite(value) && value >= 0))
       props.onSnapChange?.(snap(), rotationSnap() * Math.PI / 180);
@@ -46,29 +115,53 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   onMount(() => {
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && loadedId) { event.preventDefault(); cancel(); } };
     window.addEventListener("keydown", escape);
-    onCleanup(() => window.removeEventListener("keydown", escape));
+    props.onControlsReady?.({apply: applyDraft, cancel});
+    onCleanup(() => {
+      ++beginGeneration;
+      window.removeEventListener("keydown", escape);
+      props.onControlsReady?.(null);
+    });
   });
-  const apply = (event: SubmitEvent) => {
-    event.preventDefault(); const next = pose();
-    if (!next || loadedId !== props.canonicalId) { setError("Enter finite position/rotation, a positive scale and nonnegative snap values."); return; }
-    try { props.controller.placeFurniture(props.canonicalId, next); props.onPreview?.(null); setDraft(null); loadedId = null; props.onEditingChange?.(false); setError(""); props.onChange?.(); }
-    catch (err) { setError(err instanceof Error ? `${err.message}${err.cause instanceof Error ? ` ${err.cause.message}` : ""}` : String(err)); }
+  const applyDraft = (): boolean => {
+    const next = pose();
+    if (!next || loadedId !== props.canonicalId) {
+      setError("Enter finite position, rotation and snap values."); return false;
+    }
+    try {
+      const scale = scaleDraft();
+      if (scale) {
+        if (scale.length !== 3 || scale.some(v => !Number.isFinite(v) || v <= 0 || v > 1000)) {
+          setError("Enter finite positive geometry-scale factors at most 1000."); return false;
+        }
+        props.controller.transformFurniture(props.canonicalId, next, scale as [number,number,number]);
+      } else props.controller.placeFurniture(props.canonicalId, next);
+      props.onPreview?.(null); props.onScalePreview?.(null);
+      setDraft(null); setScaleDraft(null); loadedId = null;
+      props.onEditingChange?.(false); setError(""); props.onChange?.();
+      return true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err)); return false;
+    }
   };
+  const apply = (event: SubmitEvent) => { event.preventDefault(); applyDraft(); };
   return <section aria-label="Furniture placement">
     <h3>Furniture placement</h3>
     <p>Position uses IFC world metres, Z up. Rotation is about Z.</p>
-    <div>
-      <For each={[["translate", "Move"], ["rotate", "Rotate"], ["scale", "Scale"]] as const}>{([value, label]) =>
-        <button type="button" disabled={busy()} aria-pressed={draft() !== null && mode() === value} onClick={() => { if (draft()) { setMode(value); props.onModeChange?.(value); } else void begin(value); }}>{label}</button>
-      }</For>
-    </div>
     <Show when={draft()} fallback={<button type="button" disabled={busy()} onClick={() => void begin()}>{busy() ? "Checking IFC…" : "Edit placement"}</button>}>
       <form onSubmit={apply}>
-        <For each={["Position X (m)", "Position Y (m)", "Position Z (m)", "Rotation (degrees)", "Uniform scale"]}>{(label, index) =>
+        <For each={["Position X (m)", "Position Y (m)", "Position Z (m)", "Rotation (degrees)"]}>{(label, index) =>
           <label>{label} <input type="number" step="any" value={draft()?.[index()]} onInput={(event) => update(index(), event.currentTarget.valueAsNumber)} /></label>
         }</For>
         <label>Position snap (m, 0 off) <input type="number" min="0" step="any" value={snap()} onInput={(event) => { setSnap(event.currentTarget.valueAsNumber); updateSnapping(); }} /></label>
         <label>Rotation snap (degrees, 0 off) <input type="number" min="0" step="any" value={rotationSnap()} onInput={(event) => { setRotationSnap(event.currentTarget.valueAsNumber); updateSnapping(); }} /></label>
+        <Show when={scaleDraft()} fallback={<p class="teldra-studio-selection-workspace__hint" title={scaleReason()}>Scale unavailable: {scaleReason()}</p>}>
+          <fieldset class="teldra-ifc-scale-fields"><legend>IFC mapped geometry scale (local XYZ)</legend>
+            <For each={["Scale X", "Scale Y", "Scale Z"]}>{(label, index) =>
+              <label>{label} <input type="number" min="0.000001" max="1000" step="any" value={scaleDraft()?.[index()]}
+                onInput={event => updateScale(index(), event.currentTarget.valueAsNumber)} /></label>
+            }</For>
+          </fieldset>
+        </Show>
         <button type="submit">Apply placement</button><button type="button" onClick={cancel}>Cancel</button>
       </form>
     </Show>

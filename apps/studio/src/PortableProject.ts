@@ -78,3 +78,21 @@ export async function openDemoProject(url: string, options: {
   } else bytes = new Uint8Array(await response.arrayBuffer());
   return openBrowserTeldraProject(createDownloadProjectHandle(options.fileName ?? "teldra-demo.teldra", bytes), `demo:${crypto.randomUUID()}`);
 }
+
+/** Installed Chromium PWAs may receive .teldra files through the OS file handler. */
+export async function openLaunchedProject(file: FileSystemFileHandle): Promise<BrowserStudioProject> {
+  if (!file.name.toLowerCase().endsWith(".teldra")) throw new Error("Only .teldra files can be opened.");
+  return openBrowserTeldraProject({
+    name: file.name,
+    saveMode: "direct",
+    getFile: () => file.getFile(),
+    async createWritable() {
+      const writer = await file.createWritable();
+      return {
+        async write(value: Uint8Array) { await writer.write(value.slice().buffer as ArrayBuffer); },
+        async close() { await writer.close(); },
+        async abort(reason?: unknown) { await writer.abort(reason); },
+      };
+    },
+  }, `launch:${crypto.randomUUID()}`);
+}

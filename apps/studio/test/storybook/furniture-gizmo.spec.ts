@@ -26,13 +26,14 @@ test("upright rotation ring stages a world-Z yaw", async ({page}) => {
   expect(Math.abs(JSON.parse(await page.getByTestId("gizmo-pose").textContent() ?? "{}").yawRadians)).toBeGreaterThan(.5);
 });
 
-test("uniform scale handle stages a positive size change", async ({page}) => {
- await page.goto(story);await expect(page.getByTestId("gizmo-status")).toHaveText("ready");
- await page.getByRole("button",{name:"Scale",exact:true}).click();
- const box=(await page.getByTestId("gizmo-canvas").boundingBox())!;
- const x=box.x+box.width/2,y=box.y+box.height/2;
- await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+40,y-40,{steps:16});await page.mouse.up();
- await expect(page.getByTestId("gizmo-drag")).toHaveText("ended");
- const pose=JSON.parse(await page.getByTestId("gizmo-pose").textContent()??"{}");
- expect(pose.uniformScale).toBeGreaterThan(0);expect(Math.abs(pose.uniformScale-1)).toBeGreaterThan(.01);
+
+test("scale gizmo mode supports local XYZ factors and cancel restores the source", async ({page}) => {
+  await page.goto(story);
+  await expect(page.getByTestId("gizmo-status")).toHaveText("ready");
+  await page.getByRole("button",{name:"Scale",exact:true}).click();
+  await expect(page.getByTestId("gizmo-scale")).toHaveText("1,1,1");
+  await page.getByRole("button",{name:"Set scale XYZ",exact:true}).click();
+  await expect(page.getByTestId("gizmo-scale")).toHaveText("1.5,1,0.75");
+  await page.getByRole("button",{name:"Cancel",exact:true}).click();
+  await expect(page.getByTestId("gizmo-scale")).toHaveText("1,1,1");
 });

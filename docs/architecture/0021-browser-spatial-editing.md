@@ -1,12 +1,57 @@
 # Browser spatial editing and Pages delivery
 
-Status: implemented for upright IFC4 furniture placement and authored device placement.
+Status: implemented for upright IFC4 furniture placement and authored device placement; IFC4 mapped-instance scale is experimental and type-gated.
 
 The browser edits canonical IFC through `@teldra/application` commands and the pinned
 `@teldra/ifc-edit` web-ifc 0.0.78 adapter. Babylon gizmos expose drafts only. Apply
-commits world-metre XYZ, Z yaw and positive uniform scale; Cancel restores the committed pose. Nonuniform scaling,
-wall/topology changes, non-metre IFC, tilted or dependent placement hierarchies are
-rejected or not offered. Uniform scale wraps represented IFC geometry in an IFC mapped representation. Source materials and original mesh assets remain unchanged.
+commits world-metre XYZ and Z yaw; Cancel restores the committed pose. Arbitrary
+object-mode scaling, wall/topology changes, non-metre IFC, tilted or dependent
+placement hierarchies are rejected. Source materials, representation maps and
+GlobalIds remain unchanged. A restricted mapped-instance geometry scaling path
+is described below.
+
+Studio now exposes an **Edit transform** action in the viewport project toolbar for a selected
+IFC furniture item. It validates the supported IFC4 placement contract before attaching
+Move/Rotate gizmos. The inspector remains the accessible precision-input, snap, Apply and Cancel
+surface. **Scale is enabled only** when the selected furniture has a uniquely owned
+IFC4 Body/MappedRepresentation with one IfcMappedItem and an identity-aligned
+mapping target. Representation-free imported SH3D furniture and unsupported
+parametric IFC types still cannot be scaled. Babylon-only scaling is forbidden.
+
+## IFC4 mapped-instance scale contract (restricted)
+
+For a supported IfcFurniture, scaling writes a fresh
+IfcCartesianTransformationOperator3DnonUniform as the uniquely owned
+IfcMappedItem.MappingTarget. It never changes the shared
+IfcRepresentationMap, source shape geometry, IfcFurniture GlobalId,
+IfC placement hierarchy or unrelated instances. The source and current
+mapping factors are captured in local IFC XYZ coordinates. All values
+must be finite, strictly positive and at most 1000. Nonidentity axes,
+offset mapping origins, shared editable shape chains, missing ShapeRepresentations
+and other representation kinds fail closed.
+
+In Studio, the Scale gizmo and S shortcut control a *disposable preview*.
+Uniform scaling and per-axis X/Y/Z factors are represented in a local-scale
+draft, alongside the pose draft. Enter/Apply sends one application
+command for pose and scale, with one IFC undo/redo snapshot. Cancel leaves
+canonical bytes unchanged; numerical controls remain available for accessibility.
+For simple supported geometry, a per-item affine projection updates the
+unchanged GLB preview. Nonuniform transformations requiring shear that Babylon
+cannot represent are rejected before IFC commit. A future conversion pipeline
+must regenerate GLB derivatives for these cases.
+
+Scene placement reconciliation records with geometry-scale ratios use version
+2 of the derived, hash-bound scene placement record; version 1 is still
+recognized for rigid-only projects. Scale ratios and matrices are validated
+on archive parsing and then cross-checked against authoritative source/current
+IFC geometry during browser opening. The canonical IFC remains authoritative.
+These overrides are projection artifacts, not an alternate representation owner.
+
+This is **not** support for arbitrary IFC solid scaling, wall editing, source
+SH3D visual assets without IFC geometry, multi-item mapped representations,
+rotated mapping origins, tilted placements or dependent hierarchies. Issue #82
+continues to track broader IFC representation authoring, derived-asset
+regeneration, full 21D fixture certification and hardware tests.
 
 Canonical device placement is optional IFC-world metre/Z-up position and a normalized
 quaternion. Device placement is authored data, not a physical smart-home command.
@@ -27,7 +72,7 @@ same canonical transform, including merged parts. Renderer library batching rema
 opt-in; Studio enables the tested conservative path.
 
 Pages publishes one combined tree: existing project site/onboarding plus `/studio/`.
-The public default demo is the owner-authorized complete 21D home (65.5 MiB), prepared from a hash-verified LFS archive. The 31 KB synthetic room remains at `?demo=sample` for focused editing tests. The original SH3D is embedded byte-identically; all conversion assets are retained. The real demo is added
+The public default demo is the owner-authorized complete 21D home (53.4 MiB), prepared from a hash-verified LFS archive. The 31 KB synthetic room remains at `?demo=sample` for focused editing tests. The original SH3D is embedded byte-identically; all conversion assets are retained. The real demo is added
 to the Pages artifact. Local files use direct browser handles when available, or
 upload-to-memory and explicit download copies elsewhere. Browser recovery is local.
 `pnpm pages:build` validates routes/assets and initial Brotli shell/CSS budgets.
@@ -57,4 +102,93 @@ remaining acceptance in issue #80, with release gates #37 and #71-#75.
 
 The canvas fills the workspace. Scene search, inspector, project actions, orientation, camera, layers and appearance controls float within its bounds. Compact screens scroll toolbars horizontally and use mutually exclusive scene/inspector panels. Texture visibility and light gain are disposable view settings; light gain preserves each source-preview light ratio. Source-preview lighting is interactive raster lighting, not source photorenderer parity or path tracing.
 
-The complete demo now includes native triangle geometry for 185 furniture/light/proxy elements (781,744 triangles) in IFC, enabling canonical scale with exact undo and validated save/reopen reconciliation. The source-light profile carries 18 lamp emitters and four explicitly named window daylight emitters. Each mesh receives the nearest four local emitters plus four directional fill lights; assignment uses geometry position, never camera distance. Imported lamp positions follow committed transforms and undo. Window fill is an interactive approximation without ray-traced occlusion; SH3D lamp power is not a calibrated lumen value. A real-profile probe rendered identical RGB (146,142,132) at camera radii 8 and 40 metres. The real-home bed was moved, rotated, scaled to 1.15, saved and reopened; an independent IFC read confirmed the mapped scale and unchanged original SH3D/GLB bytes.
+
+## Blender / Bonsai-style navigation and transform shortcuts
+
+The canvas is keyboard-focusable. Studio borrows Blender/Bonsai input
+patterns while keeping IFC authoring authority in application commands.
+
+- **G** moves selected supported IFC furniture; **R** rotates it. After G,
+  **X**, **Y** or **Z** constrain numeric translation to an IFC-world axis.
+  Rotation of upright IFC furniture is Z-only, entered in degrees.
+- Enter a signed finite decimal delta (for example G → X → 0.5 → Enter)
+  or a rotation angle (R → Z → 45 → Enter). **Backspace** corrects numbers.
+  **Enter** commits using the IFC application command; **Escape** discards
+  the draft. Pointer gizmos and inspector fields synchronize during editing.
+- **S** starts scaling **only** for IFC furniture with a validated per-instance
+  mapped geometry target; incompatible representations remain disabled with an
+  explanation. Bonsai warns against arbitrary IFC object-mode scaling.
+- **MMB** drag orbits, **Shift+MMB** pans, wheel zooms. Left-drag orbit and
+  right-drag pan remain supported. Numpad 1/3/7 show front/right/top views,
+  5 toggles projection, 2/4/6/8 orbit, Shift+numpad pans, and numpad
+  decimal frames selection. **Home** frames scene, Shift+Home resets view;
+  F/Shift+F fit scene/selection. **Ctrl/Command+S** saves; Ctrl/Command+Z
+  and Ctrl/Command+Shift+Z operate canonical undo/redo.
+- Shortcuts require canvas focus and never intercept form input. IFC4 metre,
+  upright and independent-placement restrictions still apply. Gizmos cannot
+  dispatch Home Assistant physical controls.
+
+References: Blender transform modal map and numeric input documentation,
+plus [Bonsai IFC hotkeys](https://docs.bonsaibim.org/reference/general/hotkeys.html).
+This is browser-adapted tooling, not a complete imitation of Blender's
+free-pointer modal modeling.
+
+## Mobile two-finger gesture editing
+
+Teldra provides a collapsible touch tool on compact screens while an **IFC-
+validated furniture editing session** is active. It starts collapsed so the
+3D scene stays visible. Expanding it exposes touch guidance, axis constraints,
+and a bounded multi-touch preview area. The Babylon scene canvas continues
+to own ordinary orbit, pan, pinch-to-zoom and gizmo pointer gestures. The
+separate editor surface avoids ambiguous camera/geometry gesture ownership.
+
+In **Move** mode, select IFC world X, Y or Z and slide two fingers vertically
+to preview an axis translation. **Rotate** mode uses a two-finger twist to
+preview IFC upright world-Z yaw only. **Scale** mode uses a two-finger pinch
+for uniform or individually selected local-X/Y/Z factors, but **only** when
+the IFC adapter confirms a supported, per-instance mapped geometry
+representation. Invalid, overflowing or unsupported scales are never
+emitted. Only the validated `FurnitureEditSession.setScale` preview and
+`StudioProjectController.transformFurniture` canonical commit are permitted;
+mesh-only scaling remains prohibited. The move/rotate gesture output
+also goes through the validated disposable furniture edit session.
+
+The pad reads the same move and rotation snaps as the inspector. Numeric
+fields, keyboard shortcuts and Babylon gizmos remain available, synchronized
+and authoritative alternatives. Apply commits one IFC-backed transaction;
+Cancel restores the original project placement and scale. Pointer cancellation
+reverts the current gesture to its baseline **draft**, not to an unrelated
+camera state. An ambiguous third touch invalidates the gesture.
+
+**Visual** feedback consists of active-state borders, highlighted axes,
+signed metre/degree/percentage deltas and a polite status announcement.
+Haptic cues are best-effort through the browser Vibration API; quiet Web Audio
+tones are optional and disabled by default. Neither haptics nor sound is
+required to operate the UI. Both are suppressed under reduced-motion
+preferences. Missing device support is an accepted silent fallback.
+
+Unit tests cover world-axis translation, snapping, yaw rotation, scaling
+bounds and invalid pointers. Storybook browser tests cover simulated
+multi-touch pointer sequences, progressive disclosure and accessibility.
+Physical Android/iOS touch, hardware haptics/sonification, screen-reader
+exploration, safe-area/landscape layouts and performance certification
+remain release tasks under #72. Full-viewport long-press object actions,
+three-finger history and double-tap framing are tracked by #90 and must
+not be represented as part of the isolated pad.
+
+
+## Complete SH3D geometry and camera-independent illumination
+
+The complete default demo includes native triangle geometry for 185 furniture/light/proxy
+entities (781,744 triangles) in owned IFC mapped representations. This makes its
+source furniture compatible with the existing canonical mapped-scale command, gizmo,
+undo and archive reconciliation paths. Source materials, original GLB and original SH3D
+are retained. Safe represented lights/proxies use the same validated transform adapter.
+
+The derived source-light profile carries 18 lamp emitters and four explicitly named
+window daylight emitters. Each mesh receives its four nearest local emitters plus four
+directional fill lights; assignment uses geometry position, never camera distance.
+Imported lamp positions follow edits, previews, cancel and undo. Window fill is an
+interactive raster approximation without ray-traced occlusion or calibrated lumens.
+A real-profile probe rendered identical RGB (146,142,132) at camera radii 8 and 40 m.
+Selection has a nonpickable aggregate bounds outline, including while transforming.

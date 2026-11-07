@@ -32,7 +32,12 @@ def test_native_triangles_become_local_ifc_geometry_without_changing_placement(t
     assert attach_furniture_geometry(model, path) == {"representedElements": 1, "triangles": 1}
     chair = model.by_guid(guid)
     assert chair.ObjectPlacement.id() == placement_id
-    coordinates = chair.Representation.Representations[0].Items[0].Coordinates.CoordList
+    coordinates = (
+        chair.Representation.Representations[0]
+        .Items[0]
+        .MappingSource.MappedRepresentation.Items[0]
+        .Coordinates.CoordList
+    )
     assert coordinates[0] == pytest.approx([0, 0, 0])
     assert coordinates[1] == pytest.approx([1, 0, 0])
     assert coordinates[2] == pytest.approx([0, 0, 1])
