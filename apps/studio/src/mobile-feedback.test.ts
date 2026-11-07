@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { feedbackPattern, signalMobileFeedback } from "./mobile-feedback";
 
 describe("optional mobile haptics", () => {
