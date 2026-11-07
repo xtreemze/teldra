@@ -244,11 +244,14 @@ export class StudioProjectController {
     // shear, but only when the loaded physical GLB parts have passed the pure
     // runtime capability check. Headless clients remain conservative.
     const shear = m[0]!*m[4]! + m[1]!*m[5]!;
-    if (Math.abs(shear) > 1e-6 * Math.max(1, ratio[0]!**2 + ratio[1]!**2)) {
-      if (!this.#affineProjectionValidator)
-        throw new Error("Rotated nonuniform scaling requires a verified affine render projection.");
-      this.#affineProjectionValidator(id, m);
-    }
+    const requiresAffine = Math.abs(shear) > 1e-6 * Math.max(1, ratio[0]!**2 + ratio[1]!**2);
+    const nonuniform = Math.max(...ratio) - Math.min(...ratio) > 1e-7;
+    // A source mesh may have additional local rotations not reflected in the
+    // furniture's global matrix. Check all nonuniform edits when a renderer
+    // is attached, not just those whose canonical XY block contains shear.
+    if (this.#affineProjectionValidator && nonuniform) this.#affineProjectionValidator(id, m);
+    else if (requiresAffine)
+      throw new Error("Rotated nonuniform scaling requires a verified affine render projection.");
   }
   get placementOverrides(): readonly ScenePlacementOverride[] {
     const context = this.#building;
