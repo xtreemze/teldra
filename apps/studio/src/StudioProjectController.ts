@@ -127,10 +127,14 @@ export class StudioProjectController {
     if (!this.#ifc) throw new Error("Prepare IFC editing first.");
     return this.#ifc.read(this.#furnitureRef(canonicalId).ifcGlobalId);
   }
-  furniturePlacement(canonicalId: string): { canonicalId: string; original: FurnitureWorldPose; current: FurnitureWorldPose } {
+  furniturePlacement(canonicalId: string): { canonicalId: string; original: FurnitureWorldPose; current: FurnitureWorldPose; sourceScale?: FurnitureGeometryScale; currentScale?: FurnitureGeometryScale } {
     const original = this.#sourcePoses.get(canonicalId);
     if (!original) throw new Error("Prepare IFC editing first.");
-    return { canonicalId, original, current: this.furniturePose(canonicalId) };
+    const sourceScale = this.#sourceScales.get(canonicalId);
+    return {
+      canonicalId, original, current: this.furniturePose(canonicalId),
+      ...(sourceScale ? { sourceScale, currentScale: this.#ifc!.readScale(this.#furnitureRef(canonicalId).ifcGlobalId) } : {}),
+    };
   }
   furnitureScaleStatus(canonicalId: string): { readonly supported: true; readonly scale: FurnitureGeometryScale } | { readonly supported: false; readonly reason: string } {
     if (!this.#ifc || !this.#sourcePoses.has(canonicalId))
