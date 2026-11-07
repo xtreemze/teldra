@@ -147,7 +147,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       </button>
       <span>{props.mode === "rotate" ? "Two-finger twist" : "Two-finger axis slide"} · Preview</span>
     </div>
-    <Show when={expanded()}><div id="teldra-mobile-transform-details" class="teldra-mobile-transform-pad__details">
+    <div id="teldra-mobile-transform-details" class="teldra-mobile-transform-pad__details" hidden={!expanded()}>
     <Show when={props.mode === "translate"} fallback={<p class="teldra-mobile-transform-pad__axis-label">World Z rotation only</p>}>
       <div class="teldra-mobile-transform-pad__axes" role="group" aria-label="Move along world axis">
         {(["x", "y", "z"] as const).map(value =>
@@ -161,7 +161,7 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       <span aria-hidden="true" class="teldra-mobile-transform-pad__contact">◎　◎</span>
       <output data-testid="mobile-transform-delta" aria-live="off">{label()}</output>
     </div>
-    </div></Show>
+    </div>
     <div class="teldra-mobile-transform-pad__actions" role="group" aria-label="Touch transform actions">
       <button type="button" onClick={() => { cue(680); props.onApply(); }}>Apply</button>
       <button type="button" onClick={() => { cue(320); props.onCancel(); }}>Cancel</button>
