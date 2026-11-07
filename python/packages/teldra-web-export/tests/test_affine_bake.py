@@ -196,7 +196,8 @@ def test_parented_cross_identity_geometry_is_rebaked_in_its_local_frame(tmp_path
     assert output["meshes"][1] == doc["meshes"][1]
     before = _values(doc, bin_data, doc["meshes"][0]["primitives"][0]["attributes"]["POSITION"])
     after = _values(
-        output, binary,
+        output,
+        binary,
         output["meshes"][output["nodes"][0]["mesh"]]["primitives"][0]["attributes"]["POSITION"],
     )
     frame = np.eye(4)
@@ -206,9 +207,7 @@ def test_parented_cross_identity_geometry_is_rebaked_in_its_local_frame(tmp_path
         [0, 0, 1],
     ]
     frame[:3, 3] = [1, 2, 3]
-    canonical_to_scene = np.array(
-        [[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]]
-    )
+    canonical_to_scene = np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
     delta = np.asarray(AFFINE).reshape(4, 4, order="F")
     delta_scene = canonical_to_scene @ delta @ np.linalg.inv(canonical_to_scene)
     for old, new in zip(before, after, strict=True):
