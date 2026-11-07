@@ -15,27 +15,27 @@ IFC furniture item. It validates the supported IFC4 placement contract before at
 Move/Rotate gizmos. The inspector remains the accessible precision-input, snap, Apply and Cancel
 surface. **Scale is enabled only** when the selected furniture has a uniquely owned
 IFC4 Body/MappedRepresentation with one IfcMappedItem and an identity-aligned
-mapping target. Representation-free imported SH3D furniture and unsupported
+mapping target. SH3D elements without mapped IFC representations and unsupported
 parametric IFC types still cannot be scaled. Babylon-only scaling is forbidden.
 
-## Source-derived physical-size controls for SH3D furniture
+## Source-derived nominal-size editing for SH3D furniture
 
 When the IFC object has a uniquely linked, structurally valid
-\`Teldra_Source\` property set from Sweet Home 3D, Studio can display **source
+`Teldra_Source` property set from Sweet Home 3D, Studio can display **source
 nominal width, depth and height** in metres. The importer stores the original
-\`SourceWidthMetres\`, \`SourceDepthMetres\`, and \`SourceHeightMetres\` as
+`SourceWidthMetres`, `SourceDepthMetres`, and `SourceHeightMetres` as
 immutable source provenance. These fields describe source-authored nominal
 dimensions, **not measured GLB/triangle bounding-box extents**. Objects with
 missing, nonpositive, duplicated or mismatched provenance cannot expose
 editable nominal dimensions, although properly mapped native IFC geometry
 can still use scale factors.
 
-For each local IFC axis \`i\`:
+For each local IFC axis `i`:
 
-\`\`\`text
+```text
 Current nominal size[i] = Source nominal size[i] × Current IFC scale[i] / Original IFC scale[i]
 New IFC scale[i]      = Original IFC scale[i] × Requested nominal size[i] / Source nominal size[i]
-\`\`\`
+```
 
 The inspector presents width/depth/height and the existing absolute X/Y/Z
 scale factors in parallel. Values are positive, finite and bounded. Editing
@@ -43,7 +43,7 @@ a nominal dimension updates a disposable preview through the same IFC-backed
 scale path; Apply writes one canonical IFC transformation command while
 Cancel discards the draft. Original SH3D bytes, source nominal metadata,
 GlobalIds and IFC mapped source geometry remain unmodified. A reopened
-\`.teldra\` archive reconstructs the sizes from verified canonical IFC
+`.teldra` archive reconstructs the sizes from verified canonical IFC
 mapping factors and the hash-bound original source.
 
 The capability is deliberately described as **nominal dimensions**.
