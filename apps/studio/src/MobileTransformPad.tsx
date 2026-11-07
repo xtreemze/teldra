@@ -9,6 +9,8 @@ interface MobileTransformPadProps {
   readonly translationSnap: number;
   readonly rotationSnap: number; // radians
   readonly onPreview: (pose: FurnitureWorldPose) => void;
+  readonly onApply: () => void;
+  readonly onCancel: () => void;
 }
 
 /**
@@ -152,6 +154,10 @@ export function MobileTransformPad(props: MobileTransformPadProps) {
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={cancel}>
       <span aria-hidden="true" class="teldra-mobile-transform-pad__contact">◎　◎</span>
       <output data-testid="mobile-transform-delta" aria-live="off">{label()}</output>
+    </div>
+    <div class="teldra-mobile-transform-pad__actions" role="group" aria-label="Touch transform actions">
+      <button type="button" onClick={() => { cue(680); props.onApply(); }}>Apply</button>
+      <button type="button" onClick={() => { cue(320); props.onCancel(); }}>Cancel</button>
     </div>
     <div class="teldra-mobile-transform-pad__feedback">
       <label><input type="checkbox" checked={haptics()} onChange={e => setHaptics(e.currentTarget.checked)} />Haptics</label>
