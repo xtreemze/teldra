@@ -39,6 +39,7 @@ export function StudioSelectionWorkspace(
   const [mobileProjectOpen, setMobileProjectOpen] = createSignal(false);
   const [mobileContextOpen, setMobileContextOpen] = createSignal(false);
   const [mobileHapticsEnabled, setMobileHapticsEnabled] = createSignal(true);
+  const [gestureGuideOpen, setGestureGuideOpen] = createSignal(false);
   const tactile = (kind: "select" | "menu" | "edit" | "applied" | "error") =>
     signalMobileFeedback(kind, mobileHapticsEnabled());
   const [viewport, setViewport] = createSignal<TwinViewportHandle>();
@@ -215,6 +216,32 @@ export function StudioSelectionWorkspace(
     }
     tactile("edit");
   };
+  const handleCanvasGesture = (kind: "menu" | "undo" | "redo" | "frame", identity?: TwinRenderIdentity) => {
+    if (kind === "menu") {
+      if (!identity || editingFurniture()) return;
+      selectRenderIdentity(identity);
+      openMobileContext();
+      return;
+    }
+    if (kind === "frame") {
+      setTransformMessage("Framed selected object. Double-tap again to reframe.");
+      tactile("select");
+      return;
+    }
+    if (editingFurniture() || transformModal() || saving()) {
+      setTransformMessage("Apply or cancel the active edit before using gesture history.");
+      tactile("error");
+      return;
+    }
+    if (kind === "undo" && !history().canUndo || kind === "redo" && !history().canRedo) {
+      setTransformMessage(kind === "undo" ? "Nothing to undo." : "Nothing to redo.");
+      tactile("error");
+      return;
+    }
+    changeHistory(kind);
+    setTransformMessage(kind === "undo" ? "Undid the last project change." : "Redid the last project change.");
+    tactile("applied");
+  };
   const openMobileContext = () => {
     if (!selectedCanonicalId() || editingFurniture()) return;
     setMobileProjectOpen(false);
@@ -299,52 +326,7 @@ export function StudioSelectionWorkspace(
   };
   onMount(() => {
     window.addEventListener("keydown", keydown, true);
-
-    // Hold is an alternative to the visible object-action menu, not a unique command.
-    // Motion, multi-touch, or active IFC gizmos must never trigger a contextual action.
-    let pending: {pointerId: number; x: number; y: number} | null = null;
-    let holdTimer: ReturnType<typeof setTimeout> | undefined;
-    const cancelHold = () => {
-      if (holdTimer !== undefined) clearTimeout(holdTimer);
-      holdTimer = undefined;
-      pending = null;
-    };
-    const pointerDown = (event: PointerEvent) => {
-      if (event.pointerType !== "touch" && event.pointerType !== "pen") return;
-      // Any second pointer converts the gesture to navigation, not long press.
-      if (pending) cancelHold();
-      if (!window.matchMedia("(max-width: 48rem)").matches ||
-          !event.isPrimary || event.button !== 0 || editingFurniture() ||
-          !(event.target instanceof HTMLCanvasElement) ||
-          !event.target.classList.contains("teldra-twin-viewport__canvas")) return;
-      cancelHold();
-      pending = {pointerId: event.pointerId, x: event.clientX, y: event.clientY};
-      holdTimer = setTimeout(() => {
-        const point = pending;
-        cancelHold();
-        if (!point || editingFurniture()) return;
-        const hit = viewport()?.pick(point.x, point.y);
-        if (!hit) return;
-        selectRenderIdentity(hit);
-        openMobileContext();
-      }, 480);
-    };
-    const pointerMove = (event: PointerEvent) => {
-      if (pending && (event.pointerId !== pending.pointerId ||
-          Math.hypot(event.clientX - pending.x, event.clientY - pending.y) > 10)) cancelHold();
-    };
-    workspaceRoot.addEventListener("pointerdown", pointerDown, true);
-    workspaceRoot.addEventListener("pointermove", pointerMove, true);
-    workspaceRoot.addEventListener("pointerup", cancelHold, true);
-    workspaceRoot.addEventListener("pointercancel", cancelHold, true);
-    onCleanup(() => {
-      window.removeEventListener("keydown", keydown, true);
-      workspaceRoot.removeEventListener("pointerdown", pointerDown, true);
-      workspaceRoot.removeEventListener("pointermove", pointerMove, true);
-      workspaceRoot.removeEventListener("pointerup", cancelHold, true);
-      workspaceRoot.removeEventListener("pointercancel", cancelHold, true);
-      cancelHold();
-    });
+    onCleanup(() => window.removeEventListener("keydown", keydown, true));
   });
   onCleanup(stopFurnitureEdit);
 
@@ -366,6 +348,17 @@ export function StudioSelectionWorkspace(
           <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
           <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
           <button type="button" aria-pressed={mobileHapticsEnabled()} onClick={() => setMobileHapticsEnabled(!mobileHapticsEnabled())}>Haptics {mobileHapticsEnabled() ? "on" : "off"}</button>
+          <button type="button" aria-expanded={gestureGuideOpen()} aria-controls="teldra-mobile-gesture-guide"
+            onClick={() => setGestureGuideOpen(!gestureGuideOpen())}>Touch gesture guide</button>
+          <Show when={gestureGuideOpen()}>
+            <div id="teldra-mobile-gesture-guide" role="group" aria-label="Mobile touch gesture guide"
+              class="teldra-studio-selection-workspace__gesture-guide">
+              <p><strong>Navigate:</strong> drag one finger to orbit, two fingers to pan or pinch to zoom.</p>
+              <p><strong>Objects:</strong> tap to select, hold to open actions, double-tap the selected item to frame it.</p>
+              <p><strong>History:</strong> three fingers swipe left to undo or right to redo. Use Project menu buttons if your device reserves this gesture.</p>
+              <p><strong>Editing:</strong> use Move, Rotate, or supported IFC Scale in the dedicated gesture pad. Apply to save the draft; Cancel to discard it.</p>
+            </div>
+          </Show>
           <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
         </div>
       </Show>
@@ -459,6 +452,8 @@ export function StudioSelectionWorkspace(
           onReady={(handle) => { setViewport(handle); props.onViewportReady?.(handle); }}
           selectedCanonicalId={selectedCanonicalId() ?? null}
           onSelect={selectRenderIdentity}
+          gesturesDisabled={editingFurniture() || Boolean(transformModal()) || saving() || mobileContextOpen()}
+          onTouchGesture={handleCanvasGesture}
         />
       </section>
 
