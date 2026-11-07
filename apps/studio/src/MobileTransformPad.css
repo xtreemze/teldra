@@ -72,6 +72,21 @@
   }
   .teldra-mobile-transform-pad__contact { font-size: 1.4rem; color: #81dccb; }
   .teldra-mobile-transform-pad__surface output { max-width: 100%; overflow-wrap: anywhere; }
+  .teldra-mobile-transform-pad__actions { display: flex; gap: .45rem; }
+  .teldra-mobile-transform-pad__actions button {
+    flex: 1;
+    min-height: 2.75rem;
+    border: 1px solid #628598;
+    border-radius: .45rem;
+    background: #273e4e;
+    color: #edf5f8;
+    font: inherit;
+    font-weight: 700;
+  }
+  .teldra-mobile-transform-pad__actions button:first-child {
+    border-color: #81dccb;
+    background: #22514e;
+  }
   .teldra-mobile-transform-pad__feedback {
     display: flex;
     flex-wrap: wrap;
