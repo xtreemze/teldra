@@ -3,7 +3,6 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { RawTexture } from "@babylonjs/core/Materials/Textures/rawTexture";
-import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
 import { FloorTextureInspector } from "../src/floor-texture-inspector";
 
