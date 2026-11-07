@@ -312,7 +312,8 @@ export function StudioSelectionWorkspace(
             editMode={editMode()} editRequest={editRequest()} viewportDraft={viewportDraft()} viewportScaleDraft={viewportScaleDraft()}
             onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
             onPreview={(pose) => { if (pose) { editSession?.setPose(pose); setViewportDraft(pose); } else { setViewportDraft(undefined); projectPlacements(); } }}
-            onScalePreview={(scale) => { if (scale) { editSession?.setScale(scale); setViewportScaleDraft(scale); } else { setViewportScaleDraft(undefined); projectPlacements(); } }} />
+            onScalePreview={(scale) => { if (scale) { editSession?.setScale(scale); setViewportScaleDraft(scale); } else { setViewportScaleDraft(undefined); projectPlacements(); } }}
+            onScaleUnavailable={reason => setTransformMessage("Scale (S) is not available: " + reason)} />
         </>}</Show>
 
         <section
