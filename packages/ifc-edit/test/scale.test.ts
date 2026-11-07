@@ -37,7 +37,7 @@ describe("IFC4 mapped-instance scaling", () => {
   it("rejects geometry-free furniture without altering source bytes", async () => {
     const api = new IfcAPI(); await api.Init();
     const bytes = code.encode(raw);
-    expect(() => readFurnitureGeometryScale(api, bytes, guid)).toThrow(/representation/i);
+    expect(() => readFurnitureGeometryScale(api, bytes, guid)).toThrow(/IfcProductDefinitionShape/);
     expect(() => writeFurnitureGeometryScale(api, bytes, guid, [2,2,2])).toThrow();
     expect(new TextDecoder().decode(bytes)).toBe(raw);
   });
