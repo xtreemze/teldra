@@ -95,3 +95,36 @@ References: Blender transform modal map and numeric input documentation,
 plus [Bonsai IFC hotkeys](https://docs.bonsaibim.org/reference/general/hotkeys.html).
 This is browser-adapted tooling, not a complete imitation of Blender's
 free-pointer modal modeling.
+
+## Mobile two-finger transform interaction (feature branch)
+
+The mobile transform pad appears only during a validated, active IFC furniture
+edit session. It is deliberately an **isolated touch surface**, not a second
+canvas navigation system: ordinary scene orbit/pan/pinch and Babylon gizmos
+keep their existing event handling. A two-finger vertical slide previews a
+world-X, -Y or -Z translation after selecting an explicit axis; a two-finger
+twist previews upright world-Z yaw in Rotate mode. The pad reads the active
+inspector snapping increments, shows signed metre/degree deltas, and provides
+explicit Apply/Cancel buttons. It is hidden at desktop breakpoints; the normal
+gizmo and numeric editor remain available across viewport sizes.
+
+Finger gestures call the existing validated edit session `setPose` only and
+update the synchronized inspector draft; the existing Apply command is still
+the **only** path that mutates IFC geometry and enters project undo history.
+A cancelled pointer gesture restores its *pre-gesture preview*. An IFC edit
+Cancel restores the committed pose. Ambiguous third touches are ignored.
+This interaction does not dispatch smart-home device commands; Scale remains
+disabled until #82's geometry editing command is implemented.
+
+Haptic cues use browser Vibration API when available (never assumed on iOS);
+quiet Web Audio cues are **opt-in and disabled by default**. Both respect
+reduced-motion preferences. Visual deltas, explicit controls, accessible labels,
+numeric fields and status messaging carry the interaction when haptics or
+sound are unavailable. Haptics/audio are adjuncts rather than the only cue.
+
+Deterministic gesture-math unit tests and Storybook browser simulation cover
+supported move/twist previews. Real multitouch hardware, TalkBack/VoiceOver,
+iOS Safari touch behavior, high-density small screens, and hardware feedback
+still require device certification under #72. Canvas-wide three-finger history,
+double-tap framing, and long-press object actions require separate interaction
+arbitration work; do not claim they ship with this focused pad.
