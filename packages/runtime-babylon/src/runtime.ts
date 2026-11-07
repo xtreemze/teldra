@@ -1,5 +1,5 @@
 import { Camera } from "@babylonjs/core/Cameras/camera";
-import { cameraState, orientCamera, syncProjection, zoomCamera, panCamera, fitCamera, isMeshInteractable, stopCameraMotion, OneShotLoad, SceneLayers, type ViewState, type ViewDirection, type ViewProjection } from "./view-controls.js";
+import { cameraState, orientCamera, syncProjection, zoomCamera, panCamera, fitCamera, syncCameraDepth, isMeshInteractable, stopCameraMotion, OneShotLoad, SceneLayers, type ViewState, type ViewDirection, type ViewProjection } from "./view-controls.js";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import type { AbstractEngine } from "@babylonjs/core/Engines/abstractEngine";
 import { Engine } from "@babylonjs/core/Engines/engine";
@@ -46,7 +46,7 @@ export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
   readonly manifest: TeldraSceneManifest;
   assetSummary(): { meshParts: number; visibleMeshParts: number; hiddenSourceParts: number; sourcePhongMaterials: number; textures: number; texturesReady: boolean; lightingProfile: string; localLightSources: number; roomTexturedParts: number; roomTexturesBound: number; roomTexturesReady: number; floorInspectionMaterials: number; floorUnlitMaterials: number };
-  renderStats(): { backend: BabylonBackend; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
+  renderStats(): { backend: BabylonBackend; reverseDepth: boolean; nearPlane: number; farPlane: number; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
   beginFurnitureEdit(placement: FurniturePlacement, onPreview: (pose: FurnitureWorldPose) => void,
@@ -84,6 +84,8 @@ export interface BabylonTwinRuntimeOptions {
   batchOpaqueParts?: boolean;
   /** Diagnosis: bypass WebGPU selection without mutating scene or project data. */
   forceWebGL?: boolean;
+  /** Auto: reversed Z on WebGPU, standard Z on WebGL. Override to compare. */
+  depthMode?: "auto" | "reverse" | "standard";
 }
 
 let loadersRegistered = false;
@@ -102,6 +104,7 @@ export async function createBabylonTwinRuntime(
     canvas,
     options.antialias ?? true,
     options.forceWebGL ?? false,
+    options.depthMode ?? "auto",
   );
   const scene = new Scene(engine);
   const instrumentation = new SceneInstrumentation(scene);
@@ -160,7 +163,10 @@ export async function createBabylonTwinRuntime(
   };
   let lastView = "";
   scene.onBeforeRenderObservable.add(() => {
-    if (defaultCamera) syncProjection(defaultCamera, engine.getRenderWidth() / engine.getRenderHeight());
+    if (defaultCamera) {
+      syncCameraDepth(defaultCamera);
+      syncProjection(defaultCamera, engine.getRenderWidth() / engine.getRenderHeight());
+    }
   });
   scene.onAfterRenderObservable.add(() => {
     if (!defaultCamera || !viewListeners.size) return;
@@ -426,7 +432,9 @@ export async function createBabylonTwinRuntime(
     renderStats() {
       const sorted = [...frameSamples].sort((a, b) => a - b);
       const percentile = (p: number) => sorted.length ? sorted[Math.ceil(p * sorted.length) - 1]! : null;
-      return { backend, width: engine.getRenderWidth(), height: engine.getRenderHeight(),
+      return { backend, reverseDepth: engine.useReverseDepthBuffer,
+        nearPlane: defaultCamera?.minZ ?? 0, farPlane: defaultCamera?.maxZ ?? 0,
+        width: engine.getRenderWidth(), height: engine.getRenderHeight(),
         hardwareScaling: engine.getHardwareScalingLevel(), fps: engine.getFps(),
         activeMeshes: scene.getActiveMeshes().length, drawCalls: instrumentation.drawCallsCounter.current,
         sampleCount: sorted.length, cpuFrameMsP50: percentile(0.5), cpuFrameMsP95: percentile(0.95) };
@@ -784,13 +792,18 @@ async function createEngine(
   canvas: HTMLCanvasElement,
   antialias: boolean,
   forceWebGL: boolean,
+  depthMode: "auto" | "reverse" | "standard",
 ): Promise<{ engine: AbstractEngine; backend: BabylonBackend }> {
+  if (!["auto", "reverse", "standard"].includes(depthMode)) throw new Error("Invalid depth mode.");
   if (!forceWebGL && await WebGPUEngine.IsSupportedAsync) {
     const engine = new WebGPUEngine(canvas, {
       antialias,
       adaptToDeviceRatio: true,
     });
     await engine.initAsync();
+    // Reverse Z provides much better far-depth precision on mobile WebGPU.
+    // Must be configured before scene/camera creation.
+    engine.useReverseDepthBuffer = depthMode !== "standard";
 
     return {
       engine,
@@ -798,12 +811,11 @@ async function createEngine(
     };
   }
 
-  return {
-    engine: new Engine(canvas, antialias, {
-      adaptToDeviceRatio: true,
-    }),
-    backend: "webgl",
-  };
+  const engine = new Engine(canvas, antialias, {
+    adaptToDeviceRatio: true,
+  });
+  engine.useReverseDepthBuffer = depthMode === "reverse";
+  return {engine, backend: "webgl"};
 }
 
 function ensureLoadersRegistered(): void {
