@@ -4,6 +4,9 @@ import {
   type IfcFurnitureAdapter,
   type FurnitureWorldPose,
   type FurnitureGeometryScale,
+  type FurnitureSourceDimensions,
+  nominalDimensionsForScale,
+  scaleForNominalDimensions,
   canonicalTwinFingerprint,
   type CommandHistoryStatus,
   type DevicePlacement,
@@ -25,6 +28,8 @@ export class StudioProjectController {
   #sourcePoses = new Map<string, FurnitureWorldPose>();
   #sourceScales = new Map<string, FurnitureGeometryScale>();
   #scaleUnsupported = new Map<string, string>();
+  #sourceNominalDimensions = new Map<string, FurnitureSourceDimensions>();
+  #dimensionsUnsupported = new Map<string, string>();
   #undo: ("twin" | "ifc")[] = [];
   #redo: ("twin" | "ifc")[] = [];
   #revision: number;
@@ -121,6 +126,19 @@ export class StudioProjectController {
         this.#scaleUnsupported.set(canonicalId, error instanceof Error ? error.message : String(error));
       }
     }
+    if (this.#sourceScales.has(canonicalId) &&
+        !this.#sourceNominalDimensions.has(canonicalId) &&
+        !this.#dimensionsUnsupported.has(canonicalId)) {
+      try {
+        const dimensions = this.#ifcAdapter!.readSourceDimensions?.(context.sourceBytes, ref.ifcGlobalId);
+        if (!dimensions) throw new Error("This IFC object has no Sweet Home 3D nominal source dimensions.");
+        const sourceScale = this.#sourceScales.get(canonicalId)!;
+        nominalDimensionsForScale(dimensions, sourceScale, sourceScale);
+        this.#sourceNominalDimensions.set(canonicalId, dimensions);
+      } catch (error) {
+        this.#dimensionsUnsupported.set(canonicalId, error instanceof Error ? error.message : String(error));
+      }
+    }
     return current;
   }
   furniturePose(canonicalId: string): FurnitureWorldPose {
@@ -143,6 +161,31 @@ export class StudioProjectController {
     if (reason) return { supported: false, reason };
     try { return { supported: true, scale: this.#ifc.readScale(this.#furnitureRef(canonicalId).ifcGlobalId) }; }
     catch (error) { return { supported: false, reason: error instanceof Error ? error.message : String(error) }; }
+  }
+  furnitureDimensionStatus(canonicalId: string, previewScale?: FurnitureGeometryScale):
+    | { readonly supported: true; readonly source: FurnitureSourceDimensions; readonly current: FurnitureSourceDimensions }
+    | { readonly supported: false; readonly reason: string } {
+    const source = this.#sourceNominalDimensions.get(canonicalId);
+    const baseline = this.#sourceScales.get(canonicalId);
+    if (!source || !baseline || !this.#ifc) return {
+      supported: false,
+      reason: this.#dimensionsUnsupported.get(canonicalId) ??
+        "Source nominal dimensions are unavailable for this IFC object.",
+    };
+    try {
+      const current = nominalDimensionsForScale(source, baseline,
+        previewScale ?? this.#ifc.readScale(this.#furnitureRef(canonicalId).ifcGlobalId));
+      return { supported: true, source, current };
+    } catch (error) {
+      return { supported: false, reason: error instanceof Error ? error.message : String(error) };
+    }
+  }
+  /** Preview conversion only. Commit remains through transformFurniture/scaleFurniture. */
+  furnitureScaleForDimensions(canonicalId: string, requested: FurnitureSourceDimensions): FurnitureGeometryScale {
+    const source = this.#sourceNominalDimensions.get(canonicalId);
+    const baseline = this.#sourceScales.get(canonicalId);
+    if (!source || !baseline) throw new Error("This IFC object has no source-authored nominal dimensions.");
+    return scaleForNominalDimensions(source, baseline, requested);
   }
   transformFurniture(canonicalId: string, pose: FurnitureWorldPose, scale: FurnitureGeometryScale): void {
     if (!this.#ifc || !this.#sourceScales.has(canonicalId)) throw new Error("This IFC furniture has no safely scalable mapped geometry.");
