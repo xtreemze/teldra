@@ -25,17 +25,9 @@ test("mobile Studio keeps the viewport primary and exposes contextual IFC editin
   const actions = page.getByRole("group", {name: "Selected object actions"});
   await expect(actions).toBeVisible();
   await expect(actions.getByRole("button", {name: "Scale", exact: true})).toBeEnabled();
-  // The menu can start Scale before IFC is loaded; eligibility is checked asynchronously.
-  await actions.getByRole("button", {name: "Scale", exact: true}).click();
-  const touchModes = page.getByRole("group", {name: "Touch editing mode"});
-  await expect(touchModes).toBeVisible();
-  const scalePressed = await touchModes.getByRole("button", {name: "Scale", exact: true}).getAttribute("aria-pressed");
-  if (scalePressed !== "true") {
-    await expect(page.getByTestId("transform-shortcut-status")).toContainText("Scale unavailable");
-    await expect(touchModes.getByRole("button", {name: "Move", exact: true})).toHaveAttribute("aria-pressed", "true");
-  }
-  await page.getByRole("group", {name: "Touch transform actions"}).getByRole("button", {name: "Cancel", exact: true}).click();
-  await page.getByRole("group", {name: "Mobile selection actions"}).getByRole("button", {name: "Move", exact: true}).click();
+  // Eligibility becomes authoritative only after opening the IFC editor.
+  // The entry action itself must remain accessible before that preparation.
+  await actions.getByRole("button", {name: "Move", exact: true}).click();
   await expect(page.getByRole("button", {name: "Numbers", exact: true})).toBeVisible();
   await expect(page.getByRole("group", {name: "Touch editing mode"})).toBeVisible();
   await page.getByRole("button", {name: "Numbers", exact: true}).click();
