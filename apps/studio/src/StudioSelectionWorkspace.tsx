@@ -227,6 +227,7 @@ export function StudioSelectionWorkspace(
     if (!["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "") || !viewport()) return;
     // Scale eligibility cannot be known before asynchronous IFC preparation.
     // The edit-ready callback validates it; invalid scale falls back to Move.
+    setTransformMessage("");
     setEditMode(mode);
     setMobileContextOpen(false);
     setMobileProjectOpen(false);
