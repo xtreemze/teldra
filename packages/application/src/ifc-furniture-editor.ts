@@ -11,8 +11,9 @@ export interface IfcFurnitureAdapter {
 }
 type PoseCommand = CanonicalCommand<"ifc.furniture.pose", { readonly ifcGlobalId: string; readonly position: readonly [number, number, number]; readonly yawRadians: number }>;
 type ScaleCommand = CanonicalCommand<"ifc.furniture.geometry-scale", { readonly ifcGlobalId: string; readonly scale: FurnitureGeometryScale }>;
+type TransformCommand = CanonicalCommand<"ifc.furniture.transform", { readonly ifcGlobalId: string; readonly pose: FurnitureWorldPose; readonly scale: FurnitureGeometryScale }>;
 type RestoreCommand = CanonicalCommand<"ifc.restore", { readonly snapshot: string }>;
-type IfcCommand = PoseCommand | ScaleCommand | RestoreCommand;
+type IfcCommand = PoseCommand | ScaleCommand | TransformCommand | RestoreCommand;
 interface IfcState { readonly bytes: Uint8Array }
 
 /** Canonical IFC mutations pass through an injected IFC-aware adapter and command history. */
@@ -31,7 +32,11 @@ export class IfcFurnitureEditor {
         ? adapter.write(state.bytes.slice(), command.payload.ifcGlobalId, { position: command.payload.position, yawRadians: command.payload.yawRadians })
         : command.kind === "ifc.furniture.geometry-scale"
           ? adapter.writeScale?.(state.bytes.slice(), command.payload.ifcGlobalId, command.payload.scale)
-          : snapshots.get(command.payload.snapshot);
+          : command.kind === "ifc.furniture.transform"
+            ? adapter.writeScale?.(
+                adapter.write(state.bytes.slice(), command.payload.ifcGlobalId, command.payload.pose),
+                command.payload.ifcGlobalId, command.payload.scale)
+            : snapshots.get(command.payload.snapshot);
       if (!next) throw new Error("IFC history snapshot is unavailable.");
       return { state: { bytes: next.slice() }, inverse: { id: `inverse:${command.id}`, kind: "ifc.restore", authority: "canonical-ifc", payload: { snapshot: key } } };
     };
@@ -43,6 +48,17 @@ export class IfcFurnitureEditor {
   readScale(ifcGlobalId: string): FurnitureGeometryScale {
     if (!this.#adapter.readScale) throw new Error("This IFC editor has no mapped-geometry scale adapter.");
     return this.#adapter.readScale(this.bytes, ifcGlobalId);
+  }
+  transform(ifcGlobalId: string, pose: FurnitureWorldPose, scale: FurnitureGeometryScale): void {
+    if (!this.#adapter.writeScale) throw new Error("IFC geometry scaling is unavailable.");
+    if (pose.position.length !== 3 || ![...pose.position, pose.yawRadians].every(Number.isFinite) ||
+        scale.length !== 3 || scale.some(value => !Number.isFinite(value) || value <= 0 || value > 1000))
+      throw new Error("IFC transform requires finite pose and positive geometry factors.");
+    this.#sequence++;
+    this.#processor.execute({ id: "ifc-transform:" + this.#sequence, commands: [{
+      id: "ifc-transform-command:" + this.#sequence, kind: "ifc.furniture.transform",
+      authority: "canonical-ifc", payload: { ifcGlobalId, pose, scale },
+    }] });
   }
   scale(ifcGlobalId: string, scale: FurnitureGeometryScale): void {
     if (!this.#adapter.writeScale) throw new Error("IFC geometry scaling is unavailable.");
