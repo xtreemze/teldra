@@ -48,6 +48,20 @@ function validateFrame(frame: Matrix): void {
   }
 }
 
+/** Babylon scaling is local; the IFC Z-up axes must be mapped explicitly. */
+function axisMapping(frame: Matrix): [number, number, number] {
+  const basis = [Vector3.Right(), Vector3.Up(), Vector3.Forward()];
+  const result = basis.map(axis => {
+    const transformed = Vector3.TransformNormal(axis, frame).normalize().asArray();
+    const abs = transformed.map(Math.abs);
+    const index = abs.indexOf(Math.max(...abs));
+    if (abs[index]! < 1 - 1e-5) throw new Error("IFC scale gizmo requires axis-aligned scene coordinates.");
+    return index;
+  });
+  if (new Set(result).size !== 3) throw new Error("Invalid IFC scale axis mapping.");
+  return result as [number, number, number];
+}
+
 /** Babylon multiplication applies the left operand first (the equivalent of C D C^-1 in column notation). */
 export function furnitureSceneDelta(canonicalToScene: Matrix, original: FurnitureWorldPose,
   current: FurnitureWorldPose, ratio: GeometryScale = [1, 1, 1]): Matrix {
@@ -115,22 +129,37 @@ export class FurnitureGizmoBridge {
   }
 
   begin(placement: FurniturePlacement, onPreview: (pose: FurnitureWorldPose) => void,
-    onDragState?: (dragging: boolean) => void): FurnitureEditSession {
+    onDragState?: (dragging: boolean) => void,
+    onScalePreview?: (scale: GeometryScale) => void): FurnitureEditSession {
     this.active?.cancel();
     const up = Vector3.TransformNormal(new Vector3(0, 0, 1), this.canonicalToScene).normalize();
     if (Math.abs(up.x) > 1e-5 || Math.abs(up.z) > 1e-5 || Math.abs(Math.abs(up.y) - 1) > 1e-5) {
       throw new Error("Furniture rotation requires the IFC up axis to map to scene Y.");
     }
     this.apply(placement);
+    const scalesSupported = placement.sourceScale !== undefined && placement.currentScale !== undefined;
+    const mapping = scalesSupported ? axisMapping(this.canonicalToScene) : [0,1,2];
+    let draftPose = placement.current;
+    let draftScale: GeometryScale = placement.currentScale ?? [1,1,1];
+    const toSceneScale = (scale: GeometryScale) => {
+      const values = [1,1,1];
+      for (let i = 0; i < 3; i++) values[mapping[i]!] = scale[i]!;
+      return new Vector3(values[0]!,values[1]!,values[2]!);
+    };
+    const fromSceneScale = (v: Vector3): GeometryScale =>
+      [v.asArray()[mapping[0]!]!, v.asArray()[mapping[1]!]!, v.asArray()[mapping[2]!]!];
     const proxy = new TransformNode("teldra-furniture-gizmo-proxy", this.scene);
     proxy.position.copyFrom(Vector3.TransformCoordinates(Vector3.FromArray(placement.current.position), this.canonicalToScene));
     proxy.rotationQuaternion = Quaternion.RotationAxis(up, placement.current.yawRadians);
+    proxy.scaling.copyFrom(toSceneScale(draftScale));
     const manager = new GizmoManager(this.scene);
     this.manager = manager;
     manager.usePointerToAttachGizmos = false;
     manager.coordinatesMode = GizmoCoordinatesMode.World;
     manager.positionGizmoEnabled = true; manager.rotationGizmoEnabled = true;
+    if (scalesSupported) manager.scaleGizmoEnabled = true;
     const position = manager.gizmos.positionGizmo!, rotation = manager.gizmos.rotationGizmo!;
+    const scaleGizmo = manager.gizmos.scaleGizmo;
     rotation.xGizmo.isEnabled = false; rotation.zGizmo.isEnabled = false;
     manager.attachToNode(proxy);
     let last = "";
@@ -144,9 +173,27 @@ export class FurnitureGizmoBridge {
       const pose: FurnitureWorldPose = {position: [point.x, point.y, point.z], yawRadians: Math.atan2(xCanonical.y, xCanonical.x)};
       const key = JSON.stringify(pose);
       if (key === last) return;
-      last = key; this.apply({...placement, current: pose}); onPreview(pose);
+      last = key; draftPose = pose;
+      this.apply({...placement, current: draftPose, currentScale: scalesSupported ? draftScale : undefined});
+      onPreview(pose);
+    };
+    const emitScale = () => {
+      if (!scalesSupported) return;
+      const next = fromSceneScale(proxy.scaling);
+      if (next.some(value => !Number.isFinite(value) || value <= 0 || value > 1000)) {
+        proxy.scaling.copyFrom(toSceneScale(draftScale)); return;
+      }
+      try {
+        this.apply({...placement, current: draftPose, currentScale: next});
+        draftScale = next; onScalePreview?.(next);
+      } catch {
+        proxy.scaling.copyFrom(toSceneScale(draftScale));
+      }
     };
     position.onDragObservable.add(emit); rotation.onDragObservable.add(emit);
+    scaleGizmo?.onDragObservable.add(emitScale);
+    scaleGizmo?.onDragStartObservable.add(() => onDragState?.(true));
+    scaleGizmo?.onDragEndObservable.add(() => { emitScale(); onDragState?.(false); });
     position.onDragStartObservable.add(() => onDragState?.(true));
     rotation.onDragStartObservable.add(() => onDragState?.(true));
     position.onDragEndObservable.add(() => { emit(); onDragState?.(false); });
@@ -156,12 +203,27 @@ export class FurnitureGizmoBridge {
     const session: FurnitureEditSession = {
       setPose: pose => {
         poseMatrix(pose); // Validate before changing proxy or scene.
-        this.apply({...placement, current: pose});
+        this.apply({...placement, current: pose, currentScale: scalesSupported ? draftScale : undefined});
+        draftPose = pose;
         proxy.position.copyFrom(Vector3.TransformCoordinates(Vector3.FromArray(pose.position), this.canonicalToScene));
         proxy.rotationQuaternion!.copyFrom(Quaternion.RotationAxis(up, pose.yawRadians));
         last = JSON.stringify(pose);
       },
-      setMode(mode) { manager.positionGizmoEnabled = mode === "translate"; manager.rotationGizmoEnabled = mode === "rotate"; },
+      setScale: scale => {
+        if (!scalesSupported || scale.length !== 3 ||
+            scale.some(value => !Number.isFinite(value) || value <= 0 || value > 1000))
+          throw new Error("Mapped IFC geometry scaling is not supported for this furniture.");
+        this.apply({...placement, current: draftPose, currentScale: scale});
+        draftScale = scale;
+        proxy.scaling.copyFrom(toSceneScale(scale));
+      },
+      setMode(mode) {
+        if (mode === "scale" && !scalesSupported) throw new Error("This furniture has no supported IFC mapped geometry.");
+        manager.coordinatesMode = mode === "scale" ? GizmoCoordinatesMode.Local : GizmoCoordinatesMode.World;
+        manager.positionGizmoEnabled = mode === "translate";
+        manager.rotationGizmoEnabled = mode === "rotate";
+        manager.scaleGizmoEnabled = mode === "scale";
+      },
       setAxisConstraint: (axis) => {
         const gizmos = [position.xGizmo, position.yGizmo, position.zGizmo];
         if (axis === null) {
