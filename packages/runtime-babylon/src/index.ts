@@ -16,3 +16,4 @@ export {
 
 export type { ViewDirection, ViewProjection, ViewState, ViewLayer } from "./view-controls.js";
 export type { FurnitureWorldPose, FurniturePlacement, FurnitureEditSession, ScenePlacement } from "./furniture-gizmo.js";
+export type { FurnitureMeasuredBounds } from "./furniture-bounds.js";
