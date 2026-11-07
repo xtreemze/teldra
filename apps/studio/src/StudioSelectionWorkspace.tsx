@@ -32,7 +32,7 @@ export function StudioSelectionWorkspace(
   const [viewport, setViewport] = createSignal<TwinViewportHandle>();
   const [viewportDraft, setViewportDraft] = createSignal<FurnitureWorldPose>();
   const [editingFurniture, setEditingFurniture] = createSignal(false);
-  const [editMode, setEditMode] = createSignal<"translate" | "rotate">("translate");
+  const [editMode, setEditMode] = createSignal<"translate" | "rotate" | "scale">("translate");
   let editSession: FurnitureEditSession | undefined;
 
   const refreshSelection = () =>
@@ -51,6 +51,12 @@ export function StudioSelectionWorkspace(
   const selectedBuildingRef = () => {
     selectionVersion();
     return props.controller.selectedBuildingRef;
+  };
+
+  // The IFC editor validates the concrete IFC class before enabling edits.
+  const editableBuildingRef = () => {
+    const ref = selectedBuildingRef();
+    return ref && ["furniture", "fixture", "distribution-element", "other"].includes(ref.kind) ? ref : undefined;
   };
 
   const selectCanonicalId = (canonicalId: string | null) => {
@@ -165,14 +171,11 @@ export function StudioSelectionWorkspace(
         </section>
 
         <div id="teldra-object-panel" class="teldra-studio-selection-workspace__properties" hidden={!inspectorOpen()}>
-        <Show when={selectedBuildingRef()?.kind === "furniture" && selectedBuildingRef()}>{(ref) => <>
+        <Show when={editableBuildingRef()}>{(ref) => <>
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={refreshSelection}
+            onModeChange={(mode) => { setEditMode(mode); editSession?.setMode(mode); }}
             onEditingChange={furnitureEditingChanged} viewportDraft={viewportDraft()} onSnapChange={(metres, radians) => editSession?.setSnap(metres, radians)}
             onPreview={(pose) => { if (pose) editSession?.setPose(pose); else projectPlacements(); }} />
-          <Show when={editingFurniture()}><div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
-            <button type="button" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); }}>Move</button>
-            <button type="button" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
-          </div></Show>
         </>}</Show>
 
         <section
@@ -214,7 +217,7 @@ export function StudioSelectionWorkspace(
                   <div><dt>Source name</dt><dd>{ref().name ?? "Unnamed"}</dd></div>
                   <div><dt>Type</dt><dd>{ref().kind}</dd></div>
                   <div><dt>IFC GlobalId</dt><dd><code>{ref().ifcGlobalId}</code></dd></div>
-                  <div><dt>Editing</dt><dd>{ref().kind === "furniture" ? "Furniture placement can be edited below after IFC validation." : "This building item is sourced from IFC."}</dd></div>
+                  <div><dt>Editing</dt><dd>{editableBuildingRef() ? "Placement can be edited after IFC validation." : "This building item is sourced from IFC."}</dd></div>
                 </dl>}</Show>
               </>
             )}

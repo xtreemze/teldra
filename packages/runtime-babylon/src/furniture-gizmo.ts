@@ -6,20 +6,21 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import type { Scene } from "@babylonjs/core/scene";
 
 /** IFC world metres, right-handed Z-up. This is an edit draft, not canonical state. */
-export interface FurnitureWorldPose { position: readonly [number, number, number]; yawRadians: number }
+export interface FurnitureWorldPose { position: readonly [number, number, number]; yawRadians: number; uniformScale?: number }
 export interface FurniturePlacement { canonicalId: string; original: FurnitureWorldPose; current: FurnitureWorldPose }
 export interface ScenePlacement { canonicalId: string; matrix: readonly number[] }
 export interface FurnitureEditSession {
   setPose(pose: FurnitureWorldPose): void;
-  setMode(mode: "translate" | "rotate"): void;
+  setMode(mode: "translate" | "rotate" | "scale"): void;
   setSnap(translationMetres: number, rotationRadians: number): void;
   cancel(): void;
   detach(): void;
 }
 
 function poseMatrix(pose: FurnitureWorldPose): Matrix {
-  if (![...pose.position, pose.yawRadians].every(Number.isFinite)) throw new Error("Invalid furniture pose.");
-  return Matrix.RotationZ(pose.yawRadians).multiply(Matrix.Translation(...pose.position));
+  const scale = pose.uniformScale ?? 1;
+  if (![...pose.position, pose.yawRadians, scale].every(Number.isFinite) || scale <= 0) throw new Error("Invalid furniture pose.");
+  return Matrix.Scaling(scale, scale, scale).multiply(Matrix.RotationZ(pose.yawRadians)).multiply(Matrix.Translation(...pose.position));
 }
 
 function validateFrame(frame: Matrix): void {
@@ -95,32 +96,38 @@ export class FurnitureGizmoBridge {
     const proxy = new TransformNode("teldra-furniture-gizmo-proxy", this.scene);
     proxy.position.copyFrom(Vector3.TransformCoordinates(Vector3.FromArray(placement.current.position), this.canonicalToScene));
     proxy.rotationQuaternion = Quaternion.RotationAxis(up, placement.current.yawRadians);
+    proxy.scaling.setAll(placement.current.uniformScale ?? 1);
     const manager = new GizmoManager(this.scene);
     this.manager = manager;
     manager.usePointerToAttachGizmos = false;
     manager.coordinatesMode = GizmoCoordinatesMode.World;
-    manager.positionGizmoEnabled = true; manager.rotationGizmoEnabled = true;
+    manager.positionGizmoEnabled = true; manager.rotationGizmoEnabled = true; manager.scaleGizmoEnabled = true;
     const position = manager.gizmos.positionGizmo!, rotation = manager.gizmos.rotationGizmo!;
+    const scaling = manager.gizmos.scaleGizmo!;
+    scaling.xGizmo.isEnabled = false; scaling.yGizmo.isEnabled = false; scaling.zGizmo.isEnabled = false;
     rotation.xGizmo.isEnabled = false; rotation.zGizmo.isEnabled = false;
     manager.attachToNode(proxy);
     let last = "";
     const emit = () => {
+      if (!Number.isFinite(proxy.scaling.x) || proxy.scaling.x <= 0) return;
       const point = Vector3.TransformCoordinates(proxy.position, this.canonicalToScene.clone().invert());
       const xScene = Vector3.TransformNormal(new Vector3(1, 0, 0), this.canonicalToScene);
       const rotationMatrix = Matrix.Identity();
       proxy.rotationQuaternion!.toRotationMatrix(rotationMatrix);
       const rotated = Vector3.TransformNormal(xScene, rotationMatrix);
       const xCanonical = Vector3.TransformNormal(rotated, this.canonicalToScene.clone().invert());
-      const pose: FurnitureWorldPose = {position: [point.x, point.y, point.z], yawRadians: Math.atan2(xCanonical.y, xCanonical.x)};
+      const pose: FurnitureWorldPose = {position: [point.x, point.y, point.z], yawRadians: Math.atan2(xCanonical.y, xCanonical.x), uniformScale: proxy.scaling.x};
       const key = JSON.stringify(pose);
       if (key === last) return;
       last = key; this.apply({...placement, current: pose}); onPreview(pose);
     };
-    position.onDragObservable.add(emit); rotation.onDragObservable.add(emit);
+    position.onDragObservable.add(emit); rotation.onDragObservable.add(emit); scaling.onDragObservable.add(emit);
     position.onDragStartObservable.add(() => onDragState?.(true));
     rotation.onDragStartObservable.add(() => onDragState?.(true));
+    scaling.onDragStartObservable.add(() => onDragState?.(true));
     position.onDragEndObservable.add(() => { emit(); onDragState?.(false); });
     rotation.onDragEndObservable.add(() => { emit(); onDragState?.(false); });
+    scaling.onDragEndObservable.add(() => { emit(); onDragState?.(false); });
     let ended = false;
     const detach = () => { if (ended) return; ended = true; manager.dispose(); proxy.dispose(); this.manager = undefined; if (this.active === session) this.active = undefined; };
     const session: FurnitureEditSession = {
@@ -129,9 +136,10 @@ export class FurnitureGizmoBridge {
         this.apply({...placement, current: pose});
         proxy.position.copyFrom(Vector3.TransformCoordinates(Vector3.FromArray(pose.position), this.canonicalToScene));
         proxy.rotationQuaternion!.copyFrom(Quaternion.RotationAxis(up, pose.yawRadians));
+        proxy.scaling.setAll(pose.uniformScale ?? 1);
         last = JSON.stringify(pose);
       },
-      setMode(mode) { manager.positionGizmoEnabled = mode === "translate"; manager.rotationGizmoEnabled = mode === "rotate"; },
+      setMode(mode) { manager.positionGizmoEnabled = mode === "translate"; manager.rotationGizmoEnabled = mode === "rotate"; manager.scaleGizmoEnabled = mode === "scale"; },
       setSnap(translation, angle) {
         if (![translation, angle].every(value => Number.isFinite(value) && value >= 0)) throw new Error("Invalid gizmo snap.");
         position.snapDistance = translation; rotation.snapDistance = angle;

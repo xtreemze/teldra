@@ -1,11 +1,11 @@
 import { CommandProcessor, type CanonicalCommand, type CommandHistoryStatus, type CommandResolver } from "./commands.js";
 
-export interface FurnitureWorldPose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
+export interface FurnitureWorldPose { readonly position: readonly [number, number, number]; readonly yawRadians: number; readonly uniformScale?: number }
 export interface IfcFurnitureAdapter {
   read(bytes: Uint8Array, ifcGlobalId: string): FurnitureWorldPose;
   write(bytes: Uint8Array, ifcGlobalId: string, pose: FurnitureWorldPose): Uint8Array;
 }
-type PoseCommand = CanonicalCommand<"ifc.furniture.pose", { readonly ifcGlobalId: string; readonly position: readonly [number, number, number]; readonly yawRadians: number }>;
+type PoseCommand = CanonicalCommand<"ifc.furniture.pose", { readonly ifcGlobalId: string; readonly position: readonly [number, number, number]; readonly yawRadians: number; readonly uniformScale?: number }>;
 type RestoreCommand = CanonicalCommand<"ifc.restore", { readonly snapshot: string }>;
 type IfcCommand = PoseCommand | RestoreCommand;
 interface IfcState { readonly bytes: Uint8Array }
@@ -23,7 +23,7 @@ export class IfcFurnitureEditor {
       const key = `snapshot:${command.id}`;
       snapshots.set(key, state.bytes.slice());
       const next = command.kind === "ifc.furniture.pose"
-        ? adapter.write(state.bytes.slice(), command.payload.ifcGlobalId, { position: command.payload.position, yawRadians: command.payload.yawRadians })
+        ? adapter.write(state.bytes.slice(), command.payload.ifcGlobalId, { position: command.payload.position, yawRadians: command.payload.yawRadians, ...(command.payload.uniformScale === undefined ? {} : { uniformScale: command.payload.uniformScale }) })
         : snapshots.get(command.payload.snapshot);
       if (!next) throw new Error("IFC history snapshot is unavailable.");
       return { state: { bytes: next.slice() }, inverse: { id: `inverse:${command.id}`, kind: "ifc.restore", authority: "canonical-ifc", payload: { snapshot: key } } };
@@ -35,7 +35,7 @@ export class IfcFurnitureEditor {
   read(ifcGlobalId: string): FurnitureWorldPose { return this.#adapter.read(this.bytes, ifcGlobalId); }
   place(ifcGlobalId: string, pose: FurnitureWorldPose): void {
     this.#sequence++;
-    this.#processor.execute({ id: `ifc-pose:${this.#sequence}`, commands: [{ id: `ifc-pose-command:${this.#sequence}`, kind: "ifc.furniture.pose", authority: "canonical-ifc", payload: { ifcGlobalId, position: pose.position, yawRadians: pose.yawRadians } }] });
+    this.#processor.execute({ id: `ifc-pose:${this.#sequence}`, commands: [{ id: `ifc-pose-command:${this.#sequence}`, kind: "ifc.furniture.pose", authority: "canonical-ifc", payload: { ifcGlobalId, position: pose.position, yawRadians: pose.yawRadians, ...(pose.uniformScale === undefined ? {} : { uniformScale: pose.uniformScale }) } }] });
   }
   undo(): boolean { return this.#processor.undo() !== null; }
   redo(): boolean { return this.#processor.redo() !== null; }

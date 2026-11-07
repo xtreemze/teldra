@@ -93,7 +93,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>
       <label>Light intensity <input aria-label="Light intensity" type="range" min="0.25" max="2" step="0.05" value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
       <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
-      <p>Source materials, UV maps and source-preview lighting. Adjustments affect this view only.</p>
+      <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters with stable daylight fill. Brightness is independent of camera distance. Adjustments affect this view only.</p>
     </div></details>
     <output class="teldra-view-controls__announcement" aria-live="polite">{message()}</output>
     <output class="teldra-view-controls__diagnostic" data-testid="camera-state" aria-hidden="true">{JSON.stringify(view())}</output>

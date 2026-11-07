@@ -4,9 +4,9 @@ Status: implemented for upright IFC4 furniture placement and authored device pla
 
 The browser edits canonical IFC through `@teldra/application` commands and the pinned
 `@teldra/ifc-edit` web-ifc 0.0.78 adapter. Babylon gizmos expose drafts only. Apply
-commits world-metre XYZ and Z yaw; Cancel restores the committed pose. Scaling,
+commits world-metre XYZ, Z yaw and positive uniform scale; Cancel restores the committed pose. Nonuniform scaling,
 wall/topology changes, non-metre IFC, tilted or dependent placement hierarchies are
-rejected or not offered. Source furniture material/geometry remains unchanged.
+rejected or not offered. Uniform scale wraps represented IFC geometry in an IFC mapped representation. Source materials and original mesh assets remain unchanged.
 
 Canonical device placement is optional IFC-world metre/Z-up position and a normalized
 quaternion. Device placement is authored data, not a physical smart-home command.
@@ -27,7 +27,7 @@ same canonical transform, including merged parts. Renderer library batching rema
 opt-in; Studio enables the tested conservative path.
 
 Pages publishes one combined tree: existing project site/onboarding plus `/studio/`.
-The public default demo is the owner-authorized complete 21D home (53.4 MiB), prepared from a hash-verified LFS archive. The 31 KB synthetic room remains at `?demo=sample` for focused editing tests. The original SH3D is embedded byte-identically; all conversion assets are retained. The real demo is added
+The public default demo is the owner-authorized complete 21D home (65.5 MiB), prepared from a hash-verified LFS archive. The 31 KB synthetic room remains at `?demo=sample` for focused editing tests. The original SH3D is embedded byte-identically; all conversion assets are retained. The real demo is added
 to the Pages artifact. Local files use direct browser handles when available, or
 upload-to-memory and explicit download copies elsewhere. Browser recovery is local.
 `pnpm pages:build` validates routes/assets and initial Brotli shell/CSS budgets.
@@ -56,3 +56,5 @@ remaining acceptance in issue #80, with release gates #37 and #71-#75.
 
 
 The canvas fills the workspace. Scene search, inspector, project actions, orientation, camera, layers and appearance controls float within its bounds. Compact screens scroll toolbars horizontally and use mutually exclusive scene/inspector panels. Texture visibility and light gain are disposable view settings; light gain preserves each source-preview light ratio. Source-preview lighting is interactive raster lighting, not source photorenderer parity or path tracing.
+
+The complete demo now includes native triangle geometry for 185 furniture/light/proxy elements (781,744 triangles) in IFC, enabling canonical scale with exact undo and validated save/reopen reconciliation. The source-light profile carries 18 lamp emitters and four explicitly named window daylight emitters. Each mesh receives the nearest four local emitters plus four directional fill lights; assignment uses geometry position, never camera distance. Imported lamp positions follow committed transforms and undo. Window fill is an interactive approximation without ray-traced occlusion; SH3D lamp power is not a calibrated lumen value. A real-profile probe rendered identical RGB (146,142,132) at camera radii 8 and 40 metres. The real-home bed was moved, rotated, scaled to 1.15, saved and reopened; an independent IFC read confirmed the mapped scale and unchanged original SH3D/GLB bytes.

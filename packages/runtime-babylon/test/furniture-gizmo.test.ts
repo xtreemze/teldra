@@ -12,6 +12,12 @@ const original = {position: [1, -1, 0] as const, yawRadians: 0};
 const current = {position: [2, 3, 1] as const, yawRadians: Math.PI / 2};
 
 describe("IFC furniture projection", () => {
+  it("scales about the furniture origin", () => {
+    const delta = furnitureSceneDelta(C, original, { ...original, uniformScale: 2 });
+    const point = Vector3.TransformCoordinates(Vector3.TransformCoordinates(new Vector3(2, -1, 0), C), delta);
+    const expected = Vector3.TransformCoordinates(new Vector3(3, -1, 0), C);
+    expect(point.asArray()).toEqual(expected.asArray().map(value => expect.closeTo(value, 5)));
+  });
   it("conjugates the world placement delta into scene coordinates", () => {
     const source = Vector3.TransformCoordinates(Vector3.FromArray(original.position), C);
     const moved = Vector3.TransformCoordinates(source, furnitureSceneDelta(C, original, current));

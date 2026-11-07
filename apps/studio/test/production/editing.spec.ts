@@ -9,6 +9,7 @@ test("Pages demo edits IFC furniture, saves atomically, and reopens with the sam
  await chair().click();await page.getByRole("button",{name:"Edit placement",exact:true}).click();
  const x=page.getByLabel("Position X (m)",{exact:true});await expect(x).toHaveValue("1");
  await page.getByLabel("Position snap (m, 0 off)",{exact:true}).fill("0.25");await x.fill("1.76");await page.getByLabel("Rotation (degrees)",{exact:true}).fill("45");
+ await page.getByLabel("Uniform scale",{exact:true}).fill("1.25");
  await page.getByRole("button",{name:"Apply placement",exact:true}).click();
  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeEnabled();
  await page.getByRole("button",{name:"Undo",exact:true}).click();
@@ -20,7 +21,8 @@ test("Pages demo edits IFC furniture, saves atomically, and reopens with the sam
  await page.reload();const picker=page.waitForEvent("filechooser");await page.getByRole("button",{name:"Open .teldra",exact:true}).click();
  await(await picker).setFiles(path);await expect(page.getByTestId("viewport-status")).toHaveText("ready");
  await chair().click();await page.getByRole("button",{name:"Edit placement",exact:true}).click();
- await expect(x).toHaveValue("1.75");expect(Number(await page.getByLabel("Rotation (degrees)",{exact:true}).inputValue())).toBeCloseTo(45);
+ await expect(x).toHaveValue("1.75");
+ await expect(page.getByLabel("Uniform scale",{exact:true})).toHaveValue("1.25");expect(Number(await page.getByLabel("Rotation (degrees)",{exact:true}).inputValue())).toBeCloseTo(45);
  await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Edit placement",exact:true})).toBeVisible();
  expect(errors).toEqual([]);
  const a11y=await new AxeBuilder({page}).analyze();expect(a11y.violations).toEqual([]);

@@ -35,6 +35,7 @@ function GizmoHarness() {
   return <div style={{width:"640px", "overflow-wrap":"anywhere"}}><canvas data-testid="gizmo-canvas" ref={canvas} width="640" height="400" style={{width: "640px", height: "400px"}} />
     <button onClick={() => session?.setMode("translate")}>Translate</button>
     <button onClick={() => session?.setMode("rotate")}>Rotate</button>
+    <button onClick={() => session?.setMode("scale")}>Scale</button>
     <button onClick={() => { session?.cancel(); setPoint(JSON.stringify(runtime?.projectNode("ifc:fixture-wall:body"))); }}>Cancel</button>
     <output data-testid="gizmo-status">{status()}</output><output data-testid="gizmo-pose">{pose()}</output>
     <output data-testid="gizmo-drag">{drag()}</output><output data-testid="gizmo-pickpoint">{point()}</output></div>;

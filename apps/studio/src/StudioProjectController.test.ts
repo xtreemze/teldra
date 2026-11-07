@@ -228,8 +228,9 @@ describe("StudioProjectController", () => {
     });
     await controller.prepareFurnitureEditing("chair");
     controller.renameDevice(deviceId, "Changed lamp");
-    controller.placeFurniture("chair", { position: [2, 3, 1], yawRadians: Math.PI / 2 });
-    expect(controller.placementOverrides[0]?.matrix[12]).toBeCloseTo(1);
+    controller.placeFurniture("chair", { position: [2, 3, 1], yawRadians: Math.PI / 2, uniformScale: 2 });
+    expect(controller.placementOverrides[0]?.matrix[12]).toBeCloseTo(0);
+    expect(controller.placementOverrides[0]?.matrix[10]).toBeCloseTo(2);
     controller.undo(); expect(controller.furniturePose("chair")).toEqual(initial);
     controller.undo(); expect(controller.dirty).toBe(false);
     controller.redo(); controller.redo();
@@ -238,6 +239,7 @@ describe("StudioProjectController", () => {
     expect(storage.primary?.canonical.devices.find((d) => d.id === deviceId)?.name).toBe("Changed lamp");
     const data = storage.primary?.derived as { bytes: Uint8Array };
     expect(JSON.parse(decoder.decode(data.bytes)).position).toEqual([2, 3, 1]);
+    expect(JSON.parse(decoder.decode(data.bytes)).uniformScale).toBe(2);
     controller.undo(); expect(controller.dirty).toBe(true);
     controller.redo(); expect(controller.dirty).toBe(false);
   });

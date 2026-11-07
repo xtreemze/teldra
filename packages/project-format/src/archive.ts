@@ -719,15 +719,16 @@ export async function readScenePlacementOverrides(archive: OpenTeldraArchive, sc
   for (const placement of value.placements) {
     if (!placement || typeof placement.canonicalId !== "string" || typeof placement.ifcGlobalId !== "string" || seen.has(placement.canonicalId)) throw new TeldraArchiveError("Invalid or duplicate placement identity.");
     seen.add(placement.canonicalId);
-    if (!archive.twin.building.refs.some((ref) => ref.id === placement.canonicalId && ref.ifcGlobalId === placement.ifcGlobalId && ref.kind === "furniture") || !scene.nodes.some((node) => node.canonicalId === placement.canonicalId && node.ifcGlobalId === placement.ifcGlobalId)) throw new TeldraArchiveError("Placement identity is not a rendered canonical furniture object.");
-    assertUprightRigidMatrix(placement.matrix);
+    if (!archive.twin.building.refs.some((ref) => ref.id === placement.canonicalId && ref.ifcGlobalId === placement.ifcGlobalId && ["furniture", "fixture", "distribution-element", "other"].includes(ref.kind)) || !scene.nodes.some((node) => node.canonicalId === placement.canonicalId && node.ifcGlobalId === placement.ifcGlobalId)) throw new TeldraArchiveError("Placement identity is not a rendered canonical element.");
+    assertUprightSimilarityMatrix(placement.matrix);
   }
   return value;
 }
-function assertUprightRigidMatrix(m: readonly number[]): void {
+function assertUprightSimilarityMatrix(m: readonly number[]): void {
   if (!Array.isArray(m) || m.length !== 16 || !m.every(Number.isFinite)) throw new TeldraArchiveError("Invalid placement matrix.");
   const near = (a: number, b: number) => Math.abs(a - b) < 1e-7;
-  if (!near(m[2]!, 0) || !near(m[3]!, 0) || !near(m[6]!, 0) || !near(m[7]!, 0) || !near(m[8]!, 0) || !near(m[9]!, 0) || !near(m[10]!, 1) || !near(m[11]!, 0) || !near(m[15]!, 1) || !near(m[0]! * m[0]! + m[1]! * m[1]!, 1) || !near(m[4]! * m[4]! + m[5]! * m[5]!, 1) || !near(m[0]! * m[4]! + m[1]! * m[5]!, 0) || !near(m[0]! * m[5]! - m[1]! * m[4]!, 1)) throw new TeldraArchiveError("Placement matrix must be a rigid, upright transform.");
+  const scale = m[10]!;
+  if (scale <= 0 || !near(m[2]!, 0) || !near(m[3]!, 0) || !near(m[6]!, 0) || !near(m[7]!, 0) || !near(m[8]!, 0) || !near(m[9]!, 0) || !near(m[11]!, 0) || !near(m[15]!, 1) || !near(m[0]! * m[0]! + m[1]! * m[1]!, scale * scale) || !near(m[4]! * m[4]! + m[5]! * m[5]!, scale * scale) || !near(m[0]! * m[4]! + m[1]! * m[5]!, 0) || !near(m[0]! * m[5]! - m[1]! * m[4]!, scale * scale)) throw new TeldraArchiveError("Placement matrix must be a positive uniformly scaled, upright transform.");
 }
 
 /** Atomically replaces IFC and its hash-bound scene reconciliation in one archive. */

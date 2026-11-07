@@ -135,8 +135,8 @@ export class StudioProjectController {
     return [...result.values()];
   }
   #furnitureRef(id: string) {
-    const ref = this.twin.building.refs.find((candidate) => candidate.id === id && candidate.kind === "furniture");
-    if (!ref) throw new Error("Only canonical IFC furniture can be edited.");
+    const ref = this.twin.building.refs.find((candidate) => candidate.id === id && ["furniture", "fixture", "distribution-element", "other"].includes(candidate.kind));
+    if (!ref) throw new Error("Only supported canonical IFC elements can be edited.");
     return ref;
   }
   #record(kind: "twin" | "ifc"): void { this.#undo.push(kind); this.#redo = []; this.#revision++; this.#syncPersistence(); }
@@ -191,8 +191,8 @@ export class StudioProjectController {
 }
 
 function poseDelta(source: FurnitureWorldPose, current: FurnitureWorldPose): number[] {
-  const angle = current.yawRadians - source.yawRadians, c = Math.cos(angle), s = Math.sin(angle);
-  return [c,s,0,0,-s,c,0,0,0,0,1,0,current.position[0]-c*source.position[0]+s*source.position[1],current.position[1]-s*source.position[0]-c*source.position[1],current.position[2]-source.position[2],1];
+  const angle = current.yawRadians - source.yawRadians, scale = (current.uniformScale ?? 1) / (source.uniformScale ?? 1), c = Math.cos(angle) * scale, s = Math.sin(angle) * scale;
+  return [c,s,0,0,-s,c,0,0,0,0,scale,0,current.position[0]-c*source.position[0]+s*source.position[1],current.position[1]-s*source.position[0]-c*source.position[1],current.position[2]-scale*source.position[2],1];
 }
 /** Check persisted presentation deltas against both authoritative IFC placements. */
 export function validateIfcScenePlacements(adapter: IfcFurnitureAdapter, sourceBytes: Uint8Array, currentBytes: Uint8Array, placements: readonly ScenePlacementOverride[]): void {

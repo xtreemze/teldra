@@ -6,7 +6,7 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await page.goto("./");
  await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});
  const assets=JSON.parse((await page.getByTestId("asset-summary").textContent())!);
- expect(assets).toMatchObject({meshParts:9512,visibleMeshParts:4488,hiddenSourceParts:5022,sourcePhongMaterials:467,textures:253,texturesReady:true,lightingProfile:"sh3d-preview-v1"});
+ expect(assets).toMatchObject({meshParts:9512,visibleMeshParts:4488,hiddenSourceParts:5022,sourcePhongMaterials:467,textures:253,texturesReady:true,localLightSources:22,lightingProfile:"sh3d-preview-v1"});
  const canvas=(await page.getByTestId("twin-canvas").boundingBox())!;
  expect(canvas.width).toBeGreaterThan(1400); expect(canvas.height).toBeGreaterThan(900);
  for(const role of ["Project actions","Camera controls","3D orientation gizmo"]){
@@ -20,6 +20,22 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await page.getByRole("button",{name:"Restore source appearance",exact:true}).click();
  await expect(page.getByLabel("Textures and diffuse maps",{exact:true})).toBeChecked();
  await page.getByText("Appearance",{exact:true}).click();
+ // Exercise real pointer delivery and picking in the full-size home. The
+ // imported geometry is irregular, so sample the visible central scene.
+ await page.getByRole("button",{name:"Scene",exact:true}).click();
+ let picked: string | null = null;
+ for (const y of [.35,.45,.55,.65,.75]) {
+  for (const x of [.35,.45,.55,.65,.75]) {
+   const px=canvas.x+canvas.width*x, py=canvas.y+canvas.height*y;
+   if (!await page.evaluate(({px,py})=>document.elementFromPoint(px,py)?.matches('[data-testid="twin-canvas"]'),{px,py})) continue;
+   await page.mouse.click(px,py);
+   const id=await page.getByTestId("selected-canonical-id").textContent();
+   if (id && id!=="none" && id!=="unattempted") { picked=id; break; }
+  }
+  if (picked) break;
+ }
+ expect(picked).not.toBeNull();
+ await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText(picked!);
  await page.screenshot({path:testInfo.outputPath("real-home-desktop.png")});
  await page.setViewportSize({width:390,height:844});await page.reload();
  await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});

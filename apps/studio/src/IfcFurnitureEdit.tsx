@@ -10,6 +10,7 @@ export interface IfcFurnitureEditProps {
   onPreview?: (pose: FurnitureWorldPose | null) => void;
   onSnapChange?: (metres: number, radians: number) => void;
   onEditingChange?: (editing: boolean) => void;
+  onModeChange?: (mode: "translate" | "rotate" | "scale") => void;
   viewportDraft?: FurnitureWorldPose | undefined;
 }
 /** A draft is visual only until Apply issues the IFC-aware application command. */
@@ -19,18 +20,19 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   const [error, setError] = createSignal("");
   const [snap, setSnap] = createSignal(0);
   const [rotationSnap, setRotationSnap] = createSignal(0);
+  const [mode, setMode] = createSignal<"translate" | "rotate" | "scale">("translate");
   let loadedId: string | null = null;
-  const poseToDraft = (pose: FurnitureWorldPose) => [...pose.position, pose.yawRadians * 180 / Math.PI];
+  const poseToDraft = (pose: FurnitureWorldPose) => [...pose.position, pose.yawRadians * 180 / Math.PI, pose.uniformScale ?? 1];
   const pose = (): FurnitureWorldPose | null => {
-    const v = draft(); if (!v || !v.every(Number.isFinite) || !Number.isFinite(snap()) || snap() < 0 || !Number.isFinite(rotationSnap()) || rotationSnap() < 0) return null;
+    const v = draft(); if (!v || !v.every(Number.isFinite) || v[4]! <= 0 || !Number.isFinite(snap()) || snap() < 0 || !Number.isFinite(rotationSnap()) || rotationSnap() < 0) return null;
     const step = snap(); const p = v.slice(0, 3).map((n) => step > 0 ? Math.round(n / step) * step : n) as [number, number, number];
     const degrees = rotationSnap() > 0 ? Math.round(v[3]! / rotationSnap()) * rotationSnap() : v[3]!;
-    return { position: p, yawRadians: degrees * Math.PI / 180 };
+    return { position: p, yawRadians: degrees * Math.PI / 180, uniformScale: v[4]! };
   };
-  const begin = async () => {
+  const begin = async (mode: "translate" | "rotate" | "scale" = "translate") => {
     const id = props.canonicalId; setBusy(true); setError("");
-    try { const current = await props.controller.prepareFurnitureEditing(id); if (id === props.canonicalId) { loadedId = id; setDraft(poseToDraft(current)); props.onEditingChange?.(true); updateSnapping(); } }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    try { const current = await props.controller.prepareFurnitureEditing(id); if (id === props.canonicalId) { loadedId = id; setDraft(poseToDraft(current)); setMode(mode); props.onModeChange?.(mode); props.onEditingChange?.(true); updateSnapping(); } }
+    catch (err) { setError(err instanceof Error ? `${err.message}${err.cause instanceof Error ? ` ${err.cause.message}` : ""}` : String(err)); }
     finally { setBusy(false); }
   };
   const cancel = () => { setDraft(null); loadedId = null; props.onPreview?.(null); props.onEditingChange?.(false); setError(""); };
@@ -48,16 +50,21 @@ export function IfcFurnitureEdit(props: IfcFurnitureEditProps) {
   });
   const apply = (event: SubmitEvent) => {
     event.preventDefault(); const next = pose();
-    if (!next || loadedId !== props.canonicalId) { setError("Enter finite position, rotation and snap values."); return; }
+    if (!next || loadedId !== props.canonicalId) { setError("Enter finite position/rotation, a positive scale and nonnegative snap values."); return; }
     try { props.controller.placeFurniture(props.canonicalId, next); props.onPreview?.(null); setDraft(null); loadedId = null; props.onEditingChange?.(false); setError(""); props.onChange?.(); }
-    catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    catch (err) { setError(err instanceof Error ? `${err.message}${err.cause instanceof Error ? ` ${err.cause.message}` : ""}` : String(err)); }
   };
   return <section aria-label="Furniture placement">
     <h3>Furniture placement</h3>
     <p>Position uses IFC world metres, Z up. Rotation is about Z.</p>
+    <div>
+      <For each={[["translate", "Move"], ["rotate", "Rotate"], ["scale", "Scale"]] as const}>{([value, label]) =>
+        <button type="button" disabled={busy()} aria-pressed={draft() !== null && mode() === value} onClick={() => { if (draft()) { setMode(value); props.onModeChange?.(value); } else void begin(value); }}>{label}</button>
+      }</For>
+    </div>
     <Show when={draft()} fallback={<button type="button" disabled={busy()} onClick={() => void begin()}>{busy() ? "Checking IFC…" : "Edit placement"}</button>}>
       <form onSubmit={apply}>
-        <For each={["Position X (m)", "Position Y (m)", "Position Z (m)", "Rotation (degrees)"]}>{(label, index) =>
+        <For each={["Position X (m)", "Position Y (m)", "Position Z (m)", "Rotation (degrees)", "Uniform scale"]}>{(label, index) =>
           <label>{label} <input type="number" step="any" value={draft()?.[index()]} onInput={(event) => update(index(), event.currentTarget.valueAsNumber)} /></label>
         }</For>
         <label>Position snap (m, 0 off) <input type="number" min="0" step="any" value={snap()} onInput={(event) => { setSnap(event.currentTarget.valueAsNumber); updateSnapping(); }} /></label>
