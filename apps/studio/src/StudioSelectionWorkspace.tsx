@@ -1,5 +1,5 @@
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import type { FurnitureEditSession, FurnitureWorldPose, TwinRenderIdentity } from "@teldra/runtime-babylon";
+import type { FurnitureEditSession, FurnitureWorldPose, TwinRenderIdentity, FurnitureMeasuredBounds } from "@teldra/runtime-babylon";
 import type { FurnitureGeometryScale } from "@teldra/application";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
 import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit";
@@ -69,6 +69,8 @@ export function StudioSelectionWorkspace(
   const [viewport, setViewport] = createSignal<TwinViewportHandle>();
   const [viewportDraft, setViewportDraft] = createSignal<FurnitureWorldPose>();
   const [viewportScaleDraft, setViewportScaleDraft] = createSignal<FurnitureGeometryScale>();
+  const [measuredGeometry, setMeasuredGeometry] = createSignal<FurnitureMeasuredBounds>();
+  const [measuredGeometryError, setMeasuredGeometryError] = createSignal("");
   const [editingFurniture, setEditingFurniture] = createSignal(false);
   const [editMode, setEditMode] = createSignal<"translate" | "rotate" | "scale">("translate");
   const [translationSnap, setTranslationSnap] = createSignal(0);
@@ -156,6 +158,7 @@ export function StudioSelectionWorkspace(
     setTransformPreviewError("");
     setEditingFurniture(false);
     setViewportDraft(undefined); setViewportScaleDraft(undefined);
+    setMeasuredGeometry(undefined); setMeasuredGeometryError("");
     projectPlacements();
   };
   const previewNumericTransform = (modal: TransformModal | null) => {
@@ -221,7 +224,16 @@ export function StudioSelectionWorkspace(
     const id = selectedCanonicalId();
     if (!id || !viewport()) { setActionError("The 3D viewport is not ready for furniture editing."); return; }
     try {
-      editSession = viewport()!.beginFurnitureEdit(props.controller.furniturePlacement(id), setViewportDraft,
+      const placement = props.controller.furniturePlacement(id);
+      try {
+        const measured = viewport()!.measureFurnitureGeometry(id, placement.original);
+        setMeasuredGeometry(measured);
+        setMeasuredGeometryError("");
+      } catch (error) {
+        setMeasuredGeometry(undefined);
+        setMeasuredGeometryError(error instanceof Error ? error.message : String(error));
+      }
+      editSession = viewport()!.beginFurnitureEdit(placement, setViewportDraft,
         undefined, setViewportScaleDraft);
       // IfcFurnitureEdit already rejects unsupported Scale before calling this callback.
       editSession.setMode(editMode());
@@ -587,6 +599,7 @@ export function StudioSelectionWorkspace(
           <IfcFurnitureEdit controller={props.controller} canonicalId={ref().id} externalVersion={selectionVersion()} onChange={() => {refreshSelection(); tactile("applied");}}
             onEditingChange={furnitureEditingChanged} onControlsReady={controls => { furnitureControls = controls; }}
             editMode={editMode()} editRequest={editRequest()} viewportDraft={viewportDraft()} viewportScaleDraft={viewportScaleDraft()}
+            measuredGeometry={measuredGeometry()} measuredGeometryError={measuredGeometryError()}
             onSnapChange={(metres, radians) => { setTranslationSnap(metres); setRotationSnap(radians); editSession?.setSnap(metres, radians); }}
             onPreview={(pose) => { if (pose) { editSession?.setPose(pose); setViewportDraft(pose); } else { setViewportDraft(undefined); projectPlacements(); } }}
             onScalePreview={(scale) => { if (scale) { editSession?.setScale(scale); setViewportScaleDraft(scale); } else { setViewportScaleDraft(undefined); projectPlacements(); } }}
