@@ -245,7 +245,7 @@ export function validateIfcScenePlacements(adapter: IfcFurnitureAdapter, sourceB
     const oldScale = adapter.readScale ? (() => { try { return adapter.readScale!(sourceBytes, placement.ifcGlobalId); } catch { return null; } })() : null;
     const newScale = oldScale && adapter.readScale!(currentBytes, placement.ifcGlobalId);
     const ratio = oldScale && newScale && newScale.map((value, i) => value / oldScale[i]!) as [number, number, number];
-    const scaled = ratio && ratio.some(value => Math.abs(value - 1) > 1e-8);
+    const scaled = !!ratio && ratio.some(value => Math.abs(value - 1) > 1e-8);
     if (scaled !== (placement.scale !== undefined) ||
         (scaled && (placement.scale?.some((v, i) => Math.abs(v-ratio![i]!) > 1e-6) ?? true)))
       throw new Error("Scene geometry scale does not match authoritative IFC geometry.");
