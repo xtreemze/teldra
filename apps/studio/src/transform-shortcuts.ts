@@ -64,7 +64,7 @@ export function transformShortcut(state: TransformModal | null, input: Transform
     : key === "-" || key === "subtract" ? (state.numeric.startsWith("-") ? state.numeric.slice(1) : "-" + state.numeric)
     : null;
   if (candidate === null) return ignored;
-  if (!/^-?(?:\\d+(?:\\.\\d*)?|\\.\\d*)?$/.test(candidate) || candidate.length > 20) {
+  if (!/^-?(?:\d+(?:\.\d*)?|\.\d*)?$/.test(candidate) || candidate.length > 20) {
     return { handled: true, state, intent: "message", message: "Enter a valid decimal value." };
   }
   return { handled: true, state: {...state, numeric: candidate}, intent: "preview" };
