@@ -289,3 +289,57 @@
     max-width: calc(100% - 1.2rem);
   }
 }
+
+
+/* The handle is an explicit keyboard/pointer affordance, never a scrolling hitbox. */
+.teldra-mobile-sheet-handle { display: none; }
+
+@media (max-width: 48rem) {
+  .teldra-studio-selection-workspace__scene-panel[data-mobile-detent="half"],
+  .teldra-studio-selection-workspace__properties[data-mobile-detent="half"] {
+    max-height: min(50dvh, 30rem);
+  }
+  .teldra-studio-selection-workspace__scene-panel[data-mobile-detent="full"],
+  .teldra-studio-selection-workspace__properties[data-mobile-detent="full"] {
+    max-height: max(10rem, calc(100dvh - 9rem - env(safe-area-inset-top, 0px)));
+  }
+  .teldra-mobile-sheet-handle {
+    position: sticky;
+    top: -.85rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin: -.85rem -.75rem .55rem;
+    padding: .4rem .65rem;
+    background: #17212df8;
+    border-bottom: 1px solid #354b5b;
+  }
+  .teldra-mobile-sheet-handle__grip {
+    display: grid;
+    place-items: center;
+    gap: .15rem;
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    font-size: .78rem;
+  }
+  .teldra-mobile-sheet-handle__grip[data-dragging="true"] {
+    background: #264b4a;
+    border-color: #79d8cb;
+  }
+  .teldra-mobile-sheet-handle__indicator {
+    display: block;
+    width: 2.5rem;
+    height: .28rem;
+    border-radius: 999px;
+    background: #a4c1c6;
+  }
+  .teldra-mobile-sheet-handle__close {
+    min-width: 64px;
+    min-height: 44px;
+  }
+}
