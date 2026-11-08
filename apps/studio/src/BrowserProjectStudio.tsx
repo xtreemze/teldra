@@ -114,19 +114,22 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
   return (
     <main class="teldra-browser-studio">
       <header class="teldra-browser-studio__masthead">
-        <div>
+        <div class="teldra-browser-studio__identity">
           <p class="teldra-browser-studio__eyebrow">Teldra <span>Studio</span></p>
-          <h1>{project() === null ? "Your space, in context." : "Project workspace"}</h1>
+          <h1 title={project()?.fileName ?? "Studio"}>{project()?.fileName ?? "Your space, in context."}</h1>
           <p>Explore your building and manage its connected devices in one place.</p>
         </div>
         <div class="teldra-browser-studio__masthead-actions">
         <PwaControls hasUnsavedChanges={() => project()?.controller.dirty ?? false} />
         <button class="teldra-browser-studio__open"
+          classList={{"teldra-browser-studio__open--project": project() !== null}}
           type="button"
           onClick={() => void open()}
           disabled={!supported() || opening()}
+          title={project() === null ? "Open a project" : "Open another project"}
         >
-          {opening() ? "Opening…" : project() === null ? "Open .teldra" : "Open another"}
+          <svg class="teldra-browser-studio__open-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 13h6m-3-3v6"/></svg>
+          <span class="teldra-browser-studio__open-label">{opening() ? "Opening…" : project() === null ? "Open .teldra" : "Open another"}</span>
         </button>
         </div>
       </header>
@@ -188,6 +191,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
                   {(scene) => (
                     <StudioSelectionWorkspace
                       controller={ready().controller}
+                      saveMode={ready().saveMode}
                       {...(ready().rebakeSavedSceneCopy ? {onExportRebakedScene: exportRebakedCopy} : {})}
                       manifest={scene().manifest}
                       glbUrl={scene().glbUrl}
