@@ -42,4 +42,16 @@ const source = [
   template,
 ].join("\n");
 await writeFile(resolve(dist,"service-worker.js"), source);
+// This deliberately remains outside the shell precache. A controlled old
+// Studio can fetch the *deployed* revision with cache:no-store without ever
+// executing, mixing or silently replacing that deployed JavaScript.
+const sourceCommit = process.env.VITE_TELDRA_COMMIT || null;
+if (sourceCommit !== null && !/^[0-9a-f]{40}$/i.test(sourceCommit)) {
+  throw new Error("VITE_TELDRA_COMMIT must be a complete Git commit SHA.");
+}
+await writeFile(resolve(dist, "build-info.json"), JSON.stringify({
+  schemaVersion: 1,
+  sourceCommit: sourceCommit?.toLowerCase() ?? null,
+  shellRevision: version,
+}, null, 2) + "\n");
 console.log("Generated Studio PWA worker: " + files.length + " offline shell assets, revision " + version);
