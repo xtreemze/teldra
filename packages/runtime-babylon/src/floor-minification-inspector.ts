@@ -6,15 +6,14 @@ export type FloorMinificationMode = "auto" | "source" | "anisotropic" | "base-le
 /**
  * Presentation-only sampling policy for source-bound SH3D room-floor textures.
  * Preserve sampler parameters exactly; never change source UVs or images.
- * Device evidence in #100 confirms that only base-image sampling preserves
- * distant floors on affected WebGPU devices. Auto uses that compatibility path
- * on WebGPU, retaining source sampling on WebGL. Explicit modes remain available
- * for comparison. Base-image sampling can alias more than valid mipmaps.
+ * Auto preserves source mipmapped sampling after the initial WebGPU frame
+ * submission fix. Explicit base-image sampling remains a reversible fallback
+ * and diagnostic; it can alias more than a valid mip chain.
  */
 export class FloorMinificationInspector {
   private readonly originals = new Map<Texture, {samplingMode: number; anisotropic: number}>();
   private mode: FloorMinificationMode = "auto";
-  constructor(private readonly maxAnisotropy: number, private readonly backend: "webgl" | "webgpu" = "webgl") {}
+  constructor(private readonly maxAnisotropy: number) {}
   register(material: StandardMaterial): void {
     const texture = material.diffuseTexture;
     if (!(texture instanceof Texture) || this.originals.has(texture)) return;
@@ -34,7 +33,7 @@ export class FloorMinificationInspector {
   private apply(texture: Texture): void {
     const original=this.originals.get(texture);
     if (!original) return;
-    const effective = this.mode === "auto" ? (this.backend === "webgpu" ? "base-level" : "source") : this.mode;
+    const effective = this.mode === "auto" ? "source" : this.mode;
     const mode = effective === "source" ? original.samplingMode :
       effective === "anisotropic" ? Texture.TRILINEAR_SAMPLINGMODE : Texture.LINEAR_LINEAR;
     const aniso = effective === "source" ? original.anisotropic :

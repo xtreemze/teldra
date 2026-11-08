@@ -15,6 +15,9 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   const [gpuReading, setGpuReading] = createSignal(false);
   const [probeRequest, setProbeRequest] = createSignal(0);
   const armSurfaceProbe = () => {
+    setProbeRequest(probeRequest()+1);
+    setGpuReading(false);
+    setSurfaceProbe(null);
     setProbeArmed(true);
     setGpuEvidence(null);
     setMobileViewOpen(false);
@@ -23,7 +26,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
   const surfaceProbeDetails = () => {
     const p=surfaceProbe();
     return p ? [
-      `Object: ${p.canonicalId ?? "(unmapped)"}`,
+      `CPU-picked object: ${p.canonicalId ?? "(unmapped)"}`,
       `Mesh: ${p.mesh}`,
       `Material: ${p.material ?? "(none)"} (${p.materialType ?? "unknown"})`,
       `Image: ${p.texture ?? "(no texture)"}; ready: ${p.textureReady}`,
@@ -40,13 +43,29 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     if (!result) return "";
     const rgb=(p:readonly number[]|null)=>p ? p.join(", ") : "unavailable";
     return [
+      ...(result.capture ? [
+        `Captured ${result.capture.backend} ${result.capture.framebufferFormat}; pixel ${result.capture.pixel.join(", ")}; render ${result.capture.renderSize.join(" × ")}`,
+        `Floor sampling: ${result.capture.floorMinification}; unlit: ${result.capture.floorTextureInspection}; light: ${result.capture.lightGain}; shadow detail: ${result.capture.shadowDetail}`,
+        `Scene manifest SHA-256: ${result.capture.declaredSceneSha256}`,
+        `Source building SHA-256: ${result.capture.declaredBuildingSha256}`,
+        `Texture hardware sRGB: ${result.capture.textureSrgbStorage ?? "unknown"}`,
+      ] : []),
       `GPU framebuffer RGB: ${rgb(result.framebufferRgb)}`,
       ...(result.framebufferError ? [`Framebuffer readback: ${result.framebufferError}`] : []),
       `GPU floor texture size: ${result.textureSize?.join(" × ") ?? "no texture at picked surface"}`,
+      `Mip allocation: ${result.mipAvailability ?? result.mipAvailabilityError ?? "unavailable"}`,
       ...result.mips.map(level =>
-        `Mip ${level.level} (${level.size.join(" × ")}): RGB ${rgb(level.rgb)}${level.error ? " — " + level.error : ""}`),
-      "A black framebuffer with non-black GPU mip levels implicates geometry/shading; black mips implicate texture upload or mip generation.",
+        `Mip ${level.level} (${level.size.join(" × ")}; ${level.sampleLocation ?? "reference"} at ${level.coordinates?.join(", ") ?? "unknown"}): RGB ${rgb(level.rgb)}${level.error ? " — " + level.error : ""}`),
+      "Mip readings are raw single texels, not filtered screen colors or measured shader LOD. Compare the same surface/UV and capture settings. A black texel or unavailable readback alone does not establish corruption.",
     ].join("\n");
+  };
+  const copyGpuReport = async () => {
+    const result = gpuEvidence();
+    if (!result || gpuReading()) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({schemaVersion:1, ...result}, null, 2));
+      setMessage("GPU diagnostic report copied");
+    } catch { setMessage("Copy unavailable; select the diagnostic text to copy it."); }
   };
   const orient = (direction: ViewDirection) => props.runtime.orient(direction);
   const fit = (selection = false) => setMessage(props.runtime.fit(selection ? props.selectedId : undefined)
@@ -93,7 +112,10 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       setProbeRequest(request);
       setGpuReading(true);
       void props.runtime.inspectGpuAt(event.clientX,event.clientY).then(result=>{
-        if (probeRequest() === request) setGpuEvidence(result);
+        if (probeRequest() === request) {
+          setGpuEvidence(result);
+          if ("surface" in result) setSurfaceProbe(result.surface ?? null);
+        }
       }).catch(reason=>{
         if (probeRequest() === request) setGpuEvidence({
           framebufferRgb:null,framebufferError: reason instanceof Error ? reason.message.slice(0,240) : "Readback unavailable",
@@ -107,6 +129,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
     props.canvas.addEventListener("keydown", keydown);
     props.canvas.addEventListener("pointerup", onProbePointer, true);
     onCleanup(() => {
+      setProbeRequest(probeRequest()+1);
       unsubscribe();
       props.canvas.removeEventListener("keydown", keydown);
       props.canvas.removeEventListener("pointerup", onProbePointer, true);
@@ -174,14 +197,14 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       <Show when={surfaceProbe()}>
         <output data-testid="surface-probe-desktop" aria-label="Identified surface" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{surfaceProbeDetails()}</output>
         <Show when={gpuReading()}><small role="status">Reading GPU floor texels…</small></Show>
-        <Show when={gpuEvidence()}><output data-testid="gpu-floor-evidence-desktop" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{gpuProbeDetails()}</output></Show>
+        <Show when={gpuEvidence()}><output data-testid="gpu-floor-evidence-desktop" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{gpuProbeDetails()}</output><button type="button" disabled={gpuReading()} onClick={() => void copyGpuReport()}>Copy GPU diagnostic report</button></Show>
       </Show>
       <label>Floor texture minification
         <select aria-label="Floor texture minification" value={appearance().floorMinification} onChange={event=>{
           props.runtime.setAppearance({floorMinification:event.currentTarget.value as "auto"|"source"|"anisotropic"|"base-level"});
           setAppearance(props.runtime.appearance());
         }}>
-          <option value="auto">Automatic (compatible)</option>
+          <option value="auto">Automatic</option>
           <option value="source">Source trilinear</option>
           <option value="anisotropic">Anisotropic (up to 8×)</option>
           <option value="base-level">Base image only</option>
@@ -190,7 +213,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       <label>Light intensity <input aria-label="Light intensity" type="range" min="0.25" max="2" step="0.05" value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
       <label>Shadow detail <input aria-label="Shadow detail" type="range" min="0" max="100" step="5" value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
       <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false,floorMinification:"auto"});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
-      <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Automatic keeps distant floor textures visible on WebGPU by using the base image. WebGL keeps source sampling. Compare at the same camera position: anisotropic sampling retains angled detail; base-image mode bypasses mipmaps and may shimmer or use more GPU bandwidth. Source restores the imported sampler. Floor inspection bypasses lighting. These controls do not modify source project data.</p>
+      <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Automatic uses source mipmapped sampling. Base image only remains a compatibility fallback. Compare at the same camera position: anisotropic sampling retains angled detail; base-image mode bypasses mipmaps and may shimmer or use more GPU bandwidth. Source restores the imported sampler. Floor inspection bypasses lighting. These controls do not modify source project data.</p>
     </div></details>
     <div class="teldra-view-controls__mobile">
       <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
@@ -238,14 +261,14 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
               <Show when={surfaceProbe()}>
                 <output data-testid="surface-probe-mobile" aria-label="Mobile identified surface" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{surfaceProbeDetails()}</output>
                 <Show when={gpuReading()}><small role="status">Reading GPU floor texels…</small></Show>
-                <Show when={gpuEvidence()}><output data-testid="gpu-floor-evidence-mobile" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{gpuProbeDetails()}</output></Show>
+                <Show when={gpuEvidence()}><output data-testid="gpu-floor-evidence-mobile" style={{"white-space":"pre-wrap","overflow-wrap":"anywhere","font-size":"0.8rem"}}>{gpuProbeDetails()}</output><button type="button" disabled={gpuReading()} onClick={() => void copyGpuReport()}>Copy GPU diagnostic report</button></Show>
               </Show>
               <label>Floor texture minification
                 <select aria-label="Mobile floor texture minification" value={appearance().floorMinification} onChange={event=>{
                   props.runtime.setAppearance({floorMinification:event.currentTarget.value as "auto"|"source"|"anisotropic"|"base-level"});
                   setAppearance(props.runtime.appearance());
                 }}>
-                  <option value="auto">Automatic (compatible)</option>
+                  <option value="auto">Automatic</option>
                   <option value="source">Source trilinear</option>
                   <option value="anisotropic">Anisotropic (up to 8×)</option>
                   <option value="base-level">Base image only</option>
