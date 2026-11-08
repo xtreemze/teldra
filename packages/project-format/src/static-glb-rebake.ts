@@ -43,7 +43,7 @@ const invAffine=(m:readonly number[]):Matrix4=>{
   const co=[(e*i-f*h)/det,(f*g-d*i)/det,(d*h-e*g)/det,
     (c*h-b*i)/det,(a*i-c*g)/det,(b*g-a*h)/det,
     (b*f-c*e)/det,(c*d-a*f)/det,(a*e-b*d)/det];
-  for(let row=0;row<3;row++)for(let col=0;col<3;col++)inverse[col*4+row]=co[row*3+col]!;
+  for(let row=0;row<3;row++)for(let col=0;col<3;col++)inverse[col*4+row]=co[col*3+row]!;
   for(let row=0;row<3;row++)inverse[12+row]=-(inverse[row]!*m[12]!+inverse[4+row]!*m[13]!+inverse[8+row]!*m[14]!);
   if(inverse.some(v=>!finite(v)||Math.abs(v)>1e9))return fail("Source affine inverse is unstable.");
   return inverse;
@@ -211,24 +211,30 @@ export async function rebakeStaticGlb(
   if(!deltas.size)return fail("No IFC geometry changes are eligible for regeneration.");
   // Preserve source buffer bytes exactly; newly generated streams never share storage.
   const docCopy=structuredClone(doc);
-  const outputBinary:number[]=Array.from(sourceBinary);
+  // Chunks avoid constructing 50+ MiB JS number arrays or spreading millions
+  // of vertex bytes onto the call stack. One binary allocation at completion.
+  const chunks:Uint8Array[]=[sourceBinary];let binaryLength=sourceBinary.length;
   const append=(values:readonly number[],sourceAccessor:number,components:3|4):number=>{
     const original=doc.accessors[sourceAccessor]!;
-    if(outputBinary.length%4)outputBinary.push(...Array<number>(4-outputBinary.length%4).fill(0));
-    const start=outputBinary.length,newData=new Uint8Array(values.length*4),writer=new DataView(newData.buffer);
+    const pad=(4-binaryLength%4)%4;
+    if(pad){chunks.push(new Uint8Array(pad));binaryLength+=pad;}
+    const start=binaryLength,newData=new Uint8Array(values.length*4),writer=new DataView(newData.buffer);
+    const minimum=Array<number>(components).fill(Infinity),maximum=Array<number>(components).fill(-Infinity);
     for(let i=0;i<values.length;i++){
-      if(!finite(values[i])||Math.abs(values[i]!)>1e7)return fail("Nonfinite or oversized regenerated vertex attribute.");
-      writer.setFloat32(i*4,values[i]!,true);
+      const value=values[i]!;
+      if(!finite(value)||Math.abs(value)>1e7)return fail("Nonfinite or oversized regenerated vertex attribute.");
+      writer.setFloat32(i*4,value,true);
+      minimum[i%components]=Math.min(minimum[i%components]!,value);
+      maximum[i%components]=Math.max(maximum[i%components]!,value);
     }
-    outputBinary.push(...newData); // replaced below when staging large scenes
+    binaryLength+=newData.length;
+    if(binaryLength>MAX_FILE)return fail("Geometry rebake exceeded the binary memory budget.");
+    chunks.push(newData);
     const viewIndex=docCopy.bufferViews.length;
     docCopy.bufferViews.push({buffer:0,byteOffset:start,byteLength:newData.length,target:34962});
     const next:GlbAccessor={...structuredClone(original),bufferView:viewIndex,byteOffset:0};
     delete next.min;delete next.max;
-    if(components===3&&original.type==="VEC3"){
-      next.min=[0,1,2].map(axis=>Math.min(...values.filter((_,i)=>i%3===axis)));
-      next.max=[0,1,2].map(axis=>Math.max(...values.filter((_,i)=>i%3===axis)));
-    }
+    if(components===3&&original.type==="VEC3"){next.min=minimum;next.max=maximum;}
     docCopy.accessors.push(next);
     return docCopy.accessors.length-1;
   };
@@ -296,7 +302,10 @@ export async function rebakeStaticGlb(
     node.mesh=docCopy.meshes.length;docCopy.meshes.push(newMesh);found.add(identity);
   }
   if(found.size!==deltas.size)return fail("Not all changed IFC objects map to GLB geometry.");
-  const result=writeGlb(docCopy,Uint8Array.from(outputBinary));
+  const binary=new Uint8Array(binaryLength);
+  let offset=0;
+  for(const chunk of chunks){binary.set(chunk,offset);offset+=chunk.length;}
+  const result=writeGlb(docCopy,binary);
   return {bytes:result,sourceSha256,bakedSha256:await sha256Bytes(result),
     triangleCount,editedObjectCount:found.size};
 }
