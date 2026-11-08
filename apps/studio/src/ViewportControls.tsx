@@ -249,7 +249,7 @@ export function ViewportControls(props: {
             <summary>Layers</summary>
             <div class="teldra-view-controls__mobile-layers">
               <Show when={props.hasHiddenSourceContent}>
-                <label><input type="checkbox" checked={props.hiddenSourceVisible ?? false}
+                <label><input type="checkbox" aria-label="Reveal hidden source geometry" checked={props.hiddenSourceVisible ?? false}
                   onChange={event => props.onHiddenSourceVisibilityChange?.(event.currentTarget.checked)} />
                   Show hidden source content
                 </label>
