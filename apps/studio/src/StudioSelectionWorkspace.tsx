@@ -141,6 +141,7 @@ export function StudioSelectionWorkspace(
     setActionError("");
   };
   const save = async () => {
+    if (rebaking()) return;
     setSaving(true);
     setActionError("");
     try { await props.controller.save(); refreshSelection(); }
@@ -457,7 +458,7 @@ export function StudioSelectionWorkspace(
         <div id="teldra-mobile-project-menu" class="teldra-studio-selection-workspace__mobile-project-menu" role="group" aria-label="Mobile project menu">
           <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => {changeHistory("undo");setMobileProjectOpen(false);}}>Undo</button>
           <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
-          <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+          <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
         <Show when={props.onExportRebakedScene}>
           <button type="button" title="Download a validated rebuilt .teldra copy without replacing this open project"
             disabled={dirty() || saving() || rebaking() || editingFurniture()}
@@ -497,7 +498,7 @@ export function StudioSelectionWorkspace(
         <output aria-live="polite" data-testid={selectedDevice() ? "project-dirty-state" : undefined}>{dirty() ? "Unsaved changes" : "Saved"}</output>
         <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}>Undo</button>
         <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}>Redo</button>
-        <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+        <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
         <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
           <Show when={!editingFurniture()} fallback={
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
