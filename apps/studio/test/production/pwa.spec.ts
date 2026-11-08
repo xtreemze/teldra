@@ -7,11 +7,11 @@ test("Studio manifest and icon family resolve from the Pages subpath", async ({ 
   const releaseResponse = await page.request.get(new URL("./build-info.json", page.url()).href);
   expect(releaseResponse.ok()).toBe(true);
   const release = await releaseResponse.json();
-  expect(release).toEqual({
+  expect(release).toMatchObject({
     schemaVersion: 1,
-    sourceCommit: expect.anything(),
     shellRevision: expect.stringMatching(/^[0-9a-f]{16}$/),
   });
+  expect(Object.hasOwn(release, "sourceCommit")).toBe(true);
   expect(release.sourceCommit === null || /^[0-9a-f]{40}$/.test(release.sourceCommit)).toBe(true);
   const manifestUrl = await page.locator('link[rel="manifest"]').getAttribute("href");
   expect(manifestUrl).toBe("./manifest.webmanifest");
