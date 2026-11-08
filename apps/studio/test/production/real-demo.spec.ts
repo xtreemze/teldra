@@ -98,7 +98,16 @@ test("real Sweet Home 3D demo mobile view opens with scene and appearance contro
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  const mobileCanvas=(await page.getByTestId("twin-canvas").boundingBox())!;
  const viewButton=(await page.getByRole("button",{name:"View",exact:true}).boundingBox())!;
- const visibility=(await page.getByText("Show hidden source content",{exact:true}).boundingBox())!;
+ const visibility=(await view.getByLabel("Reveal hidden source geometry").boundingBox())!;
+ const sceneButton=(await page.getByRole("button",{name:"Scene",exact:true}).boundingBox())!;
+ const projectButton=(await page.getByRole("button",{name:"Project",exact:true}).boundingBox())!;
+ expect(viewButton.y).toBeGreaterThanOrEqual(sceneButton.y-2);
+ expect(viewButton.y+viewButton.height).toBeLessThanOrEqual(sceneButton.y+sceneButton.height+2);
+ expect(viewButton.x).toBeGreaterThan(sceneButton.x+sceneButton.width);
+ expect(viewButton.x+viewButton.width).toBeLessThan(projectButton.x);
+ await expect(page.locator(".teldra-browser-studio__file")).toBeHidden();
+ await expect(page.locator(".teldra-twin-viewport__status")).toBeHidden();
+ await expect(page.locator(".teldra-twin-viewport__source-visibility")).toBeHidden();
  expect(viewButton.x).toBeGreaterThanOrEqual(mobileCanvas.x);
  expect(viewButton.x+viewButton.width).toBeLessThanOrEqual(mobileCanvas.x+mobileCanvas.width+1);
  expect(visibility.x+visibility.width).toBeLessThanOrEqual(mobileCanvas.x+mobileCanvas.width+1);
