@@ -3,6 +3,7 @@ import { Material } from "@babylonjs/core/Materials/material";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import type { Scene } from "@babylonjs/core/scene";
+import { SourceTextureTransfer } from "./source-texture-transfer";
 
 /** Preserve source Phong appearance on an explicitly tagged derived SH3D scene.
  * Ordinary glTF/PBR assets retain their existing renderer path.
@@ -47,5 +48,6 @@ export function sourceMaterialProjection(material: Material, scene: Scene): Mate
   projected.useAlphaFromDiffuseTexture = material.useAlphaFromAlbedoTexture;
   projected.transparencyMode = material.transparencyMode;
   projected.metadata = material.metadata;
+  new SourceTextureTransfer(projected);
   return projected;
 }
