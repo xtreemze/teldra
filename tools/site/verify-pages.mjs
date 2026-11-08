@@ -39,4 +39,16 @@ for (const url of precache) {
   if (!url.startsWith("./") || url.includes("..")) throw new Error("Invalid PWA precache URL: " + url);
   await access(resolve(studioDir, url.slice(2)));
 }
-console.log("Studio install manifest, generated icon family and offline precache verified.");
+const buildInfo = JSON.parse(await readFile(resolve(studioDir, "build-info.json"), "utf8"));
+if (buildInfo.schemaVersion !== 1 ||
+    !/^[0-9a-f]{16}$/i.test(buildInfo.shellRevision) ||
+    (buildInfo.sourceCommit !== null && !/^[0-9a-f]{40}$/i.test(buildInfo.sourceCommit))) {
+  throw new Error("Studio build provenance must include valid commit and asset revision.");
+}
+if (!worker.includes(JSON.stringify("teldra-studio-shell-" + buildInfo.shellRevision))) {
+  throw new Error("Published build revision must match the actual service-worker cache.");
+}
+if (precache.includes("./build-info.json")) {
+  throw new Error("Deployed revision metadata must bypass the offline shell cache.");
+}
+console.log("Studio install manifest, generated icon family, build provenance and offline precache verified.");
