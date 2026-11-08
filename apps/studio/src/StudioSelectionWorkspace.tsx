@@ -20,6 +20,7 @@ import "./StudioSelectionWorkspace.css";
 
 export interface StudioSelectionWorkspaceProps {
   readonly controller: StudioProjectController;
+  readonly saveMode?: "direct" | "download" | undefined;
   readonly manifest: unknown;
   readonly glbUrl: string;
   readonly onExportRebakedScene?: () => Promise<void>;
@@ -448,7 +449,10 @@ export function StudioSelectionWorkspace(
         <button type="button" data-testid="mobile-scene-trigger" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel"
           disabled={editingFurniture()} title={editingFurniture() ? "Apply or cancel the active transform first" : "Browse the scene"}
           onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}>Scene</button>
-        <output aria-live="polite">{dirty() ? "Unsaved changes" : "Saved"}</output>
+        <output class="teldra-studio-selection-workspace__mobile-save-state" aria-live="polite">
+          <span class="teldra-studio-selection-workspace__save-dot" data-state={dirty() ? "dirty" : "saved"} aria-hidden="true" />
+          {dirty() ? "Unsaved" : "Saved"}
+        </output>
         <Show when={editingFurniture()}><button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel"
           onClick={() => setInspectorOpen(!inspectorOpen())}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
         <button type="button" data-testid="mobile-project-trigger" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
@@ -456,6 +460,7 @@ export function StudioSelectionWorkspace(
       </div>
       <Show when={mobileProjectOpen()}>
         <div id="teldra-mobile-project-menu" class="teldra-studio-selection-workspace__mobile-project-menu" role="group" aria-label="Mobile project menu">
+          <Show when={props.saveMode === "download"}><p class="teldra-studio-selection-workspace__mobile-save-help">Saving downloads a project copy; it does not overwrite the opened file.</p></Show>
           <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => {changeHistory("undo");setMobileProjectOpen(false);}}>Undo</button>
           <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
           <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
