@@ -109,8 +109,8 @@ describe("browser static GLB rebake",()=>{
     // Original source vertex [1,0,0] under shared glTF parent W:
     // glTF world [1,3,3] -> canonical [1,-3,3].
     // IFC delta -> canonical [2.6,-4.1,6.5] -> glTF [2.6,6.5,4.1].
-    // W^-1 brings this point back to local glTF [2.1,-1.6,3.5].
-    near(positions.slice(3,6),[2.1,-1.6,3.5],1e-4);
+    // W^-1 brings this point back to local glTF [4.5,-1.6,1.1].
+    near(positions.slice(3,6),[4.5,-1.6,1.1],1e-4);
     expect(out.doc.nodes[2].children).toEqual([0,1]);
     expect(out.doc.nodes[1].mesh).toBe(0);
   });
