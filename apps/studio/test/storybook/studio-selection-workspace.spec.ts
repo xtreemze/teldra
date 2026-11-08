@@ -125,3 +125,37 @@ test("three-finger gestures use canonical project history and keep numeric editi
   await page.getByRole("button", {name: "Touch gesture guide"}).click();
   await expect(page.getByRole("group", {name: "Mobile touch gesture guide"})).toContainText("three fingers");
 });
+
+
+test("browser scene rebake is opt-in, blocks dirty IFC edits and reports exported copy", async ({page}) => {
+  await page.goto("/iframe.html?id=studio-selectionworkspace--rebuild-copy&viewMode=story");
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  const button=page.getByRole("group",{name:"Project actions"})
+    .getByRole("button",{name:"Rebuild 3D copy"});
+  await expect(button).toBeEnabled();
+  await button.click();
+  await expect(page.getByTestId("workspace-rebake-count")).toHaveText("1");
+  await expect(page.getByTestId("transform-shortcut-status")).toContainText("separate validated");
+
+  await page.getByRole("list",{name:"Devices",exact:true})
+    .getByRole("button",{name:/Living room floor lamp/}).click();
+  await page.getByRole("textbox",{name:"Device name"}).fill("Modified for rebake");
+  await page.getByRole("button",{name:"Apply name"}).click();
+  await expect(button).toBeDisabled();
+  await page.getByRole("group",{name:"Project actions"}).getByRole("button",{name:"Save project"}).click();
+  await expect(button).toBeEnabled();
+  await button.click();
+  await expect(page.getByTestId("workspace-rebake-count")).toHaveText("2");
+});
+
+test("mobile project actions expose a protected rebake-copy operation", async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/iframe.html?id=studio-selectionworkspace--rebuild-copy&viewMode=story");
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button",{name:"Project",exact:true}).click();
+  const mobile=page.getByRole("group",{name:"Mobile project menu"})
+    .getByRole("button",{name:"Rebuild 3D copy"});
+  await expect(mobile).toBeEnabled();
+  await mobile.click();
+  await expect(page.getByTestId("workspace-rebake-count")).toHaveText("1");
+});

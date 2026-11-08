@@ -183,3 +183,5 @@ function schemaIssues(
 
 export * from "./persistence.js";
 export * from "./archive.js";
+export * from "./static-glb-rebake.js";
+export * from "./archive-rebake.js";

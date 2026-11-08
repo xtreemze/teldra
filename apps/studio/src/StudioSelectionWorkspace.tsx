@@ -22,6 +22,7 @@ export interface StudioSelectionWorkspaceProps {
   readonly controller: StudioProjectController;
   readonly manifest: unknown;
   readonly glbUrl: string;
+  readonly onExportRebakedScene?: () => Promise<void>;
   readonly onViewportReady?: (handle: TwinViewportHandle) => void;
   readonly liveState?: StudioLiveStateController;
 }
@@ -37,6 +38,7 @@ export function StudioSelectionWorkspace(
   );
   const [search, setSearch] = createSignal("");
   const [saving, setSaving] = createSignal(false);
+  const [rebaking, setRebaking] = createSignal(false);
   const [actionError, setActionError] = createSignal("");
   const [mobileProjectOpen, setMobileProjectOpen] = createSignal(false);
   const [mobileContextOpen, setMobileContextOpen] = createSignal(false);
@@ -139,11 +141,27 @@ export function StudioSelectionWorkspace(
     setActionError("");
   };
   const save = async () => {
+    if (rebaking()) return;
     setSaving(true);
     setActionError("");
     try { await props.controller.save(); refreshSelection(); }
     catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
     finally { setSaving(false); }
+  };
+  const exportRebake = async () => {
+    if (saving() || rebaking() || editingFurniture() || dirty()) {
+      setActionError("Save all IFC changes and finish the active transform before rebuilding a copy.");
+      return;
+    }
+    setActionError(""); setRebaking(true);
+    try {
+      await props.onExportRebakedScene?.();
+      setTransformMessage("Rebuilt a separate validated 3D project copy. The open project is unchanged.");
+      tactile("applied");
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+      tactile("error");
+    } finally { setRebaking(false); }
   };
   const projectPlacements = () => {
     try { viewport()?.applyScenePlacements(props.controller.placementOverrides); }
@@ -440,7 +458,14 @@ export function StudioSelectionWorkspace(
         <div id="teldra-mobile-project-menu" class="teldra-studio-selection-workspace__mobile-project-menu" role="group" aria-label="Mobile project menu">
           <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => {changeHistory("undo");setMobileProjectOpen(false);}}>Undo</button>
           <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
-          <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+          <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+          <Show when={props.onExportRebakedScene}>
+            <button type="button" title="Download a new IFC-verified 3D project; the current project stays open and unchanged"
+              disabled={dirty() || saving() || rebaking() || editingFurniture()}
+              onClick={() => void exportRebake()}>
+              {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
+            </button>
+          </Show>
           <button type="button" aria-pressed={mobileHapticsEnabled()} onClick={() => setHapticsPreference(!mobileHapticsEnabled())}>Haptics {mobileHapticsEnabled() ? "on" : "off"}</button>
           <button type="button" aria-pressed={mobileSoundEnabled()} onClick={() => {
             setSoundPreference(!mobileSoundEnabled());
@@ -466,7 +491,14 @@ export function StudioSelectionWorkspace(
         <output aria-live="polite" data-testid={selectedDevice() ? "project-dirty-state" : undefined}>{dirty() ? "Unsaved changes" : "Saved"}</output>
         <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}>Undo</button>
         <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}>Redo</button>
-        <button type="button" disabled={!dirty() || saving() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+        <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+        <Show when={props.onExportRebakedScene}>
+          <button type="button" title="Download a validated rebuilt .teldra copy without replacing this open project"
+            disabled={dirty() || saving() || rebaking() || editingFurniture()}
+            onClick={() => void exportRebake()}>
+            {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
+          </button>
+        </Show>
         <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
           <Show when={!editingFurniture()} fallback={
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">

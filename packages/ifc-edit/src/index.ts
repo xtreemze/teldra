@@ -1,4 +1,4 @@
-import { IfcAPI, IFCRELFILLSELEMENT, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM, IFCRELDEFINESBYPROPERTIES, IFCPROPERTYSET, IFCPROPERTYSINGLEVALUE } from "web-ifc";
+import { IfcAPI, IFCRELFILLSELEMENT, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM, IFCRELDEFINESBYPROPERTIES, IFCPROPERTYSET, IFCPROPERTYSINGLEVALUE, IFCTRIANGULATEDFACESET, IFCCARTESIANPOINTLIST3D } from "web-ifc";
 
 /** IFC world coordinates in metres, Z up; rotation is about world Z. */
 export interface FurniturePose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
@@ -178,6 +178,44 @@ function mappedFurniture(api: IfcAPI, id: number, guid: string): { item: Line; s
   validGeometryScale(scale);
   return { item, scale };
 }
+/**
+ * Immutable *source* IFC geometry signature for the browser GLB rebake.
+ * Unlike scene dimensions or MappingTarget factors, this includes every
+ * triangulated face and coordinate of the shared source representation.
+ * The signature intentionally excludes the mutable per-instance scale and
+ * placement. It is only compared within the same import/rebase transaction.
+ */
+export function readFurnitureTessellationSignature(
+  api: IfcAPI, bytes: Uint8Array, guid: string,
+): string {
+  return model(api, bytes, id => {
+    const { item } = mappedFurniture(api, id, guid);
+    const map = api.GetLine(id, handle(item.MappingSource, "IFC representation map")) as Line;
+    const shape = api.GetLine(id, handle(map.MappedRepresentation, "mapped source representation")) as Line;
+    if (shape?.type !== IFCSHAPEREPRESENTATION ||
+        shape.RepresentationIdentifier?.value !== "Body" ||
+        shape.RepresentationType?.value !== "Tessellation" ||
+        shape.Items?.length !== 1)
+      throw new Error("Rebake requires a single source Body/Tessellation representation.");
+    const faceSet = api.GetLine(id, handle(shape.Items[0], "IfcTriangulatedFaceSet")) as Line;
+    if (faceSet?.type !== IFCTRIANGULATEDFACESET)
+      throw new Error("Rebake requires an IfcTriangulatedFaceSet source.");
+    const points = api.GetLine(id, handle(faceSet.Coordinates, "IfcCartesianPointList3D")) as Line;
+    if (points?.type !== IFCCARTESIANPOINTLIST3D ||
+        !Array.isArray(points.CoordList) || points.CoordList.length < 3 ||
+        !Array.isArray(faceSet.CoordIndex) || faceSet.CoordIndex.length === 0)
+      throw new Error("Rebake requires complete indexed source triangle coordinates.");
+    const representation = {
+      coordinates: points.CoordList,
+      indices: faceSet.CoordIndex,
+      normals: faceSet.Normals ?? null,
+      pnIndex: faceSet.PnIndex ?? null,
+      closed: faceSet.Closed ?? null,
+    };
+    return JSON.stringify(representation);
+  });
+}
+
 export function readFurnitureGeometryScale(api: IfcAPI, bytes: Uint8Array, guid: string): FurnitureGeometryScale {
   return model(api, bytes, id => mappedFurniture(api, id, guid).scale);
 }

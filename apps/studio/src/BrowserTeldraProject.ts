@@ -5,6 +5,7 @@ import {
   openTeldraArchive,
   replaceTeldraTwin,
   replaceTeldraBuilding,
+  rebakeTeldraSceneCopy,
   readScenePlacementOverrides,
   type ScenePlacementOverride,
   type SceneProvenance,
@@ -87,6 +88,8 @@ export interface BrowserStudioProject {
   readonly projectKey: string;
   readonly controller: StudioProjectController;
   readonly scene?: BrowserStudioScene;
+  /** Regenerate a separate validated archive copy; never changes the loaded project. */
+  rebakeSavedSceneCopy?(): Promise<Uint8Array>;
   close(): Promise<void>;
 }
 
@@ -570,9 +573,12 @@ export async function openBrowserTeldraProject(
     if (sceneResource) storage.configureScene(sceneResource.scene.manifest);
     const buildingEntry = storage.archive.entries.find((entry) => entry.path === storage.archive.manifest.building.path);
     const sourceEntry = storage.archive.entries.find((entry) => entry.path === SCENE_SOURCE_IFC_PATH) ?? buildingEntry;
-    let adapterPromise: Promise<import("@teldra/application").IfcFurnitureAdapter> | undefined;
+    type RebakeIfcAdapter = import("@teldra/application").IfcFurnitureAdapter & {
+      readTessellationSignature(bytes: Uint8Array, guid: string): string;
+    };
+    let adapterPromise: Promise<RebakeIfcAdapter> | undefined;
     const createAdapter = () => adapterPromise ??= (async () => {
-      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions }, wasm] = await Promise.all([
+      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature }, wasm] = await Promise.all([
         import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url"),
       ]);
       const api = new IfcAPI(); await api.Init(() => wasm.default, true);
@@ -584,6 +590,8 @@ export async function openBrowserTeldraProject(
           writeFurnitureGeometryScale(api, bytes, id, scale),
         readSourceDimensions: (bytes: Uint8Array, id: string) =>
           readFurnitureSourceDimensions(api, bytes, id),
+        readTessellationSignature: (bytes: Uint8Array, id: string) =>
+          readFurnitureTessellationSignature(api, bytes, id),
       };
     })();
     if (sceneResource?.scene.placements.length && sourceEntry && buildingEntry) {
@@ -605,6 +613,32 @@ export async function openBrowserTeldraProject(
       projectKey: storage.projectKey,
       controller,
       ...(sceneResource === null ? {} : { scene: sceneResource.scene }),
+      ...(sceneResource === null ? {} : {
+        rebakeSavedSceneCopy: async () => {
+          if (controller.dirty) throw new Error(
+            "Save the IFC project before rebuilding a separate 3D scene copy.",
+          );
+          const snapshot = storage.archive;
+          const regenerated = await rebakeTeldraSceneCopy(
+            snapshot, sceneResource.scene.manifest,
+            async (sourceIfc, currentIfc, placements) => {
+              const adapter = await createAdapter();
+              validateIfcScenePlacements(adapter, sourceIfc, currentIfc, placements);
+              const checked = new Set<string>();
+              for (const placement of placements) {
+                if (checked.has(placement.ifcGlobalId)) throw new Error("Duplicate IFC rebake identity.");
+                checked.add(placement.ifcGlobalId);
+                const before = adapter.readTessellationSignature(sourceIfc, placement.ifcGlobalId);
+                const after = adapter.readTessellationSignature(currentIfc, placement.ifcGlobalId);
+                if (before !== after) throw new Error(
+                  "Canonical IFC source triangulation changed; GLB rebake requires regeneration from IFC.",
+                );
+              }
+            },
+          );
+          return regenerated.bytes;
+        },
+      }),
       close: async () => {
         try {
           await opened.session.close();

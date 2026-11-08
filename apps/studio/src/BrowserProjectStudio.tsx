@@ -64,6 +64,27 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     }
   };
 
+  const exportRebakedCopy = async (): Promise<void> => {
+    const current = project();
+    if (!current?.rebakeSavedSceneCopy) throw new Error("This scene cannot be regenerated in the browser.");
+    if (current.controller.dirty) throw new Error("Save project changes before exporting a rebaked copy.");
+    const bytes = await current.rebakeSavedSceneCopy();
+    // Download is a separate artifact; the opened project's lock, scene and
+    // history remain unchanged. No source file is overwritten.
+    const buffer = new ArrayBuffer(bytes.byteLength);
+    new Uint8Array(buffer).set(bytes);
+    const url = URL.createObjectURL(new Blob([buffer], {type:"application/octet-stream"}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = (current.fileName.replace(/\.teldra$/i,"") || "teldra") + "-rebaked.teldra";
+    document.body.append(link);
+    try { link.click(); }
+    finally {
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    }
+  };
+
   createEffect(() => {
     const launchedFile = props.launchedFile;
     if (launchedFile !== undefined && launchedFile !== null) {
@@ -167,6 +188,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
                   {(scene) => (
                     <StudioSelectionWorkspace
                       controller={ready().controller}
+                      {...(ready().rebakeSavedSceneCopy ? {onExportRebakedScene: exportRebakedCopy} : {})}
                       manifest={scene().manifest}
                       glbUrl={scene().glbUrl}
                       {...(props.onViewportReady === undefined
