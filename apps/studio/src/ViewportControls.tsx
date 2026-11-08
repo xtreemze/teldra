@@ -1,5 +1,6 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { BabylonTwinRuntime, ViewDirection, ViewState } from "@teldra/runtime-babylon";
+import { studioBuildLabel } from "./studio-build";
 
 export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HTMLCanvasElement; selectedId?: string | undefined}) {
   const [view, setView] = createSignal<ViewState | null>(props.runtime.viewState());
@@ -213,6 +214,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       <label>Light intensity <input aria-label="Light intensity" type="range" min="0.25" max="2" step="0.05" value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
       <label>Shadow detail <input aria-label="Shadow detail" type="range" min="0" max="100" step="5" value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
       <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false,floorMinification:"auto"});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
+      <small data-testid="studio-build-desktop">Studio build: {studioBuildLabel}</small>
       <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Automatic uses source mipmapped sampling. Base image only remains a compatibility fallback. Compare at the same camera position: anisotropic sampling retains angled detail; base-image mode bypasses mipmaps and may shimmer or use more GPU bandwidth. Source restores the imported sampler. Floor inspection bypasses lighting. These controls do not modify source project data.</p>
     </div></details>
     <div class="teldra-view-controls__mobile">
@@ -279,6 +281,7 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
               <label>Shadow detail <input aria-label="Mobile shadow detail" type="range" min="0" max="100" step="5"
                 value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
               <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false,floorMinification:"auto"});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
+              <small data-testid="studio-build-mobile">Studio build: {studioBuildLabel}</small>
             </div>
           </details>
           <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>

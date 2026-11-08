@@ -28,6 +28,11 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
   expect(box.x+box.width).toBeLessThanOrEqual(canvas.x+canvas.width+1);
  }
  await page.getByText("Appearance",{exact:true}).click();
+ const releaseResponse=await page.request.get(new URL("./build-info.json", page.url()).href);
+ expect(releaseResponse.ok()).toBe(true);
+ const release=await releaseResponse.json() as {sourceCommit:string|null};
+ await expect(page.getByTestId("studio-build-desktop"))
+  .toHaveText("Studio build: "+(release.sourceCommit?.slice(0,12)??"development"));
  expect(assets.floorInspectionMaterials).toBeGreaterThan(0);
  const sampler = page.getByLabel("Floor texture minification",{exact:true});
  await expect(sampler).toHaveValue("auto");
