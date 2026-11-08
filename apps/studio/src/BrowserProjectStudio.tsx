@@ -113,7 +113,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
 
   return (
     <main class="teldra-browser-studio">
-      <header class="teldra-browser-studio__masthead">
+      <header class="teldra-browser-studio__masthead" classList={{"teldra-browser-studio__masthead--loaded": project() !== null}}>
         <div class="teldra-browser-studio__identity">
           <p class="teldra-browser-studio__eyebrow">Teldra <span>Studio</span></p>
           <h1 title={project()?.fileName ?? "Studio"}>{project()?.fileName ?? "Your space, in context."}</h1>
