@@ -148,7 +148,7 @@ export async function createBabylonTwinRuntime(
   // Preserve original renderer materials while giving floor imagery a genuine
   // emissive, light-independent inspection path.
   const floorInspector = new FloorTextureInspector();
-  const floorMinification = new FloorMinificationInspector(engine.getCaps().maxAnisotropy ?? 1);
+  const floorMinification = new FloorMinificationInspector(engine.getCaps().maxAnisotropy ?? 1, backend);
   const materialTextures = new Map<Material, BaseTexture | null>();
 
   let physicalMeshes: AbstractMesh[] = [];

@@ -23,6 +23,9 @@ describe("source-safe floor texture minification diagnostics",()=>{
    inspector.register(floor);
    inspector.register(floor);
    expect(inspector.textureCount).toBe(1);
+   expect(inspector.currentMode).toBe("auto");
+   expect(image.samplingMode).toBe(Texture.TRILINEAR_SAMPLINGMODE);
+   expect(image.anisotropicFilteringLevel).toBe(3);
    inspector.setMode("base-level");
    expect(image.samplingMode).toBe(Texture.LINEAR_LINEAR);
    expect(image.anisotropicFilteringLevel).toBe(1);
@@ -53,4 +56,26 @@ describe("source-safe floor texture minification diagnostics",()=>{
    inspector.restore();
   }finally{scene.dispose();engine.dispose();}
  });
+});
+
+it("automatically uses the confirmed base-image path for WebGPU floors and restores source state",()=>{
+ const engine=new NullEngine(),scene=new Scene(engine);
+ try {
+  const image=RawTexture.CreateRGBTexture(new Uint8Array([42,56,62]),1,1,scene,true,false);
+  image.updateSamplingMode(Texture.TRILINEAR_SAMPLINGMODE);image.anisotropicFilteringLevel=4;
+  const material=new StandardMaterial("room",scene);material.diffuseTexture=image;
+  const inspector=new FloorMinificationInspector(16,"webgpu");
+  inspector.register(material);
+  expect(inspector.currentMode).toBe("auto");
+  expect(image.samplingMode).toBe(Texture.LINEAR_LINEAR);
+  expect(image.anisotropicFilteringLevel).toBe(1);
+  inspector.setMode("source");
+  expect(image.samplingMode).toBe(Texture.TRILINEAR_SAMPLINGMODE);
+  inspector.setMode("auto");
+  expect(image.samplingMode).toBe(Texture.LINEAR_LINEAR);
+  expect(material.diffuseTexture).toBe(image);
+  inspector.restore();
+  expect(image.samplingMode).toBe(Texture.TRILINEAR_SAMPLINGMODE);
+  expect(image.anisotropicFilteringLevel).toBe(4);
+ } finally {scene.dispose();engine.dispose();}
 });
