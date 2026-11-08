@@ -2,6 +2,17 @@ import { expect, test } from "@playwright/test";
 
 test("Studio manifest and icon family resolve from the Pages subpath", async ({ page }) => {
   await page.goto("./?launch=file");
+  // The network-only revision file distinguishes a newly deployed Pages build
+  // from an older cache-first PWA shell on the user's device.
+  const releaseResponse = await page.request.get(new URL("./build-info.json", page.url()).href);
+  expect(releaseResponse.ok()).toBe(true);
+  const release = await releaseResponse.json();
+  expect(release).toEqual({
+    schemaVersion: 1,
+    sourceCommit: expect.anything(),
+    shellRevision: expect.stringMatching(/^[0-9a-f]{16}$/),
+  });
+  expect(release.sourceCommit === null || /^[0-9a-f]{40}$/.test(release.sourceCommit)).toBe(true);
   const manifestUrl = await page.locator('link[rel="manifest"]').getAttribute("href");
   expect(manifestUrl).toBe("./manifest.webmanifest");
   const manifestResponse = await page.request.get(new URL(manifestUrl!, page.url()).href);
