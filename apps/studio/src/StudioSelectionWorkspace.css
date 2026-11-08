@@ -345,3 +345,65 @@
     min-height: 44px;
   }
 }
+
+
+/* The canvas has one light, floating mobile command row; no full-width overlay. */
+@media (max-width: 48rem) {
+  .teldra-studio-selection-workspace__mobile-header {
+    top: .55rem;
+    inset-inline: .55rem;
+    gap: .35rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    backdrop-filter: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+  .teldra-studio-selection-workspace__mobile-header button {
+    pointer-events: auto;
+    padding: .45rem .7rem;
+    border: 1px solid #4a6271;
+    border-radius: .7rem;
+    background: #17212de8;
+    box-shadow: 0 .25rem .8rem #0004;
+    font-size: .81rem;
+    font-weight: 600;
+  }
+  .teldra-studio-selection-workspace__mobile-header > button:last-child { margin-left: auto; }
+  .teldra-studio-selection-workspace__mobile-header output {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    flex: 0 0 auto;
+    margin: 0 auto 0 .1rem;
+    color: #d3dedf;
+    font-size: .7rem;
+    pointer-events: none;
+  }
+  .teldra-studio-selection-workspace__save-dot {
+    width: .42rem;
+    height: .42rem;
+    flex: none;
+    border-radius: 50%;
+    background: #85cdbd;
+  }
+  .teldra-studio-selection-workspace__save-dot[data-state="dirty"] { background: #efbf73; }
+  .teldra-studio-selection-workspace__mobile-project-menu {
+    top: 3.75rem;
+    right: .55rem;
+    max-height: min(65dvh, 34rem);
+  }
+  .teldra-studio-selection-workspace__mobile-save-help {
+    padding: .4rem .55rem;
+    border-bottom: 1px solid #425969;
+    color: #c4d4dc !important;
+    font-size: .78rem;
+    line-height: 1.4;
+  }
+}
+@media (max-width: 23rem) {
+  .teldra-studio-selection-workspace__mobile-save-label { display: none; }
+  .teldra-studio-selection-workspace__mobile-header output { margin-left: .05rem; }
+}
