@@ -105,9 +105,8 @@ including the unlit emissive inspection path. Linear-storage images and ordinary
 PBR assets retain their existing path. Source image bytes, UVs, mipmaps, samplers,
 lighting and project data are unchanged. An authored dark-floor browser fixture
 checks actual pixels at near and distant views. This establishes a color-transfer
-regression on WebGL. Subsequent Android feedback in #100 confirms that only
-base-image sampling restores distant floors; the automatic compatibility policy
-below addresses visibility while the mip/LOD defect remains unresolved.
+regression on WebGL. The separate WebGPU mip-loss regression and its frame
+submission correction are described below.
 
 The published 21D reference has 13 textured floor parts and 3 distinct
 embedded floor images. Read-only audit `tools/diagnostics/audit_21d_floor.py`
@@ -180,10 +179,9 @@ portable source defaults.
 Studio offers a *view-only*, reversible floor-minification A/B selector in both
 mobile and desktop Appearance panels:
 
-- **Automatic (compatible)** (default): use the base image on WebGPU, where the
-  affected device confirms that mipmapped modes hide distant floors; preserve
-  source sampling on WebGL. This is a compatibility mitigation, not a claim that
-  mip generation or LOD selection is repaired.
+- **Automatic** (default): preserve source mipmapped sampling on both backends.
+  The temporary WebGPU base-image fallback from #113 is superseded by the
+  initial-frame submission correction below.
 - **Source trilinear**: restore the exact Babylon sampler properties produced
   by the glTF source and previous renderer state (an explicit diagnostic override)
 - **Anisotropic (up to 8×)**: retain mipmaps and improve angled texel detail,
@@ -191,14 +189,13 @@ mobile and desktop Appearance panels:
 - **Base image only**: sample the full-resolution source level and
   bypass mipmap selection. This can introduce texture aliasing/shimmer and high
   texture-fetch pressure. It is the confirmed visibility fallback on affected
-  WebGPU devices, rather than the final mipmapped fidelity solution
+  WebGPU devices and remains available for diagnosis
 
 All modes preserve original image bytes, UV scales, material Kd, geometry,
 lighting and canonical/project state. They allow testing the **same camera
-position** without a reload. Appearance reset returns to Automatic so it cannot
-silently re-enable the failing WebGPU mip path. If base-level filtering restores
-a floor that
-becomes black under trilinear filtering, inspect GPU mipmap generation and
+position** without a reload. Appearance reset returns to Automatic to
+preserve the default source sampler. If base-level filtering restores a floor
+that becomes black under trilinear filtering, inspect GPU mipmap generation and
 sampling behavior. If it does not, investigate occlusion or normal shader
 response rather than applying arbitrary diffuse/emissive compensation. A
 recognizable pattern cannot be guaranteed at arbitrarily small pixel footprints.
@@ -208,14 +205,15 @@ recognizable pattern cannot be guaranteed at arbitrarily small pixel footprints.
 
 Studio's desktop and mobile View → Appearance panels include an opt-in **Identify
 visible surface** action. It arms one canvas pointer-up and reports the
-nearest Babylon CPU ray-pick result at that screen coordinate: canonical
+nearest Babylon CPU ray-pick result at that screen coordinate (which can differ
+from the rasterized fragment, including culled ceilings): canonical
 identity (including possibly a non-room occluder), mesh/material name, diffuse
 image name/readiness, sampler mode/anisotropy, UV, world normal, camera
 intersection distance and Phong Kd. On mobile the View sheet closes while
 armed so the user can tap a dark area, then reopen it to inspect the result.
 
-This tool does not modify selection, materials, geometry, lighting or saved
-project data. It is **not** a GPU framebuffer color probe; CPU ray picking can
+This tool does not modify materials, geometry, lighting or saved
+project data. The CPU hit is separate from GPU framebuffer readback and can
 differ from rasterized pixels where surfaces exactly overlap, transparency is
 present, or depth ordering differs. When diagnosing black floors, compare the
 same point at two camera distances and note whether its canonical identity or
@@ -240,12 +238,59 @@ The final 1×1 mip should roughly follow the source image's average when
 the GPU mip chain is correctly generated in its applicable color space.
 Do not compare a single level-zero texel against a whole-image mean.
 
-If the distant framebuffer is RGB≈(0,0,0) but the source texture's GPU
-mips remain non-black, investigate shader evaluation, visibility, alpha or
-depth. If the base GPU texel is valid and progressively smaller mips are
-black, investigate mip generation, sRGB handling and sampler state before
-introducing any corrective lighting. An unsupported or rejected readback
-is inconclusive. The pixel probe does not modify geometry, mipmaps, source
+Compare repeated readings at a fixed pose and UV: plausible non-black mips
+with a black framebuffer motivate shader/visibility inspection, while a valid
+base and unexpectedly zero higher mips motivate generation/upload inspection.
+One legitimately black texel is not proof of corruption; failed readback is
+inconclusive. The pixel probe does not modify geometry, mipmaps, source
 texture bytes, lighting or saved project data. GPU readback can stall on
 mobile platforms and therefore is never run per-frame or during normal
 navigation.
+
+### WebGPU initial-frame submission correction (#100)
+
+The load-time warm-up render must call `engine.beginFrame()` and
+`engine.endFrame()` in the same browser task as `scene.render()`. Previously,
+Teldra rendered once outside Babylon's RAF loop and left that work queued until
+the first RAF. The acquired swapchain texture could expire before submission.
+The invalid submission included both the render and upload command encoders,
+so encoded image mip generation was discarded along with the expired render.
+
+The regression is reproduced on installed Edge 157 / NVIDIA Turing WebGPU:
+a constant authored RGBA [42,56,62,255] image had five GPU-allocated mip levels,
+but levels 1–4 contained [0,0,0,0]. GPU validation reported a destroyed swapchain
+texture in the combined initial upload/render submission. After bracketing the
+warm-up frame, all five levels contain [42,56,62,255] and the validation error is
+absent. The browser regression reads actual GPUTexture levels and checks distant
+pixels with Automatic, Source and Anisotropic sampling. It skips explicitly when
+no WebGPU adapter is available. Set `TELDRA_BROWSER_EXECUTABLE` to an installed
+hardware-enabled Chromium browser to run it on a real adapter.
+
+The published 21D demo also renders visible distant wood/checker floors with
+source mipmapped sampling on that WebGPU adapter. This establishes the reproduced
+lifecycle defect and correction; the affected Android device and its exact local
+project still require confirmation before closing #100. No source image,
+material brightness, lighting, UV, or canonical project geometry is changed.
+
+### Coherent, bounded GPU evidence
+
+Identify visible surface now captures at the end of a rendered scene frame,
+with backend-correct framebuffer coordinates and BGRA/RGBA decoding. It snapshots
+the CPU hit, camera, appearance settings, render size and declared GLB/building
+SHA-256 values before awaiting readback. These hashes identify declared scene
+artifacts, not every byte of a .teldra archive. Project loading independently
+validates the GLB hash; a filename alone does not establish matching content.
+
+The probe maps the picked UV through the texture transform and wrapping before
+reading up to three single texels. Each read names its coordinates and whether
+it used the picked UV or a reference center. WebGPU mip bounds come from the
+actual GPUTexture allocation: Babylon's InternalTexture.mipLevelCount can remain
+1 for ordinary images despite a larger GPU allocation. WebGL bounds are labeled
+inferred. Missing/failed readback is unavailable, never a fabricated black value.
+
+Raw texels are not filtered framebuffer colors, nor a measurement of the shader's
+selected LOD. Legitimately black texels, culled/transparent geometry and a CPU
+pick differing from the rendered surface limit inference. The final 1×1 mip is a
+whole-image reduction, while intermediate samples are not image-wide averages.
+Copy GPU diagnostic report copies the bounded local capture as JSON, including
+its camera and artifact context. It does not upload project data.

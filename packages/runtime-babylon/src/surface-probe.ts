@@ -65,6 +65,8 @@ export interface GpuMipSample {
   readonly size: readonly [number, number];
   readonly rgb: readonly [number, number, number] | null;
   readonly error: string | null;
+  readonly coordinates?: readonly [number, number];
+  readonly sampleLocation?: "picked UV" | "texture center";
 }
 
 export interface GpuFloorEvidence {
@@ -74,6 +76,18 @@ export interface GpuFloorEvidence {
   readonly textureSize: readonly [number, number] | null;
 }
 
+/** Map CSS coordinates to the current backend's framebuffer origin. */
+export function clientToFramebufferPixel(clientX: number, clientY: number,
+  rect: {left: number; top: number; width: number; height: number},
+  width: number, height: number, backend: "webgpu" | "webgl"): [number, number] | null {
+  if (![clientX, clientY, rect.left, rect.top, rect.width, rect.height, width, height].every(Number.isFinite) ||
+      rect.width <= 0 || rect.height <= 0 || !Number.isSafeInteger(width) || !Number.isSafeInteger(height) ||
+      width < 1 || height < 1 || clientX < rect.left || clientY < rect.top ||
+      clientX >= rect.left + rect.width || clientY >= rect.top + rect.height) return null;
+  const x = Math.floor((clientX - rect.left) * width / rect.width);
+  const y = Math.floor((clientY - rect.top) * height / rect.height);
+  return [x, backend === "webgl" ? height - 1 - y : y];
+}
 /** Select only a base-level, middle-level and final 1px mip diagnostic.
  * We never read entire images, dump proprietary bitmaps or mutate sampling.
  */
@@ -84,14 +98,14 @@ export function diagnosticMipLevels(width: number, height: number): number[] {
   return [...new Set([0, Math.floor(last / 2), last])];
 }
 
-export function normalizeGpuRgb(data: ArrayBufferView | null): [number, number, number] | null {
+export function normalizeGpuRgb(data: ArrayBufferView | null, channelOrder: "rgba" | "bgra" = "rgba"): [number, number, number] | null {
   if (!data || data.byteLength < 3) return null;
   if (data instanceof Float32Array) {
     if (data.length < 3) return null;
-    return [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round((data[i] ?? 0) * 255)))) as [number, number, number];
+    return (channelOrder === "bgra" ? [2, 1, 0] : [0, 1, 2]).map(i => Math.max(0, Math.min(255, Math.round((data[i] ?? 0) * 255)))) as [number, number, number];
   }
   if (data instanceof Uint8Array || data instanceof Uint8ClampedArray) {
-    return [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0];
+    return channelOrder === "bgra" ? [data[2] ?? 0, data[1] ?? 0, data[0] ?? 0] : [data[0] ?? 0, data[1] ?? 0, data[2] ?? 0];
   }
   return null;
 }
@@ -101,26 +115,68 @@ export function normalizeGpuRgb(data: ArrayBufferView | null): [number, number, 
  * browser/GPU texture usage flags. Failures are recorded, never hidden or
  * interpreted as a black pixel.
  */
-export async function inspectGpuMips(texture: import("@babylonjs/core/Materials/Textures/baseTexture").BaseTexture): Promise<{
+export async function inspectGpuMips(texture: import("@babylonjs/core/Materials/Textures/baseTexture").BaseTexture,
+  uv?: readonly [number, number] | null): Promise<{
   readonly textureSize: readonly [number, number];
   readonly mips: readonly GpuMipSample[];
+  readonly mipAvailabilityError?: string;
+  readonly mipAvailability?: "allocated" | "inferred";
 }> {
   const size = texture.getSize();
   const dims: [number, number] = [size.width, size.height];
+  const candidates = diagnosticMipLevels(size.width, size.height);
+  if (!candidates.length) return {textureSize:dims,mips:[],mipAvailabilityError:"Invalid texture dimensions"};
+  const internal = texture.getInternalTexture();
+  const engine = texture.getScene()?.getEngine();
+  if (!engine) return {textureSize:dims,mips:[],mipAvailabilityError:"Texture engine unavailable"};
+  const isWebGPU = engine.isWebGPU;
+  const mipAvailability = isWebGPU ? "allocated" as const : "inferred" as const;
+  // Babylon InternalTexture.mipLevelCount is not updated for all image textures.
+  // WebGPU exposes the actual allocation on its underlying GPUTexture.
+  const resource: unknown = internal?._hardwareTexture?.underlyingResource;
+  const allocatedCount = resource && typeof resource === "object" && "mipLevelCount" in resource
+    ? resource.mipLevelCount : undefined;
+  const count = isWebGPU ? allocatedCount :
+    internal ? (internal.generateMipMaps ? Math.floor(Math.log2(Math.max(size.width, size.height))) + 1 : 1) : undefined;
+  if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 1) {
+    return {textureSize:dims,mips:[],mipAvailabilityError:"Allocated mip levels unavailable"};
+  }
+  const last = Math.min(count - 1, Math.floor(Math.log2(Math.max(size.width, size.height))));
+  const levels = [...new Set([0, Math.floor(last / 2), last])];
+  let location: "picked UV" | "texture center" = "texture center";
+  let u = 0.5, v = 0.5;
+  if (uv && uv.every(Number.isFinite)) {
+    const matrix = texture.getTextureMatrix().m;
+    // Babylon's material shaders multiply mat4 by vec4(uv, 1, 0).
+    const transformedU = uv[0] * matrix[0]! + uv[1] * matrix[4]! + matrix[8]!;
+    const transformedV = uv[0] * matrix[1]! + uv[1] * matrix[5]! + matrix[9]!;
+    const wrap = (value: number, mode: number): number | null => {
+      if (mode === 0) return Math.max(0, Math.min(1, value));
+      if (mode === 1) return value - Math.floor(value);
+      if (mode === 2) { const period = ((value % 2) + 2) % 2; return period <= 1 ? period : 2 - period; }
+      return null;
+    };
+    const mappedU = wrap(transformedU, texture.wrapU), mappedV = wrap(transformedV, texture.wrapV);
+    if (mappedU !== null && mappedV !== null && Number.isFinite(mappedU) && Number.isFinite(mappedV)) {
+      u = mappedU; v = mappedV; location = "picked UV";
+    }
+  }
   const result: GpuMipSample[] = [];
-  for (const level of diagnosticMipLevels(size.width, size.height)) {
+  for (const level of levels) {
     const width = Math.max(1, Math.floor(size.width / Math.pow(2, level)));
     const height = Math.max(1, Math.floor(size.height / Math.pow(2, level)));
+    const x = Math.min(width - 1, Math.floor(u * width));
+    const y = Math.min(height - 1, Math.floor(v * height));
+    const coordinates: [number, number] = [x,y];
     try {
-      const raw = await texture.readPixels(0, level, null, true, false,
-        Math.floor(width / 2), Math.floor(height / 2), 1, 1);
+      const raw = await texture.readPixels(0, level, null, true, false, x, y, 1, 1);
       const rgb = normalizeGpuRgb(raw ?? null);
-      result.push({level, size:[width,height],rgb,
+      result.push({level, size:[width,height], coordinates, sampleLocation:location, rgb,
         error: rgb ? null : "GPU texture readback returned no compatible pixel data"});
     } catch (reason) {
-      result.push({level,size:[width,height],rgb:null,
+      result.push({level,size:[width,height],coordinates,sampleLocation:location,rgb:null,
         error: reason instanceof Error ? reason.message.slice(0, 240) : "GPU texture readback unsupported"});
     }
   }
-  return {textureSize:dims,mips:result};
+  return {textureSize:dims,mips:result,mipAvailability};
 }

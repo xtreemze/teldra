@@ -1,0 +1,48 @@
+{
+  "provenance": "Teldra-authored asymmetric red/green/blue/yellow floor; matte Phong",
+  "manifest": {
+    "schemaVersion": "0.1.0",
+    "coordinateSystem": {
+      "unit": "metre",
+      "handedness": "right",
+      "upAxis": "Z"
+    },
+    "source": {
+      "buildingPath": "building.ifc",
+      "buildingSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "scene": {
+      "assetPath": "scene.glb",
+      "format": "glb",
+      "assetSha256": "6712480be4ad321d968a6d6c179ce0f02301421d28d13f9bc49cbc885676735c",
+      "canonicalToScene": [
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        -1.0,
+        0.0,
+        0.0,
+        1.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    },
+    "nodes": [
+      {
+        "nodeKey": "sh3d-visual:part:0",
+        "canonicalId": "sh3d:room:room-probe",
+        "ifcGlobalId": "0123456789012345678901",
+        "kind": "building",
+        "renderPart": "0"
+      }
+    ]
+  },
+  "glbBase64": "Z2xURgIAAAD8CQAA3AgAAEpTT057ImFzc2V0Ijp7InZlcnNpb24iOiIyLjAiLCJnZW5lcmF0b3IiOiJUZWxkcmEgU0gzRCB2aXN1YWwgdHJhbnNwb3J0In0sInNjZW5lIjowLCJzY2VuZXMiOlt7Im5vZGVzIjpbMF19XSwibm9kZXMiOlt7Im5hbWUiOiJ0ZWxkcmFWaXNpYmxlX3Jvb21fcHJvYmVfQ3VsbE5vbmVfMSIsIm1lc2giOjAsImV4dHJhcyI6eyJ0ZWxkcmEiOnsibm9kZUtleSI6InNoM2QtdmlzdWFsOnBhcnQ6MCIsImNhbm9uaWNhbElkIjoic2gzZDpyb29tOnJvb20tcHJvYmUiLCJpZmNHbG9iYWxJZCI6IjAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEifSwidGVsZHJhU291cmNlVmlzaWJpbGl0eSI6eyJoaWRkZW4iOmZhbHNlfSwidGVsZHJhU291cmNlTGlnaHRpbmciOnsicHJvZmlsZSI6InNoM2QtcHJldmlldy12MSIsImxpZ2h0Q29sb3IiOjE2Nzc3MjE1LCJza3lDb2xvciI6MTY3NzcyMTV9fX1dLCJtZXNoZXMiOlt7Im5hbWUiOiJ0ZWxkcmFWaXNpYmxlX3Jvb21fcHJvYmVfQ3VsbE5vbmVfMSIsInByaW1pdGl2ZXMiOlt7ImF0dHJpYnV0ZXMiOnsiUE9TSVRJT04iOjAsIlRFWENPT1JEXzAiOjEsIk5PUk1BTCI6Mn0sImluZGljZXMiOjMsIm1hdGVyaWFsIjoxLCJtb2RlIjo0fV19XSwibWF0ZXJpYWxzIjpbeyJuYW1lIjoiZGFyayIsImRvdWJsZVNpZGVkIjpmYWxzZSwicGJyTWV0YWxsaWNSb3VnaG5lc3MiOnsiYmFzZUNvbG9yRmFjdG9yIjpbMS4wLDEuMCwxLjAsMS4wXSwibWV0YWxsaWNGYWN0b3IiOjAuMCwicm91Z2huZXNzRmFjdG9yIjowLjkwMzYwMjAwMzYwOTg0NDgsImJhc2VDb2xvclRleHR1cmUiOnsiaW5kZXgiOjB9fSwiZXh0cmFzIjp7InRlbGRyYVNvdXJjZU1hdGVyaWFsIjp7ImZvcm1hdCI6IndhdmVmcm9udC1tdGwiLCJtYXRlcmlhbEtleSI6ImRhcmsiLCJLYSI6WzAuMiwwLjIsMC4yXSwiS2QiOlsxLjAsMS4wLDEuMF0sIktzIjpbMC4wLDAuMCwwLjBdLCJOcyI6WzEuMF0sImQiOlsxLjBdLCJtYXBfS2QiOiJkYXJrLnBuZyJ9fSwiYWxwaGFNb2RlIjoiT1BBUVVFIn0seyJuYW1lIjoiZGFyazpkb3VibGUtc2lkZWQiLCJkb3VibGVTaWRlZCI6dHJ1ZSwicGJyTWV0YWxsaWNSb3VnaG5lc3MiOnsiYmFzZUNvbG9yRmFjdG9yIjpbMS4wLDEuMCwxLjAsMS4wXSwibWV0YWxsaWNGYWN0b3IiOjAuMCwicm91Z2huZXNzRmFjdG9yIjowLjkwMzYwMjAwMzYwOTg0NDgsImJhc2VDb2xvclRleHR1cmUiOnsiaW5kZXgiOjB9fSwiZXh0cmFzIjp7InRlbGRyYVNvdXJjZU1hdGVyaWFsIjp7ImZvcm1hdCI6IndhdmVmcm9udC1tdGwiLCJtYXRlcmlhbEtleSI6ImRhcmsiLCJLYSI6WzAuMiwwLjIsMC4yXSwiS2QiOlsxLjAsMS4wLDEuMF0sIktzIjpbMC4wLDAuMCwwLjBdLCJOcyI6WzEuMF0sImQiOlsxLjBdLCJtYXBfS2QiOiJkYXJrLnBuZyJ9fSwiYWxwaGFNb2RlIjoiT1BBUVVFIn1dLCJpbWFnZXMiOlt7Im5hbWUiOiJkYXJrLnBuZyIsImJ1ZmZlclZpZXciOjAsIm1pbWVUeXBlIjoiaW1hZ2UvcG5nIn1dLCJ0ZXh0dXJlcyI6W3sic291cmNlIjowLCJzYW1wbGVyIjowfV0sImFjY2Vzc29ycyI6W3siYnVmZmVyVmlldyI6MSwiY29tcG9uZW50VHlwZSI6NTEyNiwiY291bnQiOjQsInR5cGUiOiJWRUMzIiwibWluIjpbLTEuMCwwLjAsLTEuMF0sIm1heCI6WzEuMCwwLjAsMS4wXX0seyJidWZmZXJWaWV3IjoyLCJjb21wb25lbnRUeXBlIjo1MTI2LCJjb3VudCI6NCwidHlwZSI6IlZFQzIifSx7ImJ1ZmZlclZpZXciOjMsImNvbXBvbmVudFR5cGUiOjUxMjYsImNvdW50Ijo0LCJ0eXBlIjoiVkVDMyIsIm1pbiI6WzAuMCwxLjAsMC4wXSwibWF4IjpbMC4wLDEuMCwwLjBdfSx7ImJ1ZmZlclZpZXciOjQsImNvbXBvbmVudFR5cGUiOjUxMjUsImNvdW50Ijo2LCJ0eXBlIjoiU0NBTEFSIn1dLCJidWZmZXJWaWV3cyI6W3siYnVmZmVyIjowLCJieXRlT2Zmc2V0IjowLCJieXRlTGVuZ3RoIjoxMDd9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjoxMDgsImJ5dGVMZW5ndGgiOjQ4LCJ0YXJnZXQiOjM0OTYyfSx7ImJ1ZmZlciI6MCwiYnl0ZU9mZnNldCI6MTU2LCJieXRlTGVuZ3RoIjozMiwidGFyZ2V0IjozNDk2Mn0seyJidWZmZXIiOjAsImJ5dGVPZmZzZXQiOjE4OCwiYnl0ZUxlbmd0aCI6NDgsInRhcmdldCI6MzQ5NjJ9LHsiYnVmZmVyIjowLCJieXRlT2Zmc2V0IjoyMzYsImJ5dGVMZW5ndGgiOjI0LCJ0YXJnZXQiOjM0OTYzfV0sInNhbXBsZXJzIjpbeyJ3cmFwUyI6MTA0OTcsIndyYXBUIjoxMDQ5NywibWFnRmlsdGVyIjo5NzI5LCJtaW5GaWx0ZXIiOjk5ODd9XSwiYnVmZmVycyI6W3siYnl0ZUxlbmd0aCI6MjYwfV19ICAEAQAAQklOAIlQTkcNChoKAAAADUlIRFIAAAAQAAAAEAgCAAAAkJFoNgAAADJJREFUeJxjPKBgwIANRDT8wCrOxEAiYBrVQARgSRCYgFXihEIAVnEmYkxFBqMaGIgAABjcBTrzrHjoAAAAAElFTkSuQmCCAAAAgL8AAAAAAACAvwAAgL8AAAAAAACAPwAAgD8AAAAAAACAPwAAgD8AAAAAAACAvwAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAgD8AAIA/AAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAAAgD8AAAAAAAAAAAEAAAACAAAAAAAAAAIAAAADAAAA"
+}

@@ -1,11 +1,12 @@
 import { createSignal, onCleanup } from "solid-js";
 import type { Meta, StoryObj } from "storybook-solidjs-vite";
+import probeFixture from "../../../fixtures/sh3d/gpu-probe/fixture.json";
 import colorFixture from "../../../fixtures/sh3d/color-transfer/fixture.json";
 import originalFixture from "../../../fixtures/sh3d/visual-transport/fixture.json";
 import { TwinViewport, type TwinViewportHandle } from "./TwinViewport";
 
-function SourceAppearanceHarness(props: {darkFloor?: boolean}) {
-  const fixture = props.darkFloor ? colorFixture : originalFixture;
+function SourceAppearanceHarness(props: {darkFloor?: boolean; probe?: boolean}) {
+  const fixture = props.probe ? probeFixture : props.darkFloor ? colorFixture : originalFixture;
   const bytes = Uint8Array.from(atob(fixture.glbBase64), c => c.charCodeAt(0));
   const url = URL.createObjectURL(new Blob([bytes], {type: "model/gltf-binary"}));
   onCleanup(() => URL.revokeObjectURL(url));
@@ -28,3 +29,5 @@ type Story = StoryObj;
 export const TexturedFurnitureAndHiddenContent: Story = {render: () => <SourceAppearanceHarness />};
 
 export const DarkFloorColorTransfer: Story = {render: () => <SourceAppearanceHarness darkFloor />};
+
+export const AsymmetricGpuProbe: Story = {render: () => <SourceAppearanceHarness probe />};

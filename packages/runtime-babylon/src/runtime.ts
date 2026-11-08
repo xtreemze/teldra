@@ -22,7 +22,7 @@ import { sourceMaterialProjection } from "./source-material.js";
 import { applyPreviewShadowDetail, SH3D_EDITING_SHADOW_DETAIL } from "./preview-shadow-detail.js";
 import { FloorTextureInspector } from "./floor-texture-inspector.js";
 import { FloorMinificationInspector, type FloorMinificationMode } from "./floor-minification-inspector.js";
-import { describeSurfacePick, normalizeGpuRgb, inspectGpuMips, type SurfaceProbe, type GpuFloorEvidence } from "./surface-probe.js";
+import { clientToFramebufferPixel, describeSurfacePick, normalizeGpuRgb, inspectGpuMips, type SurfaceProbe, type GpuFloorEvidence } from "./surface-probe.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import type { FurnitureMeasuredBounds } from "./furniture-bounds.js";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
@@ -44,6 +44,26 @@ export interface BabylonClientPoint {
   readonly clientX: number;
   readonly clientY: number;
 }
+
+export type GpuFloorInspection = GpuFloorEvidence & {
+  readonly surface?: SurfaceProbe | null;
+  readonly mipAvailability?: "allocated" | "inferred";
+  readonly mipAvailabilityError?: string;
+  readonly capture?: {
+    readonly backend: BabylonBackend;
+    readonly framebufferFormat: string;
+    readonly pixel: readonly [number, number];
+    readonly renderSize: readonly [number, number];
+    readonly camera: ViewState | null;
+    readonly floorMinification: FloorMinificationMode;
+    readonly floorTextureInspection: boolean;
+    readonly lightGain: number;
+    readonly shadowDetail: number;
+    readonly declaredSceneSha256: string;
+    readonly declaredBuildingSha256: string;
+    readonly textureSrgbStorage: boolean | null;
+  };
+};
 
 export interface BabylonTwinRuntime {
   readonly backend: BabylonBackend;
@@ -78,7 +98,7 @@ export interface BabylonTwinRuntime {
   setSelection(canonicalId: string | null): void;
   pick(clientX: number, clientY: number): TwinRenderIdentity | null;
   inspectSurfaceAt(clientX: number, clientY: number): SurfaceProbe | null;
-  inspectGpuAt(clientX: number, clientY: number): Promise<GpuFloorEvidence>;
+  inspectGpuAt(clientX: number, clientY: number): Promise<GpuFloorInspection>;
   onPick(listener: (identity: TwinRenderIdentity | null) => void): () => void;
   start(): void;
   stop(): void;
@@ -109,7 +129,7 @@ export async function createBabylonTwinRuntime(
   const identityByMesh = new WeakMap<AbstractMesh, TwinRenderIdentity>();
   const meshByNodeKey = new Map<string, AbstractMesh>();
   const meshesByCanonicalId = new Map<string, AbstractMesh[]>();
-  const { engine, backend } = await createEngine(
+  const { engine, backend, framebufferFormat } = await createEngine(
     canvas,
     options.antialias ?? true,
     options.forceWebGL ?? false,
@@ -148,7 +168,7 @@ export async function createBabylonTwinRuntime(
   // Preserve original renderer materials while giving floor imagery a genuine
   // emissive, light-independent inspection path.
   const floorInspector = new FloorTextureInspector();
-  const floorMinification = new FloorMinificationInspector(engine.getCaps().maxAnisotropy ?? 1, backend);
+  const floorMinification = new FloorMinificationInspector(engine.getCaps().maxAnisotropy ?? 1);
   const materialTextures = new Map<Material, BaseTexture | null>();
 
   let physicalMeshes: AbstractMesh[] = [];
@@ -160,6 +180,7 @@ export async function createBabylonTwinRuntime(
   let committedPlacements: readonly ScenePlacement[] = [];
   const viewListeners = new Set<(state: ViewState) => void>();
   const pickSubscriptions = new Set<() => void>();
+  const pendingGpuProbes = new Set<() => void>();
   let disposed = false;
   let started = false;
   let loading = false;
@@ -574,6 +595,7 @@ export async function createBabylonTwinRuntime(
     async load(glbUrl: string): Promise<void> {
       if (disposed) throw new Error("Cannot load a disposed Babylon runtime.");
       loadGate.begin();
+      for (const cancel of pendingGpuProbes) cancel();
       loading = true;
       if (started) engine.stopRenderLoop();
       let container: Awaited<ReturnType<typeof LoadAssetContainerAsync>> | undefined;
@@ -680,7 +702,13 @@ export async function createBabylonTwinRuntime(
         await scene.whenReadyAsync();
         if (disposed) throw new Error("Cannot complete loading a disposed Babylon runtime.");
         if (defaultCamera && physical.length) fitCamera(defaultCamera, physical);
-        renderFrame();
+        // This warm-up render is outside Babylon's RAF loop. Submit it in the
+        // same browser task that acquires the WebGPU swapchain texture. Leaving
+        // it queued until the first RAF expires that texture and invalidates the
+        // shared upload/render submission, including all initial image mipmaps.
+        engine.beginFrame();
+        try { renderFrame(); }
+        finally { engine.endFrame(); }
         // Publish only after validation, readiness, and the initial frame succeed.
         layers = stagedLayers;
         renderMeshes = meshes;
@@ -762,35 +790,70 @@ export async function createBabylonTwinRuntime(
       return describeSurfacePick(hit, resolvePickedMesh(hit?.pickedMesh, hit?.faceId));
     },
 
-    async inspectGpuAt(clientX: number, clientY: number): Promise<GpuFloorEvidence> {
-      const rect = canvas.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0 ||
-          clientX < rect.left || clientX >= rect.right ||
-          clientY < rect.top || clientY >= rect.bottom) {
-        return {framebufferRgb:null,framebufferError:"Outside viewport",textureSize:null,mips:[]};
-      }
-      const px = Math.max(0,Math.min(engine.getRenderWidth()-1,
-        Math.floor((clientX-rect.left)*engine.getRenderWidth()/rect.width)));
-      const py = Math.max(0,Math.min(engine.getRenderHeight()-1,
-        Math.floor((rect.bottom-clientY)*engine.getRenderHeight()/rect.height)));
-      let framebufferRgb: [number,number,number] | null = null;
-      let framebufferError: string | null = null;
-      try {
-        // Explicit one-pixel, on-demand framebuffer readback only.
-        framebufferRgb = normalizeGpuRgb(await engine.readPixels(px,py,1,1,true,true));
-        if (!framebufferRgb) framebufferError = "No compatible framebuffer pixel returned";
-      } catch(reason) {
-        framebufferError = reason instanceof Error ? reason.message.slice(0,240) : "Framebuffer readback unsupported";
-      }
-      const picked = scene.pick(clientX-rect.left, clientY-rect.top,
-        mesh => isMeshInteractable(mesh) && mesh.getTotalVertices() > 0,
-        false, scene.cameraToUseForPointers ?? undefined);
-      const material = picked?.pickedMesh?.material;
-      const texture = material instanceof StandardMaterial ? material.diffuseTexture :
-        material instanceof PBRMaterial ? material.albedoTexture : null;
-      if (!texture) return {framebufferRgb,framebufferError,textureSize:null,mips:[]};
-      const levels = await inspectGpuMips(texture);
-      return {framebufferRgb,framebufferError,...levels};
+    inspectGpuAt(clientX: number, clientY: number): Promise<GpuFloorInspection> {
+      const unavailable = (reason: string): GpuFloorInspection => ({
+        framebufferRgb:null, framebufferError:reason, textureSize:null, mips:[],
+      });
+      if (disposed || !started || loading) return Promise.resolve(unavailable("Viewport is not rendering"));
+      // Capture the CPU hit and initiate framebuffer readback in one completed
+      // scene frame. Never repick after awaiting a GPU result from an older pose.
+      return new Promise(resolve => {
+        let finished = false;
+        const cancel = () => finish(unavailable("GPU capture cancelled"));
+        const finish = (result: GpuFloorInspection) => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeout);
+          scene.onAfterRenderObservable.remove(observer);
+          pendingGpuProbes.delete(cancel);
+          resolve(result);
+        };
+        const observer = scene.onAfterRenderObservable.addOnce(() => {
+          const rect = canvas.getBoundingClientRect();
+          const renderSize = [engine.getRenderWidth(), engine.getRenderHeight()] as const;
+          const pixel = clientToFramebufferPixel(clientX,clientY,rect,...renderSize,backend);
+          if (!pixel) { finish(unavailable("Outside viewport")); return; }
+          const picked = scene.pick(clientX-rect.left, clientY-rect.top,
+            mesh => isMeshInteractable(mesh) && mesh.getTotalVertices() > 0,
+            false, scene.cameraToUseForPointers ?? undefined);
+          const surface = describeSurfacePick(picked, resolvePickedMesh(picked?.pickedMesh, picked?.faceId));
+          const material = picked?.pickedMesh?.material;
+          const texture = material instanceof StandardMaterial ? material.diffuseTexture :
+            material instanceof PBRMaterial ? material.albedoTexture : null;
+          const uv = picked?.faceId !== undefined && picked.faceId >= 0
+            ? picked.getTextureCoordinates()?.asArray() : null;
+          const capture: NonNullable<GpuFloorInspection["capture"]> = {
+            backend, framebufferFormat, pixel, renderSize,
+            camera: defaultCamera ? cameraState(defaultCamera) : null,
+            floorMinification: floorMinification.currentMode, floorTextureInspection,
+            lightGain, shadowDetail,
+            declaredSceneSha256: manifest.scene.assetSha256,
+            declaredBuildingSha256: manifest.source.buildingSha256,
+            textureSrgbStorage: texture?.getInternalTexture()?._useSRGBBuffer ?? null,
+          };
+          // Invoke while the current frame's attachment is still available.
+          let framebuffer: Promise<ArrayBufferView>;
+          try { framebuffer = engine.readPixels(pixel[0],pixel[1],1,1,true,true); }
+          catch (reason) { framebuffer = Promise.reject(reason); }
+          void (async () => {
+            let framebufferRgb: [number,number,number] | null = null;
+            let framebufferError: string | null = null;
+            try {
+              framebufferRgb = normalizeGpuRgb(await framebuffer, framebufferFormat.startsWith("bgra") ? "bgra" : "rgba");
+              if (!framebufferRgb) framebufferError = "No compatible framebuffer pixel returned";
+            } catch (reason) {
+              framebufferError = reason instanceof Error ? reason.message.slice(0,240) : "Framebuffer readback unsupported";
+            }
+            if (finished || disposed) return;
+            const levels = texture ? await inspectGpuMips(texture, uv ? [uv[0]!,uv[1]!] : null)
+              : {textureSize:null,mips:[]};
+            finish(disposed ? unavailable("Runtime disposed during GPU readback")
+              : {framebufferRgb,framebufferError,...levels,surface,capture});
+          })().catch(reason => finish(unavailable(reason instanceof Error ? reason.message.slice(0,240) : "GPU capture unavailable")));
+        });
+        const timeout = setTimeout(() => finish(unavailable("GPU capture timed out")), 10000);
+        pendingGpuProbes.add(cancel);
+      });
     },
     onPick(listener): () => void {
       let down: {x: number; y: number} | undefined;
@@ -831,6 +894,7 @@ export async function createBabylonTwinRuntime(
     stop(): void {
       started = false;
       engine.stopRenderLoop();
+      for (const cancel of pendingGpuProbes) cancel();
     },
 
     resize(): void {
@@ -840,6 +904,7 @@ export async function createBabylonTwinRuntime(
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      for (const cancel of pendingGpuProbes) cancel();
       for (const unsubscribe of pickSubscriptions) unsubscribe();
       viewListeners.clear();
       tabIndexObserver.disconnect();
@@ -860,12 +925,14 @@ async function createEngine(
   antialias: boolean,
   forceWebGL: boolean,
   depthMode: "auto" | "reverse" | "standard",
-): Promise<{ engine: AbstractEngine; backend: BabylonBackend }> {
+): Promise<{ engine: AbstractEngine; backend: BabylonBackend; framebufferFormat: string }> {
   if (!["auto", "reverse", "standard"].includes(depthMode)) throw new Error("Invalid depth mode.");
   if (!forceWebGL && await WebGPUEngine.IsSupportedAsync) {
+    const colorFormat = navigator.gpu.getPreferredCanvasFormat();
     const engine = new WebGPUEngine(canvas, {
       antialias,
       adaptToDeviceRatio: true,
+      swapChainFormat: colorFormat,
     });
     await engine.initAsync();
     // Reverse Z provides much better far-depth precision on mobile WebGPU.
@@ -875,6 +942,7 @@ async function createEngine(
     return {
       engine,
       backend: "webgpu",
+      framebufferFormat: colorFormat,
     };
   }
 
@@ -882,7 +950,7 @@ async function createEngine(
     adaptToDeviceRatio: true,
   });
   engine.useReverseDepthBuffer = depthMode === "reverse";
-  return {engine, backend: "webgl"};
+  return {engine, backend: "webgl", framebufferFormat: "rgba8"};
 }
 
 function ensureLoadersRegistered(): void {
