@@ -43,6 +43,8 @@ jobs:
         run: pnpm --filter @teldra/studio typecheck
 
       - name: Build and verify complete Pages application
+        env:
+          VITE_TELDRA_COMMIT: ${{ github.sha }}
         run: pnpm pages:build
 
       - name: Configure Pages
