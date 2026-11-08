@@ -162,3 +162,29 @@
     opacity: .7;
   }
 }
+
+
+/* Mobile diagnostics and source visibility belong in View > Layers, not on the canvas. */
+@media (max-width: 48rem) {
+  .teldra-twin-viewport__status,
+  .teldra-twin-viewport > .teldra-twin-viewport__source-visibility { display: none; }
+  .teldra-view-controls__mobile {
+    z-index: 27;
+    top: .55rem;
+    right: 5.35rem;
+  }
+  .teldra-view-controls__mobile > button {
+    min-width: 56px;
+    min-height: 44px;
+    padding: .45rem .7rem;
+    border-radius: .7rem;
+    background: #17212de8;
+    box-shadow: 0 .25rem .8rem #0004;
+    font-size: .81rem;
+    font-weight: 600;
+  }
+  .teldra-view-controls__mobile-sheet {
+    max-height: min(72dvh, 34rem);
+    background: #17212df9;
+  }
+}
