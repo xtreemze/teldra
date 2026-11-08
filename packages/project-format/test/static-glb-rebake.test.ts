@@ -96,10 +96,10 @@ describe("browser static GLB rebake",()=>{
     const normals=after.values(prim.attributes.NORMAL);
     expect(Math.hypot(...normals.slice(0,3))).toBeCloseTo(1,6);
     const p=after.values(prim.attributes.POSITION);
-    const a=[p[3]-p[0],p[4]-p[1],p[5]-p[2]];
-    const b=[p[6]-p[0],p[7]-p[1],p[8]-p[2]];
-    expect(a.reduce((v,x,i)=>v+x*normals[i],0)).toBeCloseTo(0,5);
-    expect(b.reduce((v,x,i)=>v+x*normals[i],0)).toBeCloseTo(0,5);
+    const a=[p[3]!-p[0]!,p[4]!-p[1]!,p[5]!-p[2]!];
+    const b=[p[6]!-p[0]!,p[7]!-p[1]!,p[8]!-p[2]!];
+    expect(a.reduce((v,x,i)=>v+x*normals[i]!,0)).toBeCloseTo(0,5);
+    expect(b.reduce((v,x,i)=>v+x*normals[i]!,0)).toBeCloseTo(0,5);
     expect((await rebakeStaticGlb(source,await manifest(source),[placement])).bytes).toEqual(result.bytes);
   });
   it("conjugates IFC delta through a parented, cross-identity glTF transform",async()=>{
