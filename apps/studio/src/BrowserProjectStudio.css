@@ -94,11 +94,12 @@ body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: 
 
 /* A loaded mobile project uses one compact app bar: identity, install and file actions. */
 .teldra-browser-studio__open-icon { display: none; }
+.teldra-browser-studio__mobile-title { display: none; }
 @media (max-width: 48rem) {
   .teldra-browser-studio__masthead {
     height: 3.3rem;
     gap: .5rem;
-    padding: .35rem max(.65rem, env(safe-area-inset-left, 0px)) .35rem max(.65rem, env(safe-area-inset-right, 0px));
+    padding: .35rem max(.65rem, env(safe-area-inset-right, 0px)) .35rem max(.65rem, env(safe-area-inset-left, 0px));
   }
   .teldra-browser-studio__identity {
     flex: 1 1 auto;
@@ -124,6 +125,8 @@ body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: 
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .teldra-browser-studio__desktop-title { display: none; }
+  .teldra-browser-studio__mobile-title { display: inline; }
   .teldra-browser-studio__masthead:not(.teldra-browser-studio__masthead--loaded) h1 { display: none; }
   .teldra-browser-studio__file { display: none; } /* The same filename is now in the app bar. */
   .teldra-browser-studio__masthead-actions { flex: none; gap: .3rem; }
