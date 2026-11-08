@@ -451,7 +451,7 @@ export function StudioSelectionWorkspace(
           onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}>Scene</button>
         <output class="teldra-studio-selection-workspace__mobile-save-state" aria-live="polite">
           <span class="teldra-studio-selection-workspace__save-dot" data-state={dirty() ? "dirty" : "saved"} aria-hidden="true" />
-          {dirty() ? "Unsaved" : "Saved"}
+          <span class="teldra-studio-selection-workspace__mobile-save-label">{dirty() ? "Unsaved" : "Saved"}</span>
         </output>
         <Show when={editingFurniture()}><button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel"
           onClick={() => setInspectorOpen(!inspectorOpen())}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
