@@ -45,7 +45,12 @@ export function PwaControls(props: PwaControlsProps) {
     checkUpdate();
     if (acceptingUpdate && !props.hasUnsavedChanges()) window.location.reload();
   };
-  const onFocus = () => { void registration?.update().catch(() => undefined); };
+  const onFocus = () => {
+    if (navigator.onLine) void registration?.update().catch(() => undefined);
+  };
+  const onVisible = () => {
+    if (document.visibilityState === "visible") onFocus();
+  };
 
   onMount(() => {
     window.addEventListener("online", onConnectionChange);
@@ -53,6 +58,7 @@ export function PwaControls(props: PwaControlsProps) {
     window.addEventListener("appinstalled", onAppInstalled);
     window.addEventListener("beforeinstallprompt", onBeforeInstall);
     window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
     if (import.meta.env.PROD && "serviceWorker" in navigator && window.isSecureContext) {
       void navigator.serviceWorker.register(import.meta.env.BASE_URL + "service-worker.js")
         .then(value => {
@@ -60,6 +66,10 @@ export function PwaControls(props: PwaControlsProps) {
           registration.addEventListener("updatefound", onUpdateFound);
           navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
           checkUpdate();
+          // A newly launched/installed PWA can be controlled by an earlier
+          // cache-first shell. Check for a newly published worker immediately,
+          // not only after the browser gains focus a second time.
+          onFocus();
         })
         .catch(() => {
           setNotice("Offline installation is unavailable in this browser.");
@@ -72,6 +82,7 @@ export function PwaControls(props: PwaControlsProps) {
     window.removeEventListener("appinstalled", onAppInstalled);
     window.removeEventListener("beforeinstallprompt", onBeforeInstall);
     window.removeEventListener("focus", onFocus);
+    document.removeEventListener("visibilitychange", onVisible);
     registration?.removeEventListener("updatefound", onUpdateFound);
     navigator.serviceWorker?.removeEventListener("controllerchange", onControllerChange);
   });
