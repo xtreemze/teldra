@@ -30,7 +30,7 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await page.getByText("Appearance",{exact:true}).click();
  expect(assets.floorInspectionMaterials).toBeGreaterThan(0);
  const sampler = page.getByLabel("Floor texture minification",{exact:true});
- await expect(sampler).toHaveValue("source");
+ await expect(sampler).toHaveValue("auto");
  await sampler.selectOption("base-level");
  await expect(sampler).toHaveValue("base-level");
  await sampler.selectOption("anisotropic");
@@ -46,6 +46,7 @@ test("real Sweet Home 3D demo opens automatically with ready maps and viewport p
  await expect(page.getByLabel("Textures and diffuse maps",{exact:true})).not.toBeChecked();
  await page.getByRole("button",{name:"Restore source appearance",exact:true}).click();
  await expect(page.getByLabel("Textures and diffuse maps",{exact:true})).toBeChecked();
+ await expect(sampler).toHaveValue("auto");
  await page.getByText("Appearance",{exact:true}).click();
  // Exercise real pointer delivery and picking in the full-size home. The
  // imported geometry is irregular, so sample the visible central scene.
@@ -83,7 +84,7 @@ test("real Sweet Home 3D demo mobile view opens with scene and appearance contro
  await expect(view.getByRole("button",{name:"Top",exact:true})).toBeVisible();
  await view.getByText("Appearance",{exact:true}).click();
  const mobileSampler=page.getByLabel("Mobile floor texture minification",{exact:true});
- await expect(mobileSampler).toHaveValue("source");
+ await expect(mobileSampler).toHaveValue("auto");
  await mobileSampler.selectOption("anisotropic");
  await expect(mobileSampler).toHaveValue("anisotropic");
  await mobileSampler.selectOption("source");

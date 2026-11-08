@@ -178,18 +178,19 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
       </Show>
       <label>Floor texture minification
         <select aria-label="Floor texture minification" value={appearance().floorMinification} onChange={event=>{
-          props.runtime.setAppearance({floorMinification:event.currentTarget.value as "source"|"anisotropic"|"base-level"});
+          props.runtime.setAppearance({floorMinification:event.currentTarget.value as "auto"|"source"|"anisotropic"|"base-level"});
           setAppearance(props.runtime.appearance());
         }}>
+          <option value="auto">Automatic (compatible)</option>
           <option value="source">Source trilinear</option>
           <option value="anisotropic">Anisotropic (up to 8×)</option>
-          <option value="base-level">Base image only (diagnostic)</option>
+          <option value="base-level">Base image only</option>
         </select>
       </label>
       <label>Light intensity <input aria-label="Light intensity" type="range" min="0.25" max="2" step="0.05" value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
       <label>Shadow detail <input aria-label="Shadow detail" type="range" min="0" max="100" step="5" value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
-      <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false,floorMinification:"source"});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
-      <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Compare floor minification at the same camera position: anisotropic sampling retains angled detail; base-image mode bypasses mipmaps and may shimmer or use more GPU bandwidth. Source restores the imported sampler. Floor inspection bypasses lighting. These controls do not modify source project data.</p>
+      <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false,floorMinification:"auto"});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
+      <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Automatic keeps distant floor textures visible on WebGPU by using the base image. WebGL keeps source sampling. Compare at the same camera position: anisotropic sampling retains angled detail; base-image mode bypasses mipmaps and may shimmer or use more GPU bandwidth. Source restores the imported sampler. Floor inspection bypasses lighting. These controls do not modify source project data.</p>
     </div></details>
     <div class="teldra-view-controls__mobile">
       <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
@@ -241,19 +242,20 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
               </Show>
               <label>Floor texture minification
                 <select aria-label="Mobile floor texture minification" value={appearance().floorMinification} onChange={event=>{
-                  props.runtime.setAppearance({floorMinification:event.currentTarget.value as "source"|"anisotropic"|"base-level"});
+                  props.runtime.setAppearance({floorMinification:event.currentTarget.value as "auto"|"source"|"anisotropic"|"base-level"});
                   setAppearance(props.runtime.appearance());
                 }}>
+                  <option value="auto">Automatic (compatible)</option>
                   <option value="source">Source trilinear</option>
                   <option value="anisotropic">Anisotropic (up to 8×)</option>
-                  <option value="base-level">Base image only (diagnostic)</option>
+                  <option value="base-level">Base image only</option>
                 </select>
               </label>
               <label>Light intensity <input aria-label="Mobile light intensity" type="range" min="0.25" max="2" step="0.05"
                 value={appearance().lightGain} onInput={event => {props.runtime.setAppearance({lightGain: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /></label>
               <label>Shadow detail <input aria-label="Mobile shadow detail" type="range" min="0" max="100" step="5"
                 value={appearance().shadowDetail} onInput={event => {props.runtime.setAppearance({shadowDetail: Number(event.currentTarget.value)});setAppearance(props.runtime.appearance());}} /><output>{appearance().shadowDetail}%</output></label>
-              <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false,floorMinification:"source"});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
+              <button type="button" onClick={() => {props.runtime.setAppearance({texturesEnabled: true,lightGain:1,shadowDetail:0,floorTextureInspection:false,floorMinification:"auto"});setAppearance(props.runtime.appearance());}}>Restore source appearance</button>
             </div>
           </details>
           <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>

@@ -32,3 +32,24 @@ test("dark source albedo survives glTF to Phong transfer and mip minification", 
   expect(errors).toEqual([]);
 });
 
+
+test("appearance defaults and reset keep automatic floor sampling on desktop and mobile",async({page})=>{
+ await page.goto("/iframe.html?id=studio-sh3d-visual-transport--dark-floor-color-transfer&viewMode=story");
+ await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ await page.getByText("Appearance",{exact:true}).click();
+ const desktop=page.getByLabel("Floor texture minification",{exact:true});
+ await expect(desktop).toHaveValue("auto");
+ await desktop.selectOption("source");
+ await page.getByRole("button",{name:"Restore source appearance",exact:true}).click();
+ await expect(desktop).toHaveValue("auto");
+ await page.getByText("Appearance",{exact:true}).click();
+ await page.setViewportSize({width:390,height:844});
+ await page.getByRole("button",{name:"View",exact:true}).click();
+ const view=page.getByRole("group",{name:"Mobile view settings"});
+ await view.getByText("Appearance",{exact:true}).click();
+ const mobile=page.getByLabel("Mobile floor texture minification",{exact:true});
+ await expect(mobile).toHaveValue("auto");
+ await mobile.selectOption("anisotropic");
+ await view.getByRole("button",{name:"Restore source appearance",exact:true}).click();
+ await expect(mobile).toHaveValue("auto");
+});

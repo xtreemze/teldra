@@ -105,7 +105,9 @@ including the unlit emissive inspection path. Linear-storage images and ordinary
 PBR assets retain their existing path. Source image bytes, UVs, mipmaps, samplers,
 lighting and project data are unchanged. An authored dark-floor browser fixture
 checks actual pixels at near and distant views. This establishes a color-transfer
-regression on WebGL; Android WebGPU issue #100 still requires device confirmation.
+regression on WebGL. Subsequent Android feedback in #100 confirms that only
+base-image sampling restores distant floors; the automatic compatibility policy
+below addresses visibility while the mip/LOD defect remains unresolved.
 
 The published 21D reference has 13 textured floor parts and 3 distinct
 embedded floor images. Read-only audit `tools/diagnostics/audit_21d_floor.py`
@@ -178,18 +180,24 @@ portable source defaults.
 Studio offers a *view-only*, reversible floor-minification A/B selector in both
 mobile and desktop Appearance panels:
 
+- **Automatic (compatible)** (default): use the base image on WebGPU, where the
+  affected device confirms that mipmapped modes hide distant floors; preserve
+  source sampling on WebGL. This is a compatibility mitigation, not a claim that
+  mip generation or LOD selection is repaired.
 - **Source trilinear**: restore the exact Babylon sampler properties produced
-  by the glTF source and previous renderer state
+  by the glTF source and previous renderer state (an explicit diagnostic override)
 - **Anisotropic (up to 8×)**: retain mipmaps and improve angled texel detail,
   capped to the GPU capability
-- **Base image only (diagnostic)**: sample the full-resolution source level and
+- **Base image only**: sample the full-resolution source level and
   bypass mipmap selection. This can introduce texture aliasing/shimmer and high
-  texture-fetch pressure, so is not a default or a recommended final fidelity
-  fix
+  texture-fetch pressure. It is the confirmed visibility fallback on affected
+  WebGPU devices, rather than the final mipmapped fidelity solution
 
 All modes preserve original image bytes, UV scales, material Kd, geometry,
 lighting and canonical/project state. They allow testing the **same camera
-position** without a reload. If base-level filtering restores a floor that
+position** without a reload. Appearance reset returns to Automatic so it cannot
+silently re-enable the failing WebGPU mip path. If base-level filtering restores
+a floor that
 becomes black under trilinear filtering, inspect GPU mipmap generation and
 sampling behavior. If it does not, investigate occlusion or normal shader
 response rather than applying arbitrary diffuse/emissive compensation. A
