@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import raw from "../../../fixtures/projects/golden-home/building.ifc?raw";
 import { IfcAPI } from "web-ifc";
-import { readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions } from "../src/index.js";
+import { readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature } from "../src/index.js";
 
 const guid = "16W6mYG0DO8hR8U$bz6FSv";
 const otherGuid = "0AAAAAAAAAAAAAAAAAAAAA";
@@ -111,5 +111,52 @@ describe("immutable source-authored SH3D dimensions", () => {
     expect(shared).not.toBe(raw);
     expect(() => readFurnitureSourceDimensions(api, code.encode(shared), guid))
       .toThrow(/Shared SH3D source provenance/);
+  });
+});
+
+
+describe("source IFC triangulation integrity for browser GLB rebake", () => {
+  function tessellationFixture() {
+    const sample = new TextDecoder().decode(mappedFixture());
+    const mapped = sample.replace(
+      "#300=IFCREPRESENTATIONMAP(#10,#64);",
+      "#300=IFCREPRESENTATIONMAP(#10,#312);",
+    );
+    if (mapped === sample) throw new Error("IFC mapping fixture changed.");
+    const triangles = [
+      "#310=IFCCARTESIANPOINTLIST3D(((0.,0.,0.),(1.,0.,0.),(0.,1.,0.)));",
+      "#311=IFCTRIANGULATEDFACESET(#310,$,$,((1,2,3)),$);",
+      "#312=IFCSHAPEREPRESENTATION(#12,'Body','Tessellation',(#311));",
+    ].join("\n");
+    return code.encode(mapped.replace("\nENDSEC;\nEND-ISO-10303-21;",
+      "\n" + triangles + "\nENDSEC;\nEND-ISO-10303-21;"));
+  }
+  it("preserves source mesh identity through canonical MappingTarget scale and placement", async () => {
+    const api = new IfcAPI(); await api.Init();
+    const source = tessellationFixture();
+    const signature = readFurnitureTessellationSignature(api,source,guid);
+    expect(signature).toContain("coordinates");
+    const resized = writeFurnitureGeometryScale(api,source,guid,[2,0.75,1.5]);
+    expect(readFurnitureTessellationSignature(api,resized,guid)).toBe(signature);
+  });
+  it("rejects edited source vertex coordinates or face connectivity", async () => {
+    const api = new IfcAPI(); await api.Init();
+    const source = tessellationFixture();
+    const baseline=readFurnitureTessellationSignature(api,source,guid);
+    const vertexChange=new TextDecoder().decode(source).replace(
+      "((0.,0.,0.),(1.,0.,0.),(0.,1.,0.))",
+      "((0.,0.,0.),(1.25,0.,0.),(0.,1.,0.))",
+    );
+    expect(vertexChange).not.toEqual(new TextDecoder().decode(source));
+    expect(readFurnitureTessellationSignature(api,code.encode(vertexChange),guid)).not.toBe(baseline);
+    const edgeChange=new TextDecoder().decode(source).replace(
+      "IFCTRIANGULATEDFACESET(#310,$,$,((1,2,3)),$)",
+      "IFCTRIANGULATEDFACESET(#310,$,$,((1,3,2)),$)",
+    );
+    expect(readFurnitureTessellationSignature(api,code.encode(edgeChange),guid)).not.toBe(baseline);
+  });
+  it("does not invent source mesh signatures for geometry-free furniture", async () => {
+    const api = new IfcAPI(); await api.Init();
+    expect(()=>readFurnitureTessellationSignature(api,code.encode(raw),guid)).toThrow();
   });
 });
