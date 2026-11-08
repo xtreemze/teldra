@@ -153,6 +153,51 @@ using its verified runtime affine projection and does **not** invoke this
 Python rebaker automatically. Future browser orchestration requires an
 atomic derived-asset transaction and dedicated memory/runtime certification.
 
+## Browser-native, atomic scene rebake copy
+
+Studio PWA now offers **Rebuild 3D copy** in its desktop and mobile
+Project actions after a project has been saved. The existing opened
+project and Babylon scene remain untouched; the action produces a separate
+`*-rebaked.teldra` download. An active transform, unsaved changes or
+another export disables the action. It is opt-in: simply saving an IFC
+edit still uses the exact runtime affine hierarchy and hash-bound scene
+reconciliation, never an implicit geometry rewrite.
+
+The browser-native `@teldra/project-format` rebaker operates entirely on
+a **snapshot of the last committed archive**, not a live mesh. It requires
+the original scene IFC, canonical current IFC and validated version-1/2
+scene-placement reconciliation. The existing browser IFC4 adapter verifies
+each recorded matrix and mapping target scale against the original/current
+authoritative IFC. A second read of each source `IfcTriangulatedFaceSet`
+verifies that its complete coordinate/index/normal contents are unchanged
+across the edit. A merely plausible GLB transform is insufficient.
+
+The derived glTF converter validates its source GLB SHA-256, version,
+active scene and nodeKey/GlobalId identity; resolves static parent hierarchies
+(including mixed-identity parents) and applies each IFC-owned affine delta
+as `W⁻¹ × C × D_ifc × C⁻¹ × W` in original mesh-local coordinates.
+The selected node receives cloned mesh and float32 POSITION, NORMAL and
+TANGENT buffers. The source GLB BIN prefix, UVs, indexed triangles,
+other nodes, materials, textures, images and source SH3D remain identical.
+Float32 position bounds are measured from **stored values**, not rounded
+estimates. It rejects skins, morph targets, animations, instancing,
+compressed/quantized, interleaved/sparse, mirrored, degenerate or invalid
+geometry. GLB source/derivative sizes are bounded to 512 MiB; the
+converter does not claim support for unbounded scene sizes.
+
+Only after the new GLB, scene manifest and all SHA-256 records have been
+assembled does the browser reopen and check the ZIP. The consumed source IFC
+and placement-override records are omitted, and the GLB scene source hash
+points to the **current canonical IFC**. The original file and loaded
+runtime are never modified or overwritten, so failure cannot leave a half-
+rebaked project or corrupt the editor's undo history. The separate download
+must be explicitly opened to inspect its new derived geometry.
+
+The browser copy path currently runs on the calling browser thread. Large
+21D project and actual Android/Desktop GPU certification, worker/off-main-
+thread streaming and resource-budget profiling remain open in issue #82.
+This does not grant editing of unsupported IFC solids or deformable content.
+
 ## IFC4 mapped-instance scale contract (restricted)
 
 For a supported IfcFurniture, scaling writes a fresh
