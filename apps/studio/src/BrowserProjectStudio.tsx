@@ -116,7 +116,10 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
       <header class="teldra-browser-studio__masthead" classList={{"teldra-browser-studio__masthead--loaded": project() !== null}}>
         <div class="teldra-browser-studio__identity">
           <p class="teldra-browser-studio__eyebrow">Teldra <span>Studio</span></p>
-          <h1 title={project()?.fileName ?? "Studio"}>{project()?.fileName ?? "Your space, in context."}</h1>
+          <h1 title={project()?.fileName ?? "Studio"}>
+            <span class="teldra-browser-studio__desktop-title">{project() === null ? "Your space, in context." : "Project workspace"}</span>
+            <span class="teldra-browser-studio__mobile-title">{project()?.fileName ?? "Studio"}</span>
+          </h1>
           <p>Explore your building and manage its connected devices in one place.</p>
         </div>
         <div class="teldra-browser-studio__masthead-actions">
