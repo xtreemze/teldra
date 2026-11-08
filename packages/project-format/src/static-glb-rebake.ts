@@ -133,7 +133,7 @@ function parseGlb(source:Uint8Array):{doc:GlbDocument;binary:Uint8Array}{
   let doc:GlbDocument;
   try{doc=JSON.parse(dec.decode(chunks[0]!.data).replace(/[\u0000\s]+$/g,"")) as GlbDocument;}
   catch{return fail("Invalid GLB JSON.");}
-  if(!doc||!Array.isArray(doc.buffers)||doc.buffers.length!==1||doc.buffers[0]!.uri||
+  if(!doc||doc.asset?.version!=="2.0"||!Array.isArray(doc.buffers)||doc.buffers.length!==1||doc.buffers[0]!.uri||
      !Array.isArray(doc.accessors)||!Array.isArray(doc.bufferViews)||!Array.isArray(doc.meshes)||
      !Array.isArray(doc.nodes)||!Array.isArray(doc.scenes))return fail("Unsupported GLB record structure.");
   const declared=doc.buffers[0]!.byteLength;
@@ -224,8 +224,11 @@ export async function rebakeStaticGlb(
       const value=values[i]!;
       if(!finite(value)||Math.abs(value)>1e7)return fail("Nonfinite or oversized regenerated vertex attribute.");
       writer.setFloat32(i*4,value,true);
-      minimum[i%components]=Math.min(minimum[i%components]!,value);
-      maximum[i%components]=Math.max(maximum[i%components]!,value);
+      // glTF accessor bounds must enclose the actual stored float32 values,
+      // not pre-rounding float64 geometry produced by matrix composition.
+      const stored=writer.getFloat32(i*4,true);
+      minimum[i%components]=Math.min(minimum[i%components]!,stored);
+      maximum[i%components]=Math.max(maximum[i%components]!,stored);
     }
     binaryLength+=newData.length;
     if(binaryLength>MAX_FILE)return fail("Geometry rebake exceeded the binary memory budget.");
@@ -246,7 +249,8 @@ export async function rebakeStaticGlb(
     if(!globalDelta)continue;
     if(!reachable.has(nodeIndex)||!tag?.nodeKey||manifestNodes.get(tag.nodeKey)!==identity)
       return fail("GLB part identity is absent, mismatched or unreachable.");
-    if(node.skin||node.weights||node.extensions)return fail("Skinned, instanced or morphable nodes are unsupported.");
+    if(node.skin!==undefined||node.weights!==undefined||node.extensions!==undefined)
+      return fail("Skinned, instanced or morphable nodes are unsupported.");
     const meshIndex=checkedIndex(node.mesh,doc.meshes.length,"selected mesh");
     const sourceMesh=doc.meshes[meshIndex]!;
     if(sourceMesh.weights||!Array.isArray(sourceMesh.primitives)||!sourceMesh.primitives.length)
