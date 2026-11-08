@@ -58,6 +58,33 @@ not-yet-downloaded 21D demo can function without network access. Mobile OS
 storage eviction and PWA file-handler support vary by browser and are not
 represented as universally guaranteed.
 
+## Deployment provenance and freshness
+
+The deployed Pages Studio build embeds the exact `github.sha` commit in the
+running JavaScript bundle. The desktop and mobile **View → Appearance** panels
+show its first 12 hexadecimal digits as **Studio build**. Local and Storybook
+builds without a deployment commit are explicitly labeled `development`;
+they are never presented as production releases.
+
+The build also emits `studio/build-info.json`, containing the complete
+source commit and the 16-digit content hash used by the active service-worker
+shell. This **network-only** manifest is intentionally excluded from mandatory
+precache, so a browser running a cached older shell can retrieve the newly
+published release metadata with a no-cache request. This must never cause a
+new JS bundle to load into an existing editing session.
+
+Studio requests a service-worker update after registration, when the browser
+regains focus, and on return to a visible tab. The existing **Update** action
+remains an explicit, unsaved-work-safe activation boundary. A newly deployed
+Pages release is therefore detectable even when a user opens a previously
+installed PWA without leaving/re-entering the app.
+
+For renderer certification (e.g. #100, the Android WebGPU dark-floor issue),
+first record the current **Studio build** label and the exact project source
+hash from the GPU diagnostic report. Compare the running revision to
+`build-info.json` after GitHub Pages deployment before drawing conclusions
+from a screenshot: a cached older app may run a renderer predating a fix.
+
 ## Verification and release
 
 Build with `pnpm pages:build`; this generates icons and the hashed service
