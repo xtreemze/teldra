@@ -13,6 +13,7 @@ export class FloorTextureInspector {
   private readonly originals = new Map<StandardMaterial, {
     disableLighting: boolean;
     emissiveColor: Color3;
+    ambientColor: Color3;
     emissiveTexture: BaseTexture | null;
     useEmissiveAsIllumination: boolean;
     sourceDiffuseTexture: BaseTexture;
@@ -24,6 +25,7 @@ export class FloorTextureInspector {
     this.originals.set(material, {
       disableLighting: material.disableLighting,
       emissiveColor: material.emissiveColor.clone(),
+      ambientColor: material.ambientColor.clone(),
       emissiveTexture: material.emissiveTexture,
       useEmissiveAsIllumination: material.useEmissiveAsIllumination,
       sourceDiffuseTexture: material.diffuseTexture,
@@ -50,13 +52,16 @@ export class FloorTextureInspector {
       // Keep diffuse map, UV coordinates, colors, transforms and geometry intact.
       // This is explicitly NOT a source material or scene lighting adjustment.
       material.emissiveTexture = source.sourceDiffuseTexture;
-      material.emissiveColor = Color3.White();
+      // StandardMaterial adds the emissive color to the image sample.
+      material.emissiveColor = Color3.Black();
+      material.ambientColor = Color3.Black();
       material.useEmissiveAsIllumination = true;
       material.disableLighting = true;
     } else {
       material.disableLighting = source.disableLighting;
       material.emissiveTexture = source.emissiveTexture;
       material.emissiveColor = source.emissiveColor.clone();
+      material.ambientColor = source.ambientColor.clone();
       material.useEmissiveAsIllumination = source.useEmissiveAsIllumination;
     }
   }

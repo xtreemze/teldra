@@ -87,15 +87,25 @@ photometric parity.
 **Floor texture inspection:** Studio's Appearance menu offers a reversible,
 self-illuminated floor-texture preview. For imported SH3D room surfaces with a
 bound diffuse texture, it binds that same source image to the derived Babylon
-StandardMaterial's **emissive** texture channel, sets emissive color to white,
+StandardMaterial's **emissive** texture channel, sets emissive and ambient colors to black,
 enables emissive illumination and disables incoming lights. Merely setting
 `disableLighting=true` previously left the room floors dark and was an
-invalid diagnostic. The original emissive texture, emissive color, illumination
+invalid diagnostic. The original emissive texture, emissive and ambient colors, illumination
 and lighting flags are restored exactly when inspection is disabled. All diffuse
 colors, UVs, source image bytes, light metadata and IFC/project state remain
 unchanged. Turning textures off automatically exits inspection. This mode
 diagnoses source albedo independent of scene lights: it does not correct the
 normal renderer's indoor illumination.
+
+**Source texture color transfer:** glTF can store base-color images in hardware-sRGB
+textures. The source Phong projection shares those images, but Babylon's legacy
+StandardMaterial expects encoded samples. A source-only material plugin reverses
+the hardware decode using the IEC sRGB transfer function at the shader boundary,
+including the unlit emissive inspection path. Linear-storage images and ordinary
+PBR assets retain their existing path. Source image bytes, UVs, mipmaps, samplers,
+lighting and project data are unchanged. An authored dark-floor browser fixture
+checks actual pixels at near and distant views. This establishes a color-transfer
+regression on WebGL; Android WebGPU issue #100 still requires device confirmation.
 
 The published 21D reference has 13 textured floor parts and 3 distinct
 embedded floor images. Read-only audit `tools/diagnostics/audit_21d_floor.py`

@@ -16,6 +16,7 @@ describe("SH3D floor texture inspection", () => {
       floor.diffuseTexture = image;
       floor.diffuseColor = new Color3(0.25, 0.35, 0.45);
       floor.emissiveColor = new Color3(0.02, 0.03, 0.04);
+      floor.ambientColor = new Color3(0.2, 0.3, 0.4);
       floor.disableLighting = false;
       floor.useEmissiveAsIllumination = false;
       const originalDiffuse = floor.diffuseColor.clone();
@@ -29,7 +30,8 @@ describe("SH3D floor texture inspection", () => {
       inspection.setEnabled(true);
       expect(floor.disableLighting).toBe(true);
       expect(floor.emissiveTexture).toBe(image);
-      expect(floor.emissiveColor.asArray()).toEqual([1, 1, 1]);
+      expect(floor.emissiveColor.asArray()).toEqual([0, 0, 0]);
+      expect(floor.ambientColor.asArray()).toEqual([0, 0, 0]);
       expect(floor.useEmissiveAsIllumination).toBe(true);
       expect(floor.diffuseTexture).toBe(image);
       expect(floor.diffuseColor.asArray()).toEqual(originalDiffuse.asArray());
@@ -38,6 +40,7 @@ describe("SH3D floor texture inspection", () => {
       inspection.setEnabled(false);
       expect(floor.disableLighting).toBe(false);
       expect(floor.emissiveTexture).toBeNull();
+      expect(floor.ambientColor.asArray()).toEqual([0.2, 0.3, 0.4]);
       expect(floor.emissiveColor.asArray()).toEqual(originalEmissive.asArray());
       expect(floor.useEmissiveAsIllumination).toBe(false);
       expect(floor.diffuseTexture).toBe(image);
