@@ -126,6 +126,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
           type="button"
           onClick={() => void open()}
           disabled={!supported() || opening()}
+          aria-label={project() === null ? "Open .teldra" : "Open another"}
           title={project() === null ? "Open a project" : "Open another project"}
         >
           <svg class="teldra-browser-studio__open-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 13h6m-3-3v6"/></svg>
