@@ -404,6 +404,14 @@
   }
 }
 @media (max-width: 23rem) {
-  .teldra-studio-selection-workspace__mobile-save-label { display: none; }
+  .teldra-studio-selection-workspace__mobile-save-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .teldra-studio-selection-workspace__mobile-header output { margin-left: .05rem; }
 }
