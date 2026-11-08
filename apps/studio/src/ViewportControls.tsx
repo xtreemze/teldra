@@ -2,7 +2,14 @@ import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { BabylonTwinRuntime, ViewDirection, ViewState } from "@teldra/runtime-babylon";
 import { studioBuildLabel } from "./studio-build";
 
-export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HTMLCanvasElement; selectedId?: string | undefined}) {
+export function ViewportControls(props: {
+  runtime: BabylonTwinRuntime;
+  canvas: HTMLCanvasElement;
+  selectedId?: string | undefined;
+  hasHiddenSourceContent?: boolean;
+  hiddenSourceVisible?: boolean;
+  onHiddenSourceVisibilityChange?: (visible: boolean) => void;
+}) {
   const [view, setView] = createSignal<ViewState | null>(props.runtime.viewState());
   const layerDefinitions = props.runtime.layers();
   const [layers, setLayers] = createSignal(layerDefinitions);
@@ -241,6 +248,12 @@ export function ViewportControls(props: {runtime: BabylonTwinRuntime; canvas: HT
           <details>
             <summary>Layers</summary>
             <div class="teldra-view-controls__mobile-layers">
+              <Show when={props.hasHiddenSourceContent}>
+                <label><input type="checkbox" checked={props.hiddenSourceVisible ?? false}
+                  onChange={event => props.onHiddenSourceVisibilityChange?.(event.currentTarget.checked)} />
+                  Show hidden source content
+                </label>
+              </Show>
               <For each={layerDefinitions}>{layer => <label>
                 <input type="checkbox" checked={layers().find(current => current.id === layer.id)?.visible ?? true}
                   onChange={event => {props.runtime.setLayerVisible(layer.id, event.currentTarget.checked);setLayers(props.runtime.layers());}} />
