@@ -459,13 +459,6 @@ export function StudioSelectionWorkspace(
           <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => {changeHistory("undo");setMobileProjectOpen(false);}}>Undo</button>
           <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
           <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
-        <Show when={props.onExportRebakedScene}>
-          <button type="button" title="Download a validated rebuilt .teldra copy without replacing this open project"
-            disabled={dirty() || saving() || rebaking() || editingFurniture()}
-            onClick={() => void exportRebake()}>
-            {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
-          </button>
-        </Show>
           <Show when={props.onExportRebakedScene}>
             <button type="button" title="Download a new IFC-verified 3D project; the current project stays open and unchanged"
               disabled={dirty() || saving() || rebaking() || editingFurniture()}
@@ -499,6 +492,13 @@ export function StudioSelectionWorkspace(
         <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}>Undo</button>
         <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}>Redo</button>
         <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+        <Show when={props.onExportRebakedScene}>
+          <button type="button" title="Download a validated rebuilt .teldra copy without replacing this open project"
+            disabled={dirty() || saving() || rebaking() || editingFurniture()}
+            onClick={() => void exportRebake()}>
+            {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
+          </button>
+        </Show>
         <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
           <Show when={!editingFurniture()} fallback={
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
