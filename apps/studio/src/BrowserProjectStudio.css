@@ -124,6 +124,7 @@ body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: 
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .teldra-browser-studio__masthead:not(.teldra-browser-studio__masthead--loaded) h1 { display: none; }
   .teldra-browser-studio__file { display: none; } /* The same filename is now in the app bar. */
   .teldra-browser-studio__masthead-actions { flex: none; gap: .3rem; }
   .teldra-browser-studio__masthead-actions .teldra-browser-studio__open--project,
