@@ -57,9 +57,11 @@ export async function rebakeTeldraSceneCopy<T extends SceneProvenance & {
   if(!edited.length)
     throw new TeldraArchiveError("There are no changed IFC placements to bake.");
   const geometry=await rebakeStaticGlb(asset.bytes,scene,edited);
-  const cloned=structuredClone(scene);
-  cloned.source.buildingSha256=archive.manifest.building.sha256;
-  cloned.scene.assetSha256=geometry.bakedSha256;
+  const cloned={
+    ...scene,
+    source:{...scene.source,buildingSha256:archive.manifest.building.sha256},
+    scene:{...scene.scene,assetSha256:geometry.bakedSha256},
+  };
   const serializedScene=new TextEncoder().encode(JSON.stringify(cloned,null,2)+"\n");
   const newSceneHash=await sha256Bytes(serializedScene);
   const derived=(archive.manifest.derived??[])
