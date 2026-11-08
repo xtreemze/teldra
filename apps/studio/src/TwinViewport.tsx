@@ -271,6 +271,7 @@ export function TwinViewport(props: TwinViewportProps) {
         data-testid="twin-canvas"
       />
       <Show when={status() === "loading"}><div class="teldra-twin-viewport__loading" role="status">Preparing materials and textures...</div></Show>
+      <Show when={status() === "error"}><div class="teldra-twin-viewport__loading" role="alert">The 3D scene could not be loaded. Reopen the project to try again.</div></Show>
       <output data-testid="asset-summary" hidden>{JSON.stringify(assetSummary())}</output>
       <Show when={readyRuntime()}>{current => <ViewportControls runtime={current()} canvas={canvas}
         selectedId={props.selectedCanonicalId === undefined ? selected()?.canonicalId : props.selectedCanonicalId ?? undefined}
