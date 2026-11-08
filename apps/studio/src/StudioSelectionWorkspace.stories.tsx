@@ -151,9 +151,10 @@ class StoryMemoryStorage implements ProjectStorageAdapter<TwinProject> {
   }
 }
 
-function GoldenHomeSelectionHarness() {
+function GoldenHomeSelectionHarness(props: { enableRebake?: boolean } = {}) {
   const [controller, setController] =
     createSignal<StudioProjectController | null>(null);
+  const [rebaked, setRebaked] = createSignal(0);
   const [projected, setProjected] =
     createSignal<TwinViewportClientPoint | null>(null);
   const liveState = new StudioLiveStateController();
@@ -224,6 +225,7 @@ function GoldenHomeSelectionHarness() {
             controller={ready()}
             manifest={manifest}
             glbUrl="/fixtures/twin-pick.glb"
+            {...(props.enableRebake ? {onExportRebakedScene: async () => {setRebaked(value => value+1);}} : {})}
             liveState={liveState}
             onViewportReady={(handle) => {
               setProjected(handle.projectNode(fixtureNodeKey));
@@ -243,6 +245,7 @@ function GoldenHomeSelectionHarness() {
           Inject live unavailable
         </button>
       </aside>
+      <output data-testid="workspace-rebake-count">{rebaked()}</output>
       <output hidden aria-label="Workspace fixture pick position">
         <span data-testid="workspace-projected-x">
           {projected()?.clientX ?? "pending"}
@@ -267,4 +270,8 @@ type Story = StoryObj;
 
 export const GoldenHome: Story = {
   render: () => <GoldenHomeSelectionHarness />,
+};
+
+export const RebuildCopy: Story = {
+  render: () => <GoldenHomeSelectionHarness enableRebake />,
 };
