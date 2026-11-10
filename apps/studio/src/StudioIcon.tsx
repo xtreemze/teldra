@@ -3,6 +3,7 @@
  * No framework/package icon dependency or external network image request.
  */
 import type { JSX } from "solid-js";
+import "./StudioIcon.css";
 
 export const studioIconPaths = {
   building: "M3 21V8l9-5 9 5v13M3 21h18M7 11h2m6 0h2M7 15h2m6 0h2M10 21v-4h4v4",
@@ -49,8 +50,8 @@ export const studioIconPaths = {
   open: "M3 6h6l2 2h10v11H3zM12 14h6m-3-3v6",
   save: "M4 3h13l3 3v15H4zM8 3v7h8V3M8 21v-8h8v8",
   export: "M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4",
-  undo: "M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 12",
-  redo: "m15 7 5 5-5 5m5-5H10a6 6 0 0 0 0 12",
+  undo: "M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 6",
+  redo: "M15 7l5 5-5 5m5-5H10a6 6 0 0 0 0 6",
   settings: "M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
   help: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9 9a3 3 0 0 1 6 0c0 2-3 2-3 5m0 3h.01",
   gesture: "M8 13V6a1.5 1.5 0 0 1 3 0v6-7a1.5 1.5 0 0 1 3 0v7-5a1.5 1.5 0 0 1 3 0v5a1.5 1.5 0 0 1 3 0v5c0 4-3 6-6 6h-3c-2 0-3-1-4-3L3 14a1.7 1.7 0 0 1 3-2l2 3",
