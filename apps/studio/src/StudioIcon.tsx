@@ -1,73 +1,9 @@
-/** Teldra Studio visual language: 24px optical grid, consistent 1.8px stroke.
- * All glyphs are decorative. Accessible names belong to the labeled control.
- * No framework/package icon dependency or external network image request.
- */
+/** Decorative SolidJS glyph renderer. Semantic meaning remains with the host control. */
 import type { JSX } from "solid-js";
+import { studioIconPaths, type StudioIconName } from "./StudioIconCatalog";
 import "./StudioIcon.css";
-
-export const studioIconPaths = {
-  building: "M3 21V8l9-5 9 5v13M3 21h18M7 11h2m6 0h2M7 15h2m6 0h2M10 21v-4h4v4",
-  house: "M3 11l9-8 9 8M5 10v11h14V10M10 21v-7h4v7",
-  level: "M3 7l9-4 9 4-9 4-9-4ZM3 12l9 4 9-4M3 17l9 4 9-4",
-  room: "M4 4h16v16H4zM4 12h8m0-8v12",
-  wall: "M3 4h18v5H3zM3 9v11h7V9m4 0v11h7V9M3 15h18",
-  door: "M6 21V3h12v18M6 21h12M9 3v18m3-9h.01",
-  window: "M4 4h16v16H4zM12 4v16M4 12h16",
-  furniture: "M5 12V8a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v4M4 12h16v6H4zM6 18v3m12-3v3M8 9h8",
-  light: "M9 18h6m-5 3h4M9 15c0-2-3-3-3-7a6 6 0 0 1 12 0c0 4-3 5-3 7v1H9z",
-  sensor: "M12 12h.01M9 9a4.24 4.24 0 0 0 0 6m6-6a4.24 4.24 0 0 1 0 6M6 6a8.49 8.49 0 0 0 0 12m12-12a8.49 8.49 0 0 1 0 12",
-  thermostat: "M10 14V5a2 2 0 0 1 4 0v9a4 4 0 1 1-4 0ZM12 9v9",
-  outlet: "M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm3 6v3m6-3v3m-5 5h4",
-  camera: "M3 7h5l2-3h4l2 3h5v13H3zM12 11a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
-  power: "M12 2v9M6 5a9 9 0 1 0 12 0",
-  automation: "M5 5h6v6H5zM13 13h6v6h-6zM11 8h4a3 3 0 0 1 3 3v2M5 14v3a3 3 0 0 0 3 3h5",
-  select: "M5 3v15l4-4 4 7 3-2-4-7 7-1Z",
-  move: "M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4m12-8 4 4-4 4",
-  rotate: "M20 11a8 8 0 1 0-3 7M20 5v6h-6",
-  scale: "M4 9V4h5m-5 0 6 6m5-6h5v5m0-5-6 6M4 15v5h5m-5 0 6-6m5 6h5v-5m0 5-6-6",
-  measure: "M3 16 16 3l5 5L8 21zM11 8l3 3m-7 1 3 3m7-8 2 2",
-  snap: "M4 4v7h7M20 20v-7h-7M4 20V4h16v16H4zM9 9h6v6H9z",
-  orbit: "M12 4a8 8 0 1 1-8 8M4 12V5m0 7h7M12 9a3 3 0 1 1 0 6 3 3 0 0 1 0-6",
-  pan: "M4 13v-2a1 1 0 0 1 2 0v1-6a1 1 0 0 1 2 0v5-8a1 1 0 0 1 2 0v8-6a1 1 0 0 1 2 0v6-3a1 1 0 0 1 2 0v8l-3 5H7l-5-6a2 2 0 0 1 2-2Z",
-  isometric: "M12 3 21 8v9l-9 5-9-5V8zM3 8l9 5 9-5m-9 5v9",
-  top: "M4 4h16v16H4zM8 8h8v8H8z",
-  front: "M4 20V6l8-3 8 3v14M4 20h16M9 20v-8h6v8",
-  right: "M5 5h14v14H5zM9 9h6v6H9zM19 12h3m-5-3 3 3-3 3",
-  layers: "M12 2 22 7l-10 5L2 7zM2 12l10 5 10-5M2 17l10 5 10-5",
-  appearance: "M12 3a9 9 0 1 0 0 18h2a2 2 0 0 0 0-4h-1a2 2 0 0 1 0-4h5a3 3 0 0 0 3-3 9 9 0 0 0-9-7ZM7 9h.01M12 7h.01M17 9h.01M7 14h.01",
-  texture: "M4 4h16v16H4zM4 10l6-6m-6 12 12-12m-8 16L20 8m-6 12 6-6",
-  shadows: "M8 3a9 9 0 1 0 13 13A8 8 0 0 1 8 3Z",
-  visibility: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
-  hidden: "M3 3l18 18M10 5.3A11 11 0 0 1 12 5c6 0 10 7 10 7a16 16 0 0 1-3.1 3.6M6 6.6C3.5 8.3 2 12 2 12s4 7 10 7a10 10 0 0 0 4-.8M10 10a3 3 0 0 0 4 4",
-  frame: "M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M8 12h8m-4-4v8",
-  focus: "M3 8V3h5m8 0h5v5m0 8v5h-5m-8 0H3v-5M9 9h6v6H9z",
-  zoomIn: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM21 21l-4.3-4.3M8 11h6m-3-3v6",
-  zoomOut: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM21 21l-4.3-4.3M8 11h6",
-  reset: "M3 11a9 9 0 1 1 3 7M3 4v7h7",
-  scene: "M3 6 12 2l9 4v12l-9 4-9-4zM3 6l9 4 9-4m-9 4v12",
-  inspector: "M4 3h16v18H4zM13 3v18M7 8h3m-3 4h3m-3 4h3",
-  project: "M4 3h10l6 6v12H4zM14 3v6h6M8 14h8m-8 4h5",
-  open: "M3 6h6l2 2h10v11H3zM12 14h6m-3-3v6",
-  save: "M4 3h13l3 3v15H4zM8 3v7h8V3M8 21v-8h8v8",
-  export: "M12 3v13m-5-5 5 5 5-5M4 17v4h16v-4",
-  undo: "M9 7 4 12l5 5M4 12h10a6 6 0 0 1 0 6",
-  redo: "M15 7l5 5-5 5m5-5H10a6 6 0 0 0 0 6",
-  settings: "M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6 7 7m10 10 1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8",
-  help: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18ZM9 9a3 3 0 0 1 6 0c0 2-3 2-3 5m0 3h.01",
-  gesture: "M8 13V6a1.5 1.5 0 0 1 3 0v6-7a1.5 1.5 0 0 1 3 0v7-5a1.5 1.5 0 0 1 3 0v5a1.5 1.5 0 0 1 3 0v5c0 4-3 6-6 6h-3c-2 0-3-1-4-3L3 14a1.7 1.7 0 0 1 3-2l2 3",
-  haptics: "M8 5v14m8-14v14M4 9v6m16-6v6M11 8h2v8h-2",
-  sound: "M4 9h4l5-4v14l-5-4H4zM17 9a5 5 0 0 1 0 6m2-9a9 9 0 0 1 0 12",
-  install: "M12 3v12m-4-4 4 4 4-4M4 18v3h16v-3",
-  update: "M20 7v5h-5M4 17v-5h5M6 9a7 7 0 0 1 12-2l2 5M4 12l2 5a7 7 0 0 0 12-2",
-  offline: "M2 2l20 20M5 9a12 12 0 0 1 12-1M9 13a6 6 0 0 1 4-.3M12 20h.01",
-  check: "M4 12l5 5L20 6",
-  cancel: "M5 5l14 14M19 5 5 19",
-  search: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM21 21l-4.3-4.3",
-  more: "M5 12h.01M12 12h.01M19 12h.01",
-} as const;
-
-export type StudioIconName = keyof typeof studioIconPaths;
-export const studioIconNames = Object.keys(studioIconPaths) as StudioIconName[];
+export { studioIconGroups, studioIconNames, studioIconPaths } from "./StudioIconCatalog";
+export type { StudioIconName } from "./StudioIconCatalog";
 
 export interface StudioIconProps {
   readonly name: StudioIconName;
@@ -94,12 +30,3 @@ export function StudioIcon(props: StudioIconProps) {
   ><path d={studioIconPaths[props.name]} /></svg>;
 }
 
-export const studioIconGroups = {
-  "Architecture": ["building", "house", "level", "room", "wall", "door", "window", "furniture"],
-  "Smart home": ["light", "sensor", "thermostat", "outlet", "camera", "power", "automation"],
-  "Editing": ["select", "move", "rotate", "scale", "measure", "snap"],
-  "Navigation": ["orbit", "pan", "isometric", "top", "front", "right", "frame", "focus", "zoomIn", "zoomOut", "reset"],
-  "Visualization": ["layers", "appearance", "texture", "shadows", "visibility", "hidden"],
-  "Workspace": ["scene", "inspector", "project", "open", "save", "export", "undo", "redo", "settings", "help", "gesture", "haptics", "sound"],
-  "PWA & status": ["install", "update", "offline", "check", "cancel", "search", "more"],
-} as const satisfies Record<string, readonly StudioIconName[]>;
