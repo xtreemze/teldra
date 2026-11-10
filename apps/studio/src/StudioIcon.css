@@ -1,0 +1,19 @@
+/* Shared Teldra Studio outline glyph: currentColor, 24px geometry, 1.8px rounded stroke. */
+.teldra-studio-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -.2em;
+  color: inherit;
+}
+.teldra-studio-selection-workspace__mobile-header button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__mobile-project-menu button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__project-actions button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__mobile-selection button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__gizmo button > .teldra-studio-icon:not(:last-child),
+.teldra-view-controls button > .teldra-studio-icon:not(:last-child),
+.teldra-view-controls summary > .teldra-studio-icon:not(:last-child) {
+  margin-inline-end: .2rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .teldra-studio-icon { animation: none; transition: none; }
+}
