@@ -91,7 +91,6 @@ export function StudioIcon(props: StudioIconProps) {
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"
-    focusable="false"
   ><path d={studioIconPaths[props.name]} /></svg>;
 }
 
