@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { studioIconGroups, studioIconNames, studioIconPaths } from "./StudioIcon";
+import { studioIconGroups, studioIconNames, studioIconPaths } from "./StudioIconCatalog";
 
 describe("Teldra Studio iconography contract", () => {
   it("has only non-empty, path-based, self-contained glyphs", () => {
