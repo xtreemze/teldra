@@ -14,7 +14,7 @@ Status: implemented as a shared SolidJS decorative icon primitive and a Storyboo
 
 ## Source and maintenance
 
-The single source of truth for functional Studio icons is `apps/studio/src/StudioIcon.tsx`, which exports `StudioIcon`, `studioIconNames`, and `studioIconGroups`. `StudioIcon.css` handles optical alignment and conservative spacing; all glyph geometry is self-contained and requires no remote assets or icon packages.
+The source of truth for glyph paths, names and categories is the framework-independent `apps/studio/src/StudioIconCatalog.ts`. `StudioIcon.tsx` is the SolidJS renderer and re-exports `StudioIcon`, `studioIconNames`, and `studioIconGroups`. `StudioIcon.css` handles optical alignment and conservative spacing; all glyph geometry is self-contained and requires no remote assets or icon packages.
 
 `StudioIcon.stories.tsx` presents every icon grouped by domain and shows size variants. `StudioIcon.test.ts` ensures that the complete registered collection is categorized exactly once and contains nonempty path data. The production Playwright test `iconography.spec.ts` guards accessible names, stroke consistency, icon visibility and narrow-screen overflow.
 
