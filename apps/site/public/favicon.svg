@@ -1,4 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="16" fill="#0b1117"/>
-  <path d="M15 18h34v8H36v25h-8V26H15z" fill="#76e0bd"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="110" fill="#101821"/>
+  <polygon points="107,197 256,282 256,416 107,330" fill="#143541"/>
+  <polygon points="405,197 256,282 256,416 405,330" fill="#1b505a"/>
+  <polygon points="256,111 405,197 256,282 107,197" fill="#184551"/>
+  <g fill="none" stroke="#68b4b4" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 111 405 197 256 282 107 197 256 111M107 197v133l149 86V282M405 197v133l-149 86"/>
+  </g>
+  <path d="M205 177h102M256 177v53" stroke="#e0f8f4" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <path d="m145 281 65 39m92 0 65-39m-191 45 80 45 80-45" stroke="#80e1cf" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <g fill="#80e1cf"><circle cx="256" cy="111" r="14"/><circle cx="176" cy="326" r="11"/><circle cx="256" cy="371" r="11"/><circle cx="336" cy="326" r="11"/></g>
 </svg>
