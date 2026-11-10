@@ -90,3 +90,62 @@ body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: 
   .teldra-pwa-controls__button { min-width: 2.5rem; justify-content: center; }
   .teldra-pwa-controls__label { display: none; }
 }
+
+
+/* A loaded mobile project uses one compact app bar: identity, install and file actions. */
+.teldra-browser-studio__open-icon { display: none; }
+.teldra-browser-studio__mobile-title { display: none; }
+@media (max-width: 48rem) {
+  .teldra-browser-studio__masthead {
+    height: 3.3rem;
+    gap: .5rem;
+    padding: .35rem max(.65rem, env(safe-area-inset-right, 0px)) .35rem max(.65rem, env(safe-area-inset-left, 0px));
+  }
+  .teldra-browser-studio__identity {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: .5rem !important;
+    align-items: center !important;
+  }
+  .teldra-browser-studio__eyebrow { flex: none; font-size: .69rem; letter-spacing: .045em; }
+  .teldra-browser-studio__eyebrow span { display: none; }
+  .teldra-browser-studio__masthead h1 {
+    position: static;
+    display: block;
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: hidden;
+    clip-path: none;
+    color: var(--studio-ink);
+    font-size: .8rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .teldra-browser-studio__desktop-title { display: none; }
+  .teldra-browser-studio__mobile-title { display: inline; }
+  .teldra-browser-studio__masthead:not(.teldra-browser-studio__masthead--loaded) h1 { display: none; }
+  .teldra-browser-studio__file { display: none; } /* The same filename is now in the app bar. */
+  .teldra-browser-studio__masthead-actions { flex: none; gap: .3rem; }
+  .teldra-browser-studio__masthead-actions .teldra-browser-studio__open--project,
+  .teldra-pwa-controls__button {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    color: var(--studio-ink);
+    background: #263747;
+    border: 1px solid #496072;
+    border-radius: .7rem;
+  }
+  .teldra-browser-studio__masthead-actions .teldra-browser-studio__open--project:hover:not(:disabled) { background: #334b5c; }
+  .teldra-browser-studio__open--project .teldra-browser-studio__open-icon { display: block; width: 1.2rem; height: 1.2rem; }
+  .teldra-browser-studio__open--project .teldra-browser-studio__open-label,
+  .teldra-pwa-controls__button .teldra-pwa-controls__label { display: none; }
+}

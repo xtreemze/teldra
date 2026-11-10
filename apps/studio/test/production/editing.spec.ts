@@ -35,7 +35,10 @@ test("Pages routes and compact onboarding remain usable without direct file acce
  await page.addInitScript(()=>Object.defineProperty(window,"showOpenFilePicker",{value:undefined,configurable:true}));
  await page.goto("./?demo=sample");await expect(page.getByRole("button",{name:"Open .teldra",exact:true})).toBeEnabled();
  await page.getByRole("button",{name:"Try demo",exact:true}).click();await expect(page.getByTestId("viewport-status")).toHaveText("ready");
- await expect(page.getByText("Save downloads a copy",{exact:true})).toBeVisible();
+ await expect(page.getByText("Save downloads a copy",{exact:true})).toBeHidden();
+ await page.getByRole("button",{name:"Project",exact:true}).click();
+ await expect(page.getByRole("group",{name:"Mobile project menu"}).getByText("Saving downloads a project copy; it does not overwrite the opened file.",{exact:true})).toBeVisible();
+ await page.getByRole("button",{name:"Project",exact:true}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  const a11y=await new AxeBuilder({page}).analyze();expect(a11y.violations).toEqual([]);
 });

@@ -57,6 +57,11 @@ export function TwinViewport(props: TwinViewportProps) {
   const [backend, setBackend] = createSignal<BabylonBackend | null>(null);
   const [assetSummary, setAssetSummary] = createSignal<ReturnType<BabylonTwinRuntime["assetSummary"]>>();
   const [hasHiddenSourceContent, setHasHiddenSourceContent] = createSignal(false);
+  const [hiddenSourceVisible, setHiddenSourceVisible] = createSignal(false);
+  const changeHiddenSourceVisibility = (visible: boolean) => {
+    runtime?.setHiddenSourceContentVisible(visible);
+    setHiddenSourceVisible(visible);
+  };
   const [selected, setSelected] =
     createSignal<TwinRenderIdentity | null | undefined>(undefined);
 
@@ -266,8 +271,13 @@ export function TwinViewport(props: TwinViewportProps) {
         data-testid="twin-canvas"
       />
       <Show when={status() === "loading"}><div class="teldra-twin-viewport__loading" role="status">Preparing materials and textures...</div></Show>
+      <Show when={status() === "error"}><div class="teldra-twin-viewport__loading" role="alert">The 3D scene could not be loaded. Reopen the project to try again.</div></Show>
       <output data-testid="asset-summary" hidden>{JSON.stringify(assetSummary())}</output>
-      <Show when={readyRuntime()}>{current => <ViewportControls runtime={current()} canvas={canvas} selectedId={props.selectedCanonicalId === undefined ? selected()?.canonicalId : props.selectedCanonicalId ?? undefined} />}</Show>
+      <Show when={readyRuntime()}>{current => <ViewportControls runtime={current()} canvas={canvas}
+        selectedId={props.selectedCanonicalId === undefined ? selected()?.canonicalId : props.selectedCanonicalId ?? undefined}
+        hasHiddenSourceContent={hasHiddenSourceContent()}
+        hiddenSourceVisible={hiddenSourceVisible()}
+        onHiddenSourceVisibilityChange={changeHiddenSourceVisibility} />}</Show>
       <div class="teldra-twin-viewport__status" aria-live="polite">
         <span data-testid="viewport-status">{status()}</span>
         <span data-testid="viewport-backend">{backend() ?? "pending"}</span>
@@ -278,9 +288,9 @@ export function TwinViewport(props: TwinViewportProps) {
         </span>
       </div>
       {hasHiddenSourceContent() && (
-        <label>
-          <input type="checkbox" onChange={event =>
-            runtime?.setHiddenSourceContentVisible(event.currentTarget.checked)} />
+        <label class="teldra-twin-viewport__source-visibility">
+          <input type="checkbox" checked={hiddenSourceVisible()}
+            onChange={event => changeHiddenSourceVisibility(event.currentTarget.checked)} />
           Show hidden source content
         </label>
       )}
