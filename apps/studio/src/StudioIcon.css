@@ -17,3 +17,15 @@
 @media (prefers-reduced-motion: reduce) {
   .teldra-studio-icon { animation: none; transition: none; }
 }
+
+/* The floating mobile command row is a single-line spatial layout shared by
+ * StudioSelectionWorkspace and ViewportControls. Keep its primary triggers
+ * text-only: inline glyphs increase their measured widths and cause View to
+ * cover the Numbers/Gestures action at 390px. Secondary toolbars and sheets
+ * retain their full iconography; accessible text labels remain unchanged. */
+@media (max-width: 48rem) {
+  .teldra-studio-selection-workspace__mobile-header > button > .teldra-studio-icon,
+  .teldra-view-controls__mobile > button > .teldra-studio-icon {
+    display: none;
+  }
+}
