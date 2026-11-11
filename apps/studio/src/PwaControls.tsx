@@ -1,4 +1,5 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { StudioIcon } from "./StudioIcon";
 
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
@@ -113,25 +114,25 @@ export function PwaControls(props: PwaControlsProps) {
     <div class="teldra-pwa-controls" role="group" aria-label="App and connection">
       <Show when={!isOnline()}>
         <span class="teldra-pwa-controls__offline" role="status" aria-label="Offline">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 2l20 20M5 9a12 12 0 0 1 12-1M9 13a6 6 0 0 1 4-.3M12 20h.01"/></svg>
+          <StudioIcon name="offline" />
           <span class="teldra-pwa-controls__label">Offline</span>
         </span>
       </Show>
       <Show when={!isInstalled() && prompt() !== null}>
         <button type="button" class="teldra-pwa-controls__button" onClick={() => void install()} aria-label="Install Teldra Studio">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3v12m-4-4 4 4 4-4M4 17v3h16v-3"/></svg>
+          <StudioIcon name="install" />
           <span class="teldra-pwa-controls__label">Install</span>
         </button>
       </Show>
       <Show when={!isInstalled() && prompt() === null && iosBrowser()}>
         <button type="button" class="teldra-pwa-controls__button" onClick={() => setHelpVisible(!helpVisible())} aria-expanded={helpVisible()} aria-label="Add Teldra Studio to Home Screen">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3m-4 4 4-4 4 4M5 12v8h14v-8"/></svg>
+          <StudioIcon name="export" />
           <span class="teldra-pwa-controls__label">Add to Home Screen</span>
         </button>
       </Show>
       <Show when={updateAvailable()}>
         <button type="button" class="teldra-pwa-controls__button" onClick={update} aria-label="Update Teldra Studio">
-          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M20 7v5h-5M4 17v-5h5M6 9a7 7 0 0 1 12-2l2 5M4 12l2 5a7 7 0 0 0 12-2"/></svg>
+          <StudioIcon name="update" />
           <span class="teldra-pwa-controls__label">Update</span>
         </button>
       </Show>

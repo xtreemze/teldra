@@ -10,6 +10,7 @@ import { signalMobileFeedback, signalMobileSound } from "./mobile-feedback";
 import { readMobileFeedbackPreferences, writeMobileFeedbackPreferences } from "./mobile-feedback-preferences";
 import { MobileTransformPad } from "./MobileTransformPad";
 import { MobileSheetHandle, type MobileSheetDetent } from "./MobileSheetHandle";
+import { StudioIcon } from "./StudioIcon";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
 import {
@@ -448,7 +449,7 @@ export function StudioSelectionWorkspace(
       <div class="teldra-studio-selection-workspace__mobile-header" role="group" aria-label="Mobile Studio navigation">
         <button type="button" data-testid="mobile-scene-trigger" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel"
           disabled={editingFurniture()} title={editingFurniture() ? "Apply or cancel the active transform first" : "Browse the scene"}
-          onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}>Scene</button>
+          onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}><StudioIcon name="scene" /> Scene</button>
         <output class="teldra-studio-selection-workspace__mobile-save-state" aria-live="polite">
           <span class="teldra-studio-selection-workspace__save-dot" data-state={dirty() ? "dirty" : "saved"} aria-hidden="true" />
           <span class="teldra-studio-selection-workspace__mobile-save-label">{dirty() ? "Unsaved" : "Saved"}</span>
@@ -456,19 +457,19 @@ export function StudioSelectionWorkspace(
         <Show when={editingFurniture()}><button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel"
           onClick={() => setInspectorOpen(!inspectorOpen())}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
         <button type="button" data-testid="mobile-project-trigger" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
-          onClick={() => {setMobileProjectOpen(!mobileProjectOpen()); setMobileContextOpen(false);}}>Project</button>
+          onClick={() => {setMobileProjectOpen(!mobileProjectOpen()); setMobileContextOpen(false);}}><StudioIcon name="project" /> Project</button>
       </div>
       <Show when={mobileProjectOpen()}>
         <div id="teldra-mobile-project-menu" class="teldra-studio-selection-workspace__mobile-project-menu" role="group" aria-label="Mobile project menu">
           <Show when={props.saveMode === "download"}><p class="teldra-studio-selection-workspace__mobile-save-help">Saving downloads a project copy; it does not overwrite the opened file.</p></Show>
-          <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => {changeHistory("undo");setMobileProjectOpen(false);}}>Undo</button>
-          <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}>Redo</button>
-          <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+          <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => {changeHistory("undo");setMobileProjectOpen(false);}}><StudioIcon name="undo" /> Undo</button>
+          <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => {changeHistory("redo");setMobileProjectOpen(false);}}><StudioIcon name="redo" /> Redo</button>
+          <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}><StudioIcon name="save" /> {saving() ? "Saving…" : "Save project"}</button>
           <Show when={props.onExportRebakedScene}>
             <button type="button" title="Download a new IFC-verified 3D project; the current project stays open and unchanged"
               disabled={dirty() || saving() || rebaking() || editingFurniture()}
               onClick={() => void exportRebake()}>
-              {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
+              <StudioIcon name="export" /> {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
             </button>
           </Show>
           <button type="button" aria-pressed={mobileHapticsEnabled()} onClick={() => setHapticsPreference(!mobileHapticsEnabled())}>Haptics {mobileHapticsEnabled() ? "on" : "off"}</button>
@@ -477,7 +478,7 @@ export function StudioSelectionWorkspace(
             if (mobileSoundEnabled()) signalMobileSound("select", true);
           }}>Sounds {mobileSoundEnabled() ? "on" : "off"}</button>
           <button type="button" aria-expanded={gestureGuideOpen()} aria-controls="teldra-mobile-gesture-guide"
-            onClick={() => setGestureGuideOpen(!gestureGuideOpen())}>Touch gesture guide</button>
+            onClick={() => setGestureGuideOpen(!gestureGuideOpen())}><StudioIcon name="gesture" /> Touch gesture guide</button>
           <Show when={gestureGuideOpen()}>
             <div id="teldra-mobile-gesture-guide" role="group" aria-label="Mobile touch gesture guide"
               class="teldra-studio-selection-workspace__gesture-guide">
@@ -491,32 +492,32 @@ export function StudioSelectionWorkspace(
         </div>
       </Show>
       <div class="teldra-studio-selection-workspace__project-actions" role="group" aria-label="Project actions">
-        <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}>Scene</button>
-        <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}>Inspector</button>
+        <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}><StudioIcon name="scene" /> Scene</button>
+        <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}><StudioIcon name="inspector" /> Inspector</button>
         <output aria-live="polite" data-testid={selectedDevice() ? "project-dirty-state" : undefined}>{dirty() ? "Unsaved changes" : "Saved"}</output>
-        <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}>Undo</button>
-        <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}>Redo</button>
-        <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}>{saving() ? "Saving…" : "Save project"}</button>
+        <button type="button" disabled={!history().canUndo || editingFurniture()} onClick={() => changeHistory("undo")}><StudioIcon name="undo" /> Undo</button>
+        <button type="button" disabled={!history().canRedo || editingFurniture()} onClick={() => changeHistory("redo")}><StudioIcon name="redo" /> Redo</button>
+        <button type="button" disabled={!dirty() || saving() || rebaking() || editingFurniture()} onClick={() => void save()}><StudioIcon name="save" /> {saving() ? "Saving…" : "Save project"}</button>
         <Show when={props.onExportRebakedScene}>
           <button type="button" title="Download a validated rebuilt .teldra copy without replacing this open project"
             disabled={dirty() || saving() || rebaking() || editingFurniture()}
             onClick={() => void exportRebake()}>
-            {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
+            <StudioIcon name="export" /> {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
           </button>
         </Show>
         <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
           <Show when={!editingFurniture()} fallback={
             <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
-              <button type="button" aria-keyshortcuts="G" title="Move (G)" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); editSession?.setAxisConstraint(null); }}>Move</button>
-              <button type="button" aria-keyshortcuts="R" title="Rotate about IFC world Z (R)" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}>Rotate</button>
+              <button type="button" aria-keyshortcuts="G" title="Move (G)" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); editSession?.setAxisConstraint(null); }}><StudioIcon name="move" /> Move</button>
+              <button type="button" aria-keyshortcuts="R" title="Rotate about IFC world Z (R)" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}><StudioIcon name="rotate" /> Rotate</button>
               <button type="button" aria-keyshortcuts="S" aria-pressed={editMode() === "scale"}
                 disabled={!props.controller.furnitureScaleStatus(selectedCanonicalId()!).supported}
                 title={(() => { const support = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
                   return support.supported ? "Local IFC geometry scale (S)" : support.reason; })()}
-                onClick={() => { setEditMode("scale"); editSession?.setMode("scale"); }}>Scale</button>
+                onClick={() => { setEditMode("scale"); editSession?.setMode("scale"); }}><StudioIcon name="scale" /> Scale</button>
             </div>
           }>
-            <button type="button" disabled={!viewport()} title={viewport() ? "Manipulate selected furniture with 3D gizmos" : "3D scene is still loading"} onClick={() => { setInspectorOpen(true); setEditRequest((request) => request + 1); }}>Edit transform</button>
+            <button type="button" disabled={!viewport()} title={viewport() ? "Manipulate selected furniture with 3D gizmos" : "3D scene is still loading"} onClick={() => { setInspectorOpen(true); setEditRequest((request) => request + 1); }}><StudioIcon name="select" /> Edit transform</button>
           </Show>
         </Show>
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
@@ -535,8 +536,8 @@ export function StudioSelectionWorkspace(
             <small>{selectedDevice() ? "Device" : selectedBuildingRef()?.kind ?? "Building object"}</small>
           </div>
           <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
-            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
-            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}><StudioIcon name="move" /> Move</button>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}><StudioIcon name="rotate" /> Rotate</button>
           </Show>
           <button type="button" onClick={() => {setInspectorOpen(true);setMobileContextOpen(false);}}>Details</button>
           <button type="button" aria-label="More object actions" aria-expanded={mobileContextOpen()} onClick={openMobileContext}>···</button>
@@ -547,11 +548,11 @@ export function StudioSelectionWorkspace(
           <strong>{selectedDevice()?.name ?? selectedBuildingRef()?.name ?? "Selected object"}</strong>
           <button type="button" onClick={() => {setInspectorOpen(true);setMobileContextOpen(false);}}>Details</button>
           <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
-            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}>Move</button>
-            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}>Rotate</button>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("translate")}><StudioIcon name="move" /> Move</button>
+            <button type="button" disabled={!viewport()} onClick={() => startMobileFurnitureEdit("rotate")}><StudioIcon name="rotate" /> Rotate</button>
             <button type="button" aria-describedby="teldra-mobile-scale-explanation"
               title="Validate mapped IFC geometry for scaling"
-              onClick={() => startMobileFurnitureEdit("scale")}>Scale</button>
+              onClick={() => startMobileFurnitureEdit("scale")}><StudioIcon name="scale" /> Scale</button>
             <p id="teldra-mobile-scale-explanation" class="teldra-studio-selection-workspace__mobile-scale-unavailable">
               Scale is validated against IFC geometry before editing.
             </p>

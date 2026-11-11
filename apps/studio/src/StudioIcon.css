@@ -1,0 +1,31 @@
+/* Shared Teldra Studio outline glyph: currentColor, 24px geometry, 1.8px rounded stroke. */
+.teldra-studio-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -.2em;
+  color: inherit;
+}
+.teldra-studio-selection-workspace__mobile-header button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__mobile-project-menu button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__project-actions button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__mobile-selection button > .teldra-studio-icon:not(:last-child),
+.teldra-studio-selection-workspace__gizmo button > .teldra-studio-icon:not(:last-child),
+.teldra-view-controls button > .teldra-studio-icon:not(:last-child),
+.teldra-view-controls summary > .teldra-studio-icon:not(:last-child) {
+  margin-inline-end: .2rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .teldra-studio-icon { animation: none; transition: none; }
+}
+
+/* The floating mobile command row is a single-line spatial layout shared by
+ * StudioSelectionWorkspace and ViewportControls. Keep its primary triggers
+ * text-only: inline glyphs increase their measured widths and cause View to
+ * cover the Numbers/Gestures action at 390px. Secondary toolbars and sheets
+ * retain their full iconography; accessible text labels remain unchanged. */
+@media (max-width: 48rem) {
+  .teldra-studio-selection-workspace__mobile-header > button > .teldra-studio-icon,
+  .teldra-view-controls__mobile > button > .teldra-studio-icon {
+    display: none;
+  }
+}

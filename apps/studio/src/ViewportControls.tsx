@@ -1,6 +1,7 @@
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { BabylonTwinRuntime, ViewDirection, ViewState } from "@teldra/runtime-babylon";
 import { studioBuildLabel } from "./studio-build";
+import { StudioIcon } from "./StudioIcon";
 
 export function ViewportControls(props: {
   runtime: BabylonTwinRuntime;
@@ -145,12 +146,12 @@ export function ViewportControls(props: {
   });
   return <div class="teldra-view-controls">
     <div class="teldra-view-controls__bar" role="group" aria-label="Camera controls">
-      <button type="button" onClick={() => props.runtime.fitHome()}>Home</button>
-      <button type="button" onClick={() => fit()}>Fit scene</button>
-      <button type="button" disabled={!props.selectedId} onClick={() => fit(true)}>Fit selection</button>
-      <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>
-      <button type="button" aria-label="Zoom in" onClick={() => props.runtime.zoom(0.8)}>+</button>
-      <button type="button" aria-label="Zoom out" onClick={() => props.runtime.zoom(1.25)}>-</button>
+      <button type="button" onClick={() => props.runtime.fitHome()}><StudioIcon name="house" /> Home</button>
+      <button type="button" onClick={() => fit()}><StudioIcon name="frame" /> Fit scene</button>
+      <button type="button" disabled={!props.selectedId} onClick={() => fit(true)}><StudioIcon name="focus" /> Fit selection</button>
+      <button type="button" onClick={() => props.runtime.resetView()}><StudioIcon name="reset" /> Reset view</button>
+      <button type="button" aria-label="Zoom in" onClick={() => props.runtime.zoom(0.8)}><StudioIcon name="zoomIn" /></button>
+      <button type="button" aria-label="Zoom out" onClick={() => props.runtime.zoom(1.25)}><StudioIcon name="zoomOut" /></button>
       <label>Projection <select aria-label="Projection" value={view()?.projection ?? "perspective"} onChange={event =>
         props.runtime.setProjection(event.currentTarget.value as "perspective" | "orthographic")}>
         <option value="perspective">Perspective</option><option value="orthographic">Orthographic</option>
@@ -170,10 +171,10 @@ export function ViewportControls(props: {
         }}</For>
       </div>
       <div role="group" aria-label="Standard views" class="teldra-view-controls__bar">
-        <button type="button" onClick={() => orient("isometric")}>Isometric</button>
-        <button type="button" onClick={() => orient("+y")}>Top</button>
-        <button type="button" onClick={() => orient("-z")}>Front</button>
-        <button type="button" onClick={() => orient("+x")}>Right</button>
+        <button type="button" onClick={() => orient("isometric")}><StudioIcon name="isometric" /> Isometric</button>
+        <button type="button" onClick={() => orient("+y")}><StudioIcon name="top" /> Top</button>
+        <button type="button" onClick={() => orient("-z")}><StudioIcon name="front" /> Front</button>
+        <button type="button" onClick={() => orient("+x")}><StudioIcon name="right" /> Right</button>
       </div>
       <div role="group" aria-label="Pan controls" class="teldra-view-controls__bar">
         <For each={[[-1, 0, "left"], [1, 0, "right"], [0, 1, "up"], [0, -1, "down"]] as const}>{item =>
@@ -181,7 +182,7 @@ export function ViewportControls(props: {
         }</For>
       </div>
     </div>
-    <details class="teldra-view-controls__panel teldra-view-controls__panel--layers"><summary>Layers</summary><div class="teldra-view-controls__panel-content teldra-view-controls__layers">
+    <details class="teldra-view-controls__panel teldra-view-controls__panel--layers"><summary><StudioIcon name="layers" /> Layers</summary><div class="teldra-view-controls__panel-content teldra-view-controls__layers">
       <For each={["category", "level"] as const}>{group => <fieldset><legend>{group === "category" ? "Content" : "Levels"}</legend>
         <For each={layerDefinitions.filter(layer => layer.group === group)}>{layer => <label>
           <input type="checkbox" checked={layers().find(current => current.id === layer.id)?.visible ?? true} onChange={event => {
@@ -190,12 +191,12 @@ export function ViewportControls(props: {
         </label>}</For>
       </fieldset>}</For>
     </div></details>
-    <details class="teldra-view-controls__panel teldra-view-controls__panel--help"><summary>Navigation help</summary><div class="teldra-view-controls__panel-content">
+    <details class="teldra-view-controls__panel teldra-view-controls__panel--help"><summary><StudioIcon name="help" /> Navigation help</summary><div class="teldra-view-controls__panel-content">
       <p>Blender-style navigation: middle-drag to orbit, Shift+middle-drag to pan, scroll to zoom. Left-drag orbit and right-drag pan remain available. Touch: one finger orbits; two fingers pan and pinch to zoom.</p>
       <p>Focus the 3D canvas: G move, R rotate, S requests scale only for validated IFC mapped geometry; unsupported scale operations remain disabled. After G/R, X/Y/Z constrain, type a number, Enter applies, Esc cancels. IFC furniture rotation is upright Z only.</p>
       <p>Numpad 1 front, 3 right, 7 top, 5 projection, 2/4/6/8 orbit, Shift+numpad pan, numpad decimal frames selection, Home fits scene, Shift+Home resets view. Arrows orbit, Shift+arrows pan, +/- zoom, F fits the scene, Shift+F fits selection. Ctrl/Command+S saves; Ctrl/Command+Z undoes, Shift+Ctrl/Command+Z redoes.</p>
     </div></details>
-    <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary>Appearance</summary><div class="teldra-view-controls__panel-content">
+    <details class="teldra-view-controls__panel teldra-view-controls__panel--appearance"><summary><StudioIcon name="appearance" /> Appearance</summary><div class="teldra-view-controls__panel-content">
       <label><input type="checkbox" checked={appearance().texturesEnabled} onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures and diffuse maps</label>
       <label><input type="checkbox" aria-label="Inspect floor textures without lighting" disabled={!appearance().texturesEnabled} checked={appearance().floorTextureInspection}
         onChange={event => {props.runtime.setAppearance({floorTextureInspection:event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Inspect floor textures (unlit)</label>
@@ -226,17 +227,17 @@ export function ViewportControls(props: {
     </div></details>
     <div class="teldra-view-controls__mobile">
       <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
-        onClick={() => setMobileViewOpen(!mobileViewOpen())}>View</button>
+        onClick={() => setMobileViewOpen(!mobileViewOpen())}><StudioIcon name="appearance" /> View</button>
       <Show when={mobileViewOpen()}>
         <div id="teldra-mobile-view-settings" role="group" aria-label="Mobile view settings" class="teldra-view-controls__mobile-sheet">
           <strong>Camera</strong>
           <div class="teldra-view-controls__mobile-grid">
-            <button type="button" onClick={() => fit()}>Fit scene</button>
-            <button type="button" disabled={!props.selectedId} onClick={() => fit(true)}>Fit selection</button>
-            <button type="button" onClick={() => orient("isometric")}>Isometric</button>
-            <button type="button" onClick={() => orient("+y")}>Top</button>
-            <button type="button" onClick={() => orient("-z")}>Front</button>
-            <button type="button" onClick={() => orient("+x")}>Right</button>
+            <button type="button" onClick={() => fit()}><StudioIcon name="frame" /> Fit scene</button>
+            <button type="button" disabled={!props.selectedId} onClick={() => fit(true)}><StudioIcon name="focus" /> Fit selection</button>
+            <button type="button" onClick={() => orient("isometric")}><StudioIcon name="isometric" /> Isometric</button>
+            <button type="button" onClick={() => orient("+y")}><StudioIcon name="top" /> Top</button>
+            <button type="button" onClick={() => orient("-z")}><StudioIcon name="front" /> Front</button>
+            <button type="button" onClick={() => orient("+x")}><StudioIcon name="right" /> Right</button>
           </div>
           <label>Projection
             <select aria-label="Mobile camera projection" value={view()?.projection ?? "perspective"}
@@ -246,7 +247,7 @@ export function ViewportControls(props: {
             </select>
           </label>
           <details>
-            <summary>Layers</summary>
+            <summary><StudioIcon name="layers" /> Layers</summary>
             <div class="teldra-view-controls__mobile-layers">
               <Show when={props.hasHiddenSourceContent}>
                 <label><input type="checkbox" aria-label="Reveal hidden source geometry" checked={props.hiddenSourceVisible ?? false}
@@ -262,7 +263,7 @@ export function ViewportControls(props: {
             </div>
           </details>
           <details>
-            <summary>Appearance</summary>
+            <summary><StudioIcon name="appearance" /> Appearance</summary>
             <div class="teldra-view-controls__mobile-layers">
               <label><input type="checkbox" checked={appearance().texturesEnabled}
                 onChange={event => {props.runtime.setAppearance({texturesEnabled: event.currentTarget.checked});setAppearance(props.runtime.appearance());}} />Textures</label>
@@ -297,7 +298,7 @@ export function ViewportControls(props: {
               <small data-testid="studio-build-mobile">Studio build: {studioBuildLabel}</small>
             </div>
           </details>
-          <button type="button" onClick={() => props.runtime.resetView()}>Reset view</button>
+          <button type="button" onClick={() => props.runtime.resetView()}><StudioIcon name="reset" /> Reset view</button>
         </div>
       </Show>
     </div>
