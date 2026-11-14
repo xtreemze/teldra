@@ -8,6 +8,7 @@ from teldra_ifc.wall_authoring import (
     WallAuthoringError,
     create_straight_wall,
     edit_straight_wall,
+    inspect_wall_edit_eligibility,
 )
 
 
@@ -107,3 +108,39 @@ def test_rejects_unknown_identity_or_unsupported_storey():
         create_straight_wall(model, "not-an-id", _straight())
     with pytest.raises(WallAuthoringError, match="IfcWall"):
         edit_straight_wall(model, storey_guid, _straight())
+
+
+def test_edit_eligibility_matches_writer_for_unhosted_and_hosted_walls():
+    model, storey_guid = _fixture()
+    model, guid = create_straight_wall(model, storey_guid, _straight())
+    initial = model.to_string()
+    assert inspect_wall_edit_eligibility(model, guid) == (True, None)
+    assert model.to_string() == initial
+
+    wall = model.by_guid(guid)
+    opening = ifcopenshell.api.root.create_entity(
+        model, ifc_class="IfcOpeningElement", name="Hosted opening"
+    )
+    model.createIfcRelVoidsElement(
+        GlobalId=__import__("ifcopenshell").guid.new(),
+        RelatingBuildingElement=wall,
+        RelatedOpeningElement=opening,
+    )
+    hosted = model.to_string()
+    eligible, reason = inspect_wall_edit_eligibility(model, guid)
+    assert eligible is False
+    assert "hosting an opening" in reason
+    assert model.to_string() == hosted
+    with pytest.raises(WallAuthoringError, match="hosting an opening"):
+        edit_straight_wall(model, guid, _straight())
+    assert model.to_string() == hosted
+
+
+def test_edit_eligibility_rejects_missing_and_non_geometric_wall():
+    model, storey_guid = _fixture()
+    assert inspect_wall_edit_eligibility(model, "missing")[0] is False
+    assert inspect_wall_edit_eligibility(model, storey_guid)[0] is False
+    original_wall = next(w for w in model.by_type("IfcWall"))
+    eligible, reason = inspect_wall_edit_eligibility(model, original_wall.GlobalId)
+    assert eligible is False
+    assert "Body representation" in reason
