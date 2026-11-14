@@ -1,3 +1,4 @@
+from .wall_authoring import StraightWall, WallAuthoringError, create_straight_wall, edit_straight_wall
 from .identity import IfcIdentityError, resolve_global_id
 from .model import (
     HomeModelIds,
@@ -19,4 +20,8 @@ __all__ = [
     "open_model",
     "resolve_global_id",
     "write_model",
+    "StraightWall",
+    "WallAuthoringError",
+    "create_straight_wall",
+    "edit_straight_wall",
 ]
