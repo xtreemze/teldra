@@ -73,6 +73,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, str, str]:
 
     def artifact(path):
         return {"path": path, "sha256": _hash(entries[path])}
+
     entries["project.json"] = _json(
         {
             "formatVersion": "0.1.0",
