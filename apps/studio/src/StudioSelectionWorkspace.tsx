@@ -1,3 +1,4 @@
+import { resolveSceneSelection } from "./resolve-scene-selection.js";
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { FurnitureEditSession, FurnitureWorldPose, TwinRenderIdentity, FurnitureMeasuredBounds } from "@teldra/runtime-babylon";
 import type { FurnitureGeometryScale } from "@teldra/application";
@@ -126,7 +127,9 @@ export function StudioSelectionWorkspace(
   };
 
   const selectRenderIdentity = (identity: TwinRenderIdentity | null) => {
-    selectCanonicalId(identity?.canonicalId ?? null);
+    selectCanonicalId(resolveSceneSelection(identity,
+      props.controller.twin.devices.map(device => device.id),
+      props.controller.twin.building.refs));
   };
   const matches = (...parts: (string | undefined)[]) => {
     const query = search().trim().toLocaleLowerCase();
