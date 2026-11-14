@@ -182,6 +182,7 @@ def test_invalid_archive_references_and_existing_destination_fail_closed(tmp_pat
         )
     assert not output.exists()
 
+
 def test_studio_wall_draft_json_roundtrip_and_rejects_wrong_contract(tmp_path):
     draft = tmp_path / "draft.json"
     intent = {
