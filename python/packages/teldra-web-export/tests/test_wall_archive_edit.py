@@ -318,3 +318,66 @@ def test_wall_archive_preflight_rejects_native_visuals_and_corrupt_archives(tmp_
             output.writestr(name, data)
     with pytest.raises(WallArchiveEditError, match="Unresolved authored building reference"):
         inspect_wall_archive(dangling)
+
+
+def test_wall_edit_publishes_a_verified_archive_copy_without_mutating_original(tmp_path):
+    source, storey, _ = _fixture(tmp_path)
+    original = source.read_bytes()
+    destination = tmp_path / "atomically-published.teldra"
+    guid = edit_wall_archive_copy(
+        source,
+        destination,
+        storey_global_id=storey,
+        wall=StraightWall((6, 0), (6, 4), 0.2, 2.6),
+        expected_source_sha256=_hash(original),
+    )
+    assert source.read_bytes() == original
+    with ZipFile(destination) as archive:
+        assert archive.testzip() is None
+        model = ifcopenshell.file.from_string(archive.read("building.ifc").decode())
+        scene = json.loads(archive.read("scene.manifest.json"))
+        manifest = json.loads(archive.read("project.json"))
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    assert model.by_guid(guid).is_a("IfcWall")
+    assert any(node["ifcGlobalId"] == guid for node in scene["nodes"])
+    assert all(
+        item["sha256"] == _hash(entries[item["path"]])
+        for item in (manifest["building"], manifest["twin"], *manifest["derived"])
+    )
+    with pytest.raises(FileExistsError):
+        edit_wall_archive_copy(
+            source,
+            destination,
+            storey_global_id=storey,
+            wall=StraightWall((7, 0), (7, 4), 0.2, 2.6),
+        )
+
+
+def test_corrupted_rebuilt_scene_is_never_published(tmp_path, monkeypatch):
+    source, storey, _ = _fixture(tmp_path)
+    destination = tmp_path / "must-not-be-published.teldra"
+    original = source.read_bytes()
+    writer_globals = edit_wall_archive_copy.__globals__
+    real_export = writer_globals["export_ifc_web_scene"]
+
+    def corrupt_export(ifc_path, glb_path, manifest_path, *, canonical_by_global_id):
+        real_export(
+            ifc_path,
+            glb_path,
+            manifest_path,
+            canonical_by_global_id=canonical_by_global_id,
+        )
+        scene = json.loads(manifest_path.read_text(encoding="utf-8"))
+        scene["source"]["buildingSha256"] = "0" * 64
+        manifest_path.write_text(json.dumps(scene), encoding="utf-8")
+
+    monkeypatch.setitem(writer_globals, "export_ifc_web_scene", corrupt_export)
+    with pytest.raises(WallArchiveEditError, match="provenance"):
+        edit_wall_archive_copy(
+            source,
+            destination,
+            storey_global_id=storey,
+            wall=StraightWall((6, 0), (6, 4), 0.2, 2.6),
+        )
+    assert source.read_bytes() == original
+    assert not destination.exists()
