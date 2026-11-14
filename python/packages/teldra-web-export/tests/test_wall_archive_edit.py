@@ -15,6 +15,7 @@ EDIT_SCRIPT = Path(__file__).parents[4] / "tools" / "import" / "edit_wall_projec
 MODULE = runpy.run_path(str(EDIT_SCRIPT))
 edit_wall_archive_copy = MODULE["edit_wall_archive_copy"]
 read_wall_draft_json = MODULE["read_wall_draft_json"]
+inspect_wall_archive = MODULE["inspect_wall_archive"]
 WallArchiveEditError = MODULE["WallArchiveEditError"]
 
 
@@ -260,3 +261,45 @@ def test_wall_archive_source_fingerprint_guards_reviewed_input(tmp_path):
             expected_source_sha256="not-a-sha",
         )
     assert not rejected.exists()
+
+
+def test_wall_archive_preflight_reports_exact_source_and_ifc_storeys(tmp_path):
+    source, storey, _ = _fixture(tmp_path)
+    unchanged = source.read_bytes()
+    report = inspect_wall_archive(source)
+    assert report["eligible"] is True
+    assert report["sourceSha256"] == _hash(unchanged)
+    assert report["ifcSchema"] == "IFC4"
+    assert report["storeys"] == [{"ifcGlobalId": storey, "name": "Ground"}]
+    assert report["buildingReferences"] == 2
+    assert source.read_bytes() == unchanged
+    assert sorted(path.name for path in tmp_path.glob("*.teldra")) == [source.name]
+
+    out = tmp_path / "created-after-preflight.teldra"
+    edit_wall_archive_copy(
+        source,
+        out,
+        storey_global_id=report["storeys"][0]["ifcGlobalId"],
+        wall=StraightWall((5, 0), (8, 0), 0.15, 2.6),
+        expected_source_sha256=report["sourceSha256"],
+    )
+    assert out.exists()
+
+
+def test_wall_archive_preflight_rejects_native_visuals_and_corrupt_archives(tmp_path):
+    source, _, _ = _fixture(tmp_path)
+    visual = tmp_path / "native-with-materials.teldra"
+    with ZipFile(source) as original, ZipFile(visual, "w") as output:
+        for name in original.namelist():
+            output.writestr(name, original.read(name))
+        output.writestr("visual-export.json", b"{}")
+    with pytest.raises(WallArchiveEditError, match="cannot yet be regenerated"):
+        inspect_wall_archive(visual)
+
+    corrupted = tmp_path / "corrupt.teldra"
+    with ZipFile(source) as original, ZipFile(corrupted, "w") as output:
+        for name in original.namelist():
+            payload = original.read(name)
+            output.writestr(name, b"invalid" if name == "building.ifc" else payload)
+    with pytest.raises(WallArchiveEditError, match="hash"):
+        inspect_wall_archive(corrupted)
