@@ -143,6 +143,37 @@ def create_straight_wall(
     return model, wall.GlobalId
 
 
+def _editable_wall_body(
+    model: ifcopenshell.file,
+    wall: ifcopenshell.entity_instance,
+) -> ifcopenshell.entity_instance:
+    """Exactly the topology/ownership gates used for actual wall edits."""
+    original = _editable_wall_body(model, wall)
+    return original
+
+
+def inspect_wall_edit_eligibility(
+    source: ifcopenshell.file,
+    wall_global_id: str,
+) -> tuple[bool, str | None]:
+    """Nonmutating eligibility gate; not permission to skip writer validation.
+
+    This checks existing topology and representation only. The writer must still
+    verify geometry, isolated source authority and source archive revision.
+    """
+    try:
+        if source.schema != "IFC4":
+            raise WallAuthoringError("Only IFC4 is supported for wall authoring.")
+        if abs(ifcopenshell.util.unit.calculate_unit_scale(source) - 1.0) > 1e-12:
+            raise WallAuthoringError("Only metre-based IFC models are currently writable.")
+        wall = _wall_by_guid(source, wall_global_id)
+        _body_context(source)
+        _editable_wall_body(source, wall)
+    except WallAuthoringError as error:
+        return False, str(error)
+    return True, None
+
+
 def edit_straight_wall(
     source: ifcopenshell.file,
     wall_global_id: str,
