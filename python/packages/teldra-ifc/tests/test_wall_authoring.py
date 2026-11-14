@@ -54,8 +54,8 @@ def test_edit_wall_preserves_guid_and_untouched_source_references(tmp_path):
     assert {item.GlobalId for item in modified.by_type("IfcRoot")} == original_guids
     assert len(modified.by_guid(guid).Representation.Representations) == 1
     reopened = open_model(write_model(modified, tmp_path / "edited-wall.ifc"))
-    assert reopened.by_guid(guid).Representation.Representations[0].RepresentationType == "SweptSolid"
-    assert reopened.by_guid(guid).ContainedInStructure[0].RelatingStructure.GlobalId == storey_guid
+    representation = reopened.by_guid(guid).Representation.Representations[0]\n    assert representation.RepresentationType == "SweptSolid"
+    containment = reopened.by_guid(guid).ContainedInStructure[0]\n    assert containment.RelatingStructure.GlobalId == storey_guid
 
 
 def test_rejects_degenerate_wall_without_mutating_source():
