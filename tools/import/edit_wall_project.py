@@ -100,6 +100,11 @@ def inspect_wall_archive(source: Path) -> dict:
     model = ifcopenshell.file.from_string(entries["building.ifc"].decode("utf-8"))
     if model.schema != "IFC4":
         raise WallArchiveEditError("Only canonical IFC4 source archives are supported.")
+    for ref in twin["building"]["refs"]:
+        if model.by_guid(ref["ifcGlobalId"]) is None:
+            raise WallArchiveEditError(
+                f"Unresolved authored building reference in preflight: {ref['id']}"
+            )
     storeys = sorted(
         (
             {"ifcGlobalId": storey.GlobalId, "name": storey.Name or "Unnamed storey"}
