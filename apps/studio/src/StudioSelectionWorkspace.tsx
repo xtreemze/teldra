@@ -6,6 +6,7 @@ import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit
 import { transformShortcut, numericFurniturePose, numericFurnitureScale, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
+import { WallPlanDraft } from "./WallPlanDraft";
 import { signalMobileFeedback, signalMobileSound } from "./mobile-feedback";
 import { readMobileFeedbackPreferences, writeMobileFeedbackPreferences } from "./mobile-feedback-preferences";
 import { MobileTransformPad } from "./MobileTransformPad";
@@ -39,6 +40,7 @@ export function StudioSelectionWorkspace(
     (typeof window === "undefined" || !window.matchMedia("(max-width: 48rem)").matches),
   );
   const [search, setSearch] = createSignal("");
+  const [wallDraftOpen, setWallDraftOpen] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const [rebaking, setRebaking] = createSignal(false);
   const [actionError, setActionError] = createSignal("");
@@ -603,11 +605,20 @@ export function StudioSelectionWorkspace(
         class="teldra-studio-selection-workspace__inspector"
         aria-label="Project selection and device inspector"
       >
-        <section id="teldra-scene-panel" class="teldra-studio-selection-workspace__scene-panel" hidden={!sceneOpen()}
+        <section id="teldra-scene-panel" class="teldra-studio-selection-workspace__scene-panel"
+          classList={{"teldra-studio-selection-workspace__scene-panel--drafting": wallDraftOpen()}} hidden={!sceneOpen()}
           data-mobile-detent={sceneDetent()} aria-labelledby="studio-device-list-title">
           <MobileSheetHandle label="Scene" detent={sceneDetent()}
             onDetentChange={next => setMobileDetent("scene", next)} onClose={() => closeMobileSheet("scene")} />
           <h2 id="studio-device-list-title">Scene</h2>
+          <button type="button" aria-expanded={wallDraftOpen()} aria-controls="teldra-wall-draft-panel"
+            title="Draw a precision CAD wall draft. IFC Apply is not yet available."
+            onClick={() => setWallDraftOpen(value => !value)}>Wall draft (2D)</button>
+          <Show when={wallDraftOpen()}>
+            <div id="teldra-wall-draft-panel" class="teldra-studio-selection-workspace__wall-draft">
+              <WallPlanDraft />
+            </div>
+          </Show>
           <p class="teldra-studio-selection-workspace__hint">Select an item here or in the scene.</p>
           <label class="teldra-studio-selection-workspace__search">Search scene<input type="search" placeholder="Name, type, or ID" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} /></label>
           <h3>Devices <span class="teldra-studio-selection-workspace__count">{devices().length}</span></h3>
