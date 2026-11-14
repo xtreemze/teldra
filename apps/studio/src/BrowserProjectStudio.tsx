@@ -9,6 +9,7 @@ import { openLaunchedProject } from "./PortableProject";
 import { PwaControls } from "./PwaControls";
 import { StudioIcon } from "./StudioIcon";
 import { StudioSelectionWorkspace } from "./StudioSelectionWorkspace";
+import { registerBimWebMcpReadTools } from "./bim-webmcp";
 import type { TwinViewportHandle } from "./TwinViewport";
 import "./BrowserProjectStudio.css";
 
@@ -27,6 +28,33 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
   const [project, setProject] = createSignal<BrowserStudioProject | null>(null);
   const [opening, setOpening] = createSignal(false);
   const [error, setError] = createSignal("");
+  const [agentReadEnabled, setAgentReadEnabled] = createSignal(false);
+  const [agentReadError, setAgentReadError] = createSignal("");
+  const supportsWebMcp = () => "modelContext" in document;
+
+  createEffect(() => {
+    const current = project();
+    const enabled = agentReadEnabled();
+    if (!current || !enabled) return;
+    let cancelled = false;
+    let unregister: (() => void) | undefined;
+    setAgentReadError("");
+    void registerBimWebMcpReadTools(document as unknown as Parameters<typeof registerBimWebMcpReadTools>[0], current.controller)
+      .then(dispose => {
+        if (cancelled) dispose();
+        else unregister = dispose;
+      })
+      .catch(cause => {
+        if (!cancelled) {
+          setAgentReadError(cause instanceof Error ? cause.message : String(cause));
+          setAgentReadEnabled(false);
+        }
+      });
+    onCleanup(() => {
+      cancelled = true;
+      unregister?.();
+    });
+  });
 
   const supported = () =>
     props.fileAccessSupported ??
@@ -176,6 +204,14 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
                   <span>Project</span>
                   <strong data-testid="browser-project-file">{ready().fileName}</strong>
                   <Show when={ready().saveMode === "download"}><span class="teldra-browser-studio__save-mode">Save downloads a copy</span></Show>
+                  <label class="teldra-browser-studio__agent-read">
+                    <input type="checkbox" checked={agentReadEnabled()}
+                      disabled={!supportsWebMcp()}
+                      onChange={event => setAgentReadEnabled(event.currentTarget.checked)} />
+                    Allow browser AI agents to inspect this project's BIM references (read-only)
+                  </label>
+                  <Show when={!supportsWebMcp()}><small>WebMCP tools unavailable in this browser; manual Studio editing remains available.</small></Show>
+                  <Show when={agentReadError()}><small role="alert">{agentReadError()}</small></Show>
                 </div>
                 <Show
                   when={ready().scene}
