@@ -632,7 +632,7 @@ export function StudioSelectionWorkspace(
             onClick={() => setWallDraftOpen(value => !value)}>Wall draft (2D)</button>
           <Show when={wallDraftOpen()}>
             <div id="teldra-wall-draft-panel" class="teldra-studio-selection-workspace__wall-draft">
-              <WallPlanDraft />
+              <WallPlanDraft currentRevision={() => props.controller.revision} />
             </div>
           </Show>
           <p class="teldra-studio-selection-workspace__hint">Select an item here or in the scene.</p>
