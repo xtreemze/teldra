@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ifcopenshell.api.root
 import pytest
-
 from teldra_ifc import create_ifc4_home, open_model, write_model
 from teldra_ifc.wall_authoring import (
     StraightWall,
