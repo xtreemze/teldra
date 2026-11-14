@@ -530,8 +530,8 @@ export function StudioSelectionWorkspace(
             </div>
           </Show>
         </Show>
-        <Show when={selectedBuildingRef() && !["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
-          <span class="teldra-studio-selection-workspace__hint" role="status">The selected {selectedBuildingRef()?.kind} is IFC architectural geometry. Wall, floor and opening creation or modification is not yet supported; no mesh-only changes will be saved.</span>
+        <Show when={selectedCanonicalId() && !selectedDevice() && !["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
+          <span class="teldra-studio-selection-workspace__hint" role="status">The selected scene element {selectedBuildingRef()?.kind ? `(${selectedBuildingRef()?.kind})` : ""} has no supported IFC furniture transform. Wall, floor and opening creation or modification is not yet supported; no mesh-only changes will be saved.</span>
         </Show>
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
         <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
