@@ -101,7 +101,11 @@ def inspect_wall_archive(source: Path) -> dict:
     if model.schema != "IFC4":
         raise WallArchiveEditError("Only canonical IFC4 source archives are supported.")
     for ref in twin["building"]["refs"]:
-        if model.by_guid(ref["ifcGlobalId"]) is None:
+        try:
+            entity = model.by_guid(ref["ifcGlobalId"])
+        except (RuntimeError, ValueError):
+            entity = None
+        if entity is None:
             raise WallArchiveEditError(
                 f"Unresolved authored building reference in preflight: {ref['id']}"
             )
