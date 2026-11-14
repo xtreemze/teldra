@@ -92,7 +92,7 @@ export function WallPlanDraft() {
     a.href = url;
     a.download = "teldra-wall-draft.json";
     document.body.append(a);
-    try { a.click(); } finally { a.remove(); URL.revokeObjectURL(url); }
+    try { a.click(); } finally { a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 5_000); }
   };
   const corners = () => {
     const wall = validDraft();
@@ -131,7 +131,7 @@ export function WallPlanDraft() {
       <For each={[["Start", "start"], ["End", "end"]] as const}>{([title, kind]) => <div>
         <strong>{title}</strong>
         <For each={["X", "Y"] as const}>{(axis, index) => <label>{axis} (m)
-          <input type="number" step="any" value={(kind === "start" ? start() : end())?.[index()] ?? 0}
+          <input aria-label={`${title} ${axis} (m)`} type="number" step="any" value={(kind === "start" ? start() : end())?.[index()] ?? 0}
             onChange={event => editPoint(kind, index() as 0 | 1, event.currentTarget.valueAsNumber)} />
         </label>}</For>
       </div>}</For>
