@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import ifcopenshell.api.aggregate
 import ifcopenshell.api.root
-import ifcopenshell.util.element
 import pytest
 
 from teldra_ifc import create_ifc4_home, open_model, write_model
 from teldra_ifc.wall_authoring import (
-    StraightWall, WallAuthoringError, create_straight_wall, edit_straight_wall,
+    StraightWall,
+    WallAuthoringError,
+    create_straight_wall,
+    edit_straight_wall,
 )
 
 
@@ -54,8 +55,10 @@ def test_edit_wall_preserves_guid_and_untouched_source_references(tmp_path):
     assert {item.GlobalId for item in modified.by_type("IfcRoot")} == original_guids
     assert len(modified.by_guid(guid).Representation.Representations) == 1
     reopened = open_model(write_model(modified, tmp_path / "edited-wall.ifc"))
-    representation = reopened.by_guid(guid).Representation.Representations[0]\n    assert representation.RepresentationType == "SweptSolid"
-    containment = reopened.by_guid(guid).ContainedInStructure[0]\n    assert containment.RelatingStructure.GlobalId == storey_guid
+    representation = reopened.by_guid(guid).Representation.Representations[0]
+    assert representation.RepresentationType == "SweptSolid"
+    containment = reopened.by_guid(guid).ContainedInStructure[0]
+    assert containment.RelatingStructure.GlobalId == storey_guid
 
 
 def test_rejects_degenerate_wall_without_mutating_source():
