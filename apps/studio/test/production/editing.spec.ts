@@ -125,3 +125,31 @@ test("human review accepts a proposal into an isolated draft without IFC mutatio
   await expect(panel.getByLabel("End X (m)")).toHaveValue("5");
   await expect(page.getByRole("button", {name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("wall proposal approval rejects a stale canonical revision after a furniture edit", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button", {name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button", {name:"Wall draft (2D)"}).click();
+  const panel = page.getByRole("region", {name:"Wall plan draft"});
+  await panel.getByText("Review imported or agent-proposed wall draft").click();
+  const proposal = JSON.stringify({
+    format:"teldra-wall-draft-v1",operation:"CreateWall",coordinateFrame:"ifc-world-metres-z-up",
+    wall:{start:[1,2],end:[5,2],thicknessMetres:0.2,heightMetres:2.8}
+  });
+  await panel.getByRole("textbox", {name:"Wall draft JSON proposal"}).fill(proposal);
+  await panel.getByRole("button", {name:"Preview proposal"}).click();
+  await expect(panel.getByTestId("wall-proposal-footprint")).toBeVisible();
+  await page.getByRole("list", {name:"Building objects",exact:true})
+    .getByRole("button", {name:/^Chair/}).click();
+  await page.getByRole("group",{name:"Start IFC furniture transform"})
+    .getByRole("button",{name:"Move",exact:true}).click();
+  const position = page.getByLabel("Position X (m)",{exact:true});
+  await position.fill("1.5");
+  await page.getByRole("button",{name:"Apply placement",exact:true}).click();
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeEnabled();
+  await panel.getByRole("button", {name:"Accept into draft"}).click();
+  await expect(panel.getByText(/project changed since this wall proposal was previewed/i)).toBeVisible();
+  await expect(panel.getByTestId("wall-proposal-footprint")).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeEnabled();
+});
