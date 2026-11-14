@@ -1,3 +1,4 @@
+import { resolveSceneSelection } from "./resolve-scene-selection.js";
 import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { FurnitureEditSession, FurnitureWorldPose, TwinRenderIdentity, FurnitureMeasuredBounds } from "@teldra/runtime-babylon";
 import type { FurnitureGeometryScale } from "@teldra/application";
@@ -128,7 +129,9 @@ export function StudioSelectionWorkspace(
   };
 
   const selectRenderIdentity = (identity: TwinRenderIdentity | null) => {
-    selectCanonicalId(identity?.canonicalId ?? null);
+    selectCanonicalId(resolveSceneSelection(identity,
+      props.controller.twin.devices.map(device => device.id),
+      props.controller.twin.building.refs));
   };
   const matches = (...parts: (string | undefined)[]) => {
     const query = search().trim().toLocaleLowerCase();
@@ -519,8 +522,21 @@ export function StudioSelectionWorkspace(
                 onClick={() => { setEditMode("scale"); editSession?.setMode("scale"); }}><StudioIcon name="scale" /> Scale</button>
             </div>
           }>
-            <button type="button" disabled={!viewport()} title={viewport() ? "Manipulate selected furniture with 3D gizmos" : "3D scene is still loading"} onClick={() => { setInspectorOpen(true); setEditRequest((request) => request + 1); }}><StudioIcon name="select" /> Edit transform</button>
+            <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Start IFC furniture transform">
+              <button type="button" aria-keyshortcuts="G" disabled={!viewport()}
+                title={viewport() ? "Move selected furniture with a 3D gizmo or precise numeric coordinates (G)" : "3D scene is still loading"}
+                onClick={() => startMobileFurnitureEdit("translate")}><StudioIcon name="move" /> Move</button>
+              <button type="button" aria-keyshortcuts="R" disabled={!viewport()}
+                title={viewport() ? "Rotate selected furniture around its vertical axis (R)" : "3D scene is still loading"}
+                onClick={() => startMobileFurnitureEdit("rotate")}><StudioIcon name="rotate" /> Rotate</button>
+              <button type="button" aria-keyshortcuts="S" disabled={!viewport()}
+                title="Check IFC-backed scale eligibility and edit dimensions (S)"
+                onClick={() => startMobileFurnitureEdit("scale")}><StudioIcon name="scale" /> Scale</button>
+            </div>
           </Show>
+        </Show>
+        <Show when={selectedCanonicalId() && !selectedDevice() && !["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
+          <span class="teldra-studio-selection-workspace__hint" role="status">The selected scene element {selectedBuildingRef()?.kind ? `(${selectedBuildingRef()?.kind})` : ""} has no supported IFC furniture transform. Wall, floor and opening creation or modification is not yet supported; no mesh-only changes will be saved.</span>
         </Show>
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
         <Show when={actionError()}><p role="alert">{actionError()}</p></Show>

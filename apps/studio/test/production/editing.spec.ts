@@ -6,7 +6,7 @@ test("Pages demo edits IFC furniture, saves atomically, and reopens with the sam
  await page.goto("./?demo=sample");await page.getByRole("button",{name:"Try demo",exact:true}).click();
  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
  const chair=()=>page.getByRole("list",{name:"Building objects",exact:true}).getByRole("button",{name:/^Chair/});
- await chair().click();await page.getByRole("button",{name:"Edit transform",exact:true}).click();
+ await chair().click();await page.getByRole("group",{name:"Start IFC furniture transform"}).getByRole("button",{name:"Move",exact:true}).click();
  await expect(page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Move"})).toHaveAttribute("aria-pressed","true");
  await page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Rotate"}).click();
  await expect(page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Rotate"})).toHaveAttribute("aria-pressed","true");
