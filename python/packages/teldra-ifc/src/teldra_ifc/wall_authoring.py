@@ -150,7 +150,7 @@ def edit_straight_wall(
     if len(reps) != 1 or reps[0].RepresentationIdentifier != "Body":
         raise WallAuthoringError("Only a uniquely owned wall Body representation is editable.")
     original = reps[0]
-    if original.RepresentationType != "SweptSolid" or len(original.Items) != 1 or not original.Items[0].is_a("IfcExtrudedAreaSolid"):
+    if (\n        original.RepresentationType != "SweptSolid"\n        or len(original.Items) != 1\n        or not original.Items[0].is_a("IfcExtrudedAreaSolid")\n    ):
         raise WallAuthoringError("Only straight extruded wall geometry is editable.")
     if len(model.get_inverse(original)) != 1:
         raise WallAuthoringError("Shared IFC wall representation cannot be replaced.")
