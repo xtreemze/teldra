@@ -13,6 +13,7 @@ from .wall_authoring import (
     WallAuthoringError,
     create_straight_wall,
     edit_straight_wall,
+    inspect_wall_edit_eligibility,
 )
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "WallAuthoringError",
     "create_straight_wall",
     "edit_straight_wall",
+    "inspect_wall_edit_eligibility",
 ]
