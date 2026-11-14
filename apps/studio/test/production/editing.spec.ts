@@ -77,3 +77,22 @@ test("Blender G/R modal keys create canonical IFC edits; S cannot apply a mesh-o
  await expect(page.getByTestId("transform-shortcut-status")).toContainText("cancelled");
  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("CAD wall draft previews dimensions and exports an intent without mutating the canonical project", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button", {name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button",{name:"Wall draft (2D)"}).click();
+  const panel = page.getByRole("region",{name:"Wall plan draft"});
+  await expect(panel).toBeVisible();
+  await panel.getByLabel("Start X (m)").fill("0");
+  await panel.getByLabel("End X (m)").fill("4");
+  await expect(panel.getByText("Length: 4.000 m")).toBeVisible();
+  await expect(panel.getByRole("button",{name:"Apply to IFC (not yet supported)"})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+  const pending = page.waitForEvent("download");
+  await panel.getByRole("button",{name:"Export wall draft JSON"}).click();
+  const download = await pending;
+  expect(download.suggestedFilename()).toBe("teldra-wall-draft.json");
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+});
