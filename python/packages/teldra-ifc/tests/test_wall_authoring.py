@@ -103,7 +103,7 @@ def test_rejects_hosted_wall_edit_and_preserves_opening_relation():
 
 def test_rejects_unknown_identity_or_unsupported_storey():
     model, storey_guid = _fixture()
-    with pytest.raises(WallAuthoringError, match="storey"):
+    with pytest.raises(WallAuthoringError, match="IfcBuildingStorey"):
         create_straight_wall(model, "not-an-id", _straight())
     with pytest.raises(WallAuthoringError, match="IfcWall"):
         edit_straight_wall(model, storey_guid, _straight())
