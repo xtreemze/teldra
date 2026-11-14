@@ -3,6 +3,9 @@ import {
   constrainPlanAngle,
   straightWallFootprint,
   validateStraightWallDraft,
+  parseWallDraftIntent,
+  serializeWallDraftIntent,
+  type WallDraftIntent,
   type PlanPoint,
   type StraightWallDraft,
 } from "@teldra/application";
@@ -22,6 +25,39 @@ export function WallPlanDraft() {
   const [angleStep, setAngleStep] = createSignal(45);
   const [gridEnabled, setGridEnabled] = createSignal(true);
   const [message, setMessage] = createSignal("");
+  const [proposalInput, setProposalInput] = createSignal("");
+  const [pendingProposal, setPendingProposal] = createSignal<WallDraftIntent | null>(null);
+  const [proposalMessage, setProposalMessage] = createSignal("");
+  const previewProposal = () => {
+    try {
+      const parsed = parseWallDraftIntent(proposalInput());
+      setPendingProposal(parsed);
+      setProposalMessage("");
+    } catch (error) {
+      setPendingProposal(null);
+      setProposalMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
+  const rejectProposal = () => {
+    setPendingProposal(null);
+    setProposalInput("");
+    setProposalMessage("Proposal rejected; existing wall draft unchanged.");
+  };
+  const acceptProposal = () => {
+    const proposal = pendingProposal();
+    if (!proposal) return;
+    // Turn off angle snapping so acceptance preserves the exact reviewed geometry.
+    setAngleStep(0);
+    setStart([...proposal.wall.start] as PlanPoint);
+    setEnd([...proposal.wall.end] as PlanPoint);
+    setPointer(null);
+    setThickness(proposal.wall.thicknessMetres);
+    setHeight(proposal.wall.heightMetres);
+    setPendingProposal(null);
+    setProposalInput("");
+    setProposalMessage("Proposal accepted into the local wall draft. IFC remains unchanged.");
+    setMessage("");
+  };
 
   const rawEnd = () => end() ?? pointer();
   const constrainedEnd = () => {
@@ -80,13 +116,7 @@ export function WallPlanDraft() {
   const exportIntent = () => {
     const wall = validDraft();
     if (!wall || !end()) { setMessage("Finish a valid wall segment before exporting."); return; }
-    const intent = JSON.stringify({
-      format: "teldra-wall-draft-v1",
-      operation: "CreateWall",
-      coordinateFrame: "ifc-world-metres-z-up",
-      wall,
-      warning: "Preview-only draft; not an IFC edit. Review and apply through an IFC authoring transaction.",
-    }, null, 2);
+    const intent = serializeWallDraftIntent(wall);
     const url = URL.createObjectURL(new Blob([intent], { type: "application/json" }));
     const a = document.createElement("a");
     a.href = url;
@@ -123,6 +153,10 @@ export function WallPlanDraft() {
       <line x1={WIDTH / 2} x2={WIDTH / 2} y1="0" y2={HEIGHT} stroke="currentColor" stroke-opacity=".35" />
       <line x1="0" x2={WIDTH} y1={HEIGHT / 2} y2={HEIGHT / 2} stroke="currentColor" stroke-opacity=".35" />
       <Show when={validDraft()}><polygon points={corners()} fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="2" /></Show>
+      <Show when={pendingProposal()}>{proposal => <polygon
+        data-testid="wall-proposal-footprint"
+        points={straightWallFootprint(proposal().wall).map(p => toScreen(p).join(",")).join(" ")}
+        fill="none" stroke="#e6bb77" stroke-width="2" stroke-dasharray="6 4" />}</Show>
       <Show when={start()}>{p => <circle cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="5" fill="currentColor" />}</Show>
       <Show when={constrainedEnd()}>{p => <circle cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="5" fill="currentColor" />}</Show>
     </svg>
@@ -139,6 +173,26 @@ export function WallPlanDraft() {
       <label>Height (m) <input type="number" min=".001" max="100" step="any" value={height()} onInput={event => setHeight(event.currentTarget.valueAsNumber)} /></label>
       <output aria-live="polite">Length: {length().toFixed(3)} m</output>
     </fieldset>
+    <details class="teldra-wall-plan-draft__proposal-review">
+      <summary>Review imported or agent-proposed wall draft</summary>
+      <p>Paste a versioned wall draft JSON proposal. Preview and accept it explicitly. Neither preview nor acceptance edits the IFC building or saves the project.</p>
+      <label for="wall-proposal-json">Wall draft JSON</label>
+      <textarea id="wall-proposal-json" aria-label="Wall draft JSON proposal" rows="5"
+        value={proposalInput()} onInput={event => { setProposalInput(event.currentTarget.value); setPendingProposal(null); setProposalMessage(""); }}
+        placeholder='{"format":"teldra-wall-draft-v1","operation":"CreateWall",...}' />
+      <div role="group" aria-label="Wall proposal review actions">
+        <button type="button" disabled={!proposalInput().trim()} onClick={previewProposal}>Preview proposal</button>
+        <button type="button" disabled={!pendingProposal()} onClick={acceptProposal}>Accept into draft</button>
+        <button type="button" disabled={!pendingProposal() && !proposalInput()} onClick={rejectProposal}>Reject proposal</button>
+      </div>
+      <Show when={pendingProposal()}>{proposal => <div role="status" aria-label="Proposed wall dimensions">
+        <strong>Pending review — not applied</strong>
+        <p>From ({proposal().wall.start.join(", ")}) m to ({proposal().wall.end.join(", ")}) m;
+          length {Math.hypot(proposal().wall.end[0] - proposal().wall.start[0], proposal().wall.end[1] - proposal().wall.start[1]).toFixed(3)} m;
+          thickness {proposal().wall.thicknessMetres} m; height {proposal().wall.heightMetres} m.</p>
+      </div>}</Show>
+      <Show when={proposalMessage()}><p role="status">{proposalMessage()}</p></Show>
+    </details>
     <div role="group" aria-label="Wall draft actions">
       <button type="button" onClick={reset}>Clear draft</button>
       <button type="button" disabled={!validDraft() || !end()} onClick={exportIntent}>Export wall draft JSON</button>

@@ -4,3 +4,4 @@ export * from "./twin-editor.js";
 export * from "./ifc-furniture-editor.js";
 export * from "./furniture-dimensions.js";
 export * from "./architectural-plan-draft.js";
+export * from "./wall-draft-intent.js";
