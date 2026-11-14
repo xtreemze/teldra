@@ -149,3 +149,9 @@ body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: 
   .teldra-browser-studio__open--project .teldra-browser-studio__open-label,
   .teldra-pwa-controls__button .teldra-pwa-controls__label { display: none; }
 }
+
+/* Project metadata must not intercept viewport tools when the metadata row wraps.
+   Preserve direct interaction with the explicit agent opt-in checkbox. */
+.teldra-browser-studio__file { pointer-events: none; }
+.teldra-browser-studio__file .teldra-browser-studio__agent-read,
+.teldra-browser-studio__file .teldra-browser-studio__agent-read input { pointer-events: auto; }
