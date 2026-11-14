@@ -264,7 +264,7 @@ def test_wall_archive_source_fingerprint_guards_reviewed_input(tmp_path):
 
 
 def test_wall_archive_preflight_reports_exact_source_and_ifc_storeys(tmp_path):
-    source, storey, _ = _fixture(tmp_path)
+    source, storey, wall_guid = _fixture(tmp_path)
     unchanged = source.read_bytes()
     report = inspect_wall_archive(source)
     assert report["eligible"] is True
@@ -272,6 +272,15 @@ def test_wall_archive_preflight_reports_exact_source_and_ifc_storeys(tmp_path):
     assert report["ifcSchema"] == "IFC4"
     assert report["storeys"] == [{"ifcGlobalId": storey, "name": "Ground Floor"}]
     assert report["buildingReferences"] == 2
+    assert report["walls"] == [
+        {
+            "canonicalId": f"ifc:{wall_guid}",
+            "ifcGlobalId": wall_guid,
+            "name": "Wall",
+            "editable": True,
+            "blockedReason": None,
+        }
+    ]
     assert source.read_bytes() == unchanged
     assert sorted(path.name for path in tmp_path.glob("*.teldra")) == [source.name]
 

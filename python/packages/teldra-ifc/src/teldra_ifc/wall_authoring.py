@@ -143,20 +143,11 @@ def create_straight_wall(
     return model, wall.GlobalId
 
 
-def edit_straight_wall(
-    source: ifcopenshell.file,
-    wall_global_id: str,
-    geometry: StraightWall,
-) -> ifcopenshell.file:
-    """Replace the unique Body of an eligible unhosted wall; preserve GlobalId.
-
-    An opening or non-extruded/complex representation fails closed. Connected
-    junction and space boundary recomputation is not implemented here, so walls
-    with explicit IFC boundary/connectivity relations are not editable.
-    """
-    _validate_wall(geometry)
-    model = _isolated_model(source)
-    wall = _wall_by_guid(model, wall_global_id)
+def _editable_wall_body(
+    model: ifcopenshell.file,
+    wall: ifcopenshell.entity_instance,
+) -> ifcopenshell.entity_instance:
+    """Exactly the topology/ownership gates used for actual wall edits."""
     for inverse in model.get_inverse(wall):
         if inverse.is_a("IfcRelVoidsElement"):
             raise WallAuthoringError(
@@ -176,6 +167,46 @@ def edit_straight_wall(
         raise WallAuthoringError("Only straight extruded wall geometry is editable.")
     if len(model.get_inverse(original)) != 1:
         raise WallAuthoringError("Shared IFC wall representation cannot be replaced.")
+    return original
+
+
+def inspect_wall_edit_eligibility(
+    source: ifcopenshell.file,
+    wall_global_id: str,
+) -> tuple[bool, str | None]:
+    """Nonmutating eligibility gate; not permission to skip writer validation.
+
+    This checks existing topology and representation only. The writer must still
+    verify geometry, isolated source authority and source archive revision.
+    """
+    try:
+        if source.schema != "IFC4":
+            raise WallAuthoringError("Only IFC4 is supported for wall authoring.")
+        if abs(ifcopenshell.util.unit.calculate_unit_scale(source) - 1.0) > 1e-12:
+            raise WallAuthoringError("Only metre-based IFC models are currently writable.")
+        wall = _wall_by_guid(source, wall_global_id)
+        _body_context(source)
+        _editable_wall_body(source, wall)
+    except WallAuthoringError as error:
+        return False, str(error)
+    return True, None
+
+
+def edit_straight_wall(
+    source: ifcopenshell.file,
+    wall_global_id: str,
+    geometry: StraightWall,
+) -> ifcopenshell.file:
+    """Replace the unique Body of an eligible unhosted wall; preserve GlobalId.
+
+    An opening or non-extruded/complex representation fails closed. Connected
+    junction and space boundary recomputation is not implemented here, so walls
+    with explicit IFC boundary/connectivity relations are not editable.
+    """
+    _validate_wall(geometry)
+    model = _isolated_model(source)
+    wall = _wall_by_guid(model, wall_global_id)
+    original = _editable_wall_body(model, wall)
     ifcopenshell.api.geometry.unassign_representation(
         model,
         product=wall,

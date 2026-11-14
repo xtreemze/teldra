@@ -14,7 +14,12 @@ from zipfile import ZIP_STORED, ZipFile
 
 import ifcopenshell
 
-from teldra_ifc import StraightWall, create_straight_wall, edit_straight_wall
+from teldra_ifc import (
+    StraightWall,
+    create_straight_wall,
+    edit_straight_wall,
+    inspect_wall_edit_eligibility,
+)
 from teldra_web_export import export_ifc_web_scene
 
 
@@ -116,12 +121,26 @@ def inspect_wall_archive(source: Path) -> dict:
         ),
         key=lambda storey: storey["ifcGlobalId"],
     )
+    walls = []
+    for ref in twin["building"]["refs"]:
+        if ref.get("kind") != "wall":
+            continue
+        editable, reason = inspect_wall_edit_eligibility(model, ref["ifcGlobalId"])
+        walls.append({
+            "canonicalId": ref["id"],
+            "ifcGlobalId": ref["ifcGlobalId"],
+            "name": ref.get("name") or "Unnamed wall",
+            "editable": editable,
+            "blockedReason": reason,
+        })
+    walls.sort(key=lambda wall: (wall["ifcGlobalId"], wall["canonicalId"]))
     # A building can be valid but have no eligible storey for wall creation.
     return {
         "eligible": bool(storeys),
         "sourceSha256": reviewed_sha256,
         "ifcSchema": model.schema,
         "storeys": storeys,
+        "walls": walls,
         "buildingReferences": len(twin["building"]["refs"]),
         "source": str(source),
         "constraint": (
