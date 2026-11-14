@@ -303,3 +303,18 @@ def test_wall_archive_preflight_rejects_native_visuals_and_corrupt_archives(tmp_
             output.writestr(name, b"invalid" if name == "building.ifc" else payload)
     with pytest.raises(WallArchiveEditError, match="hash"):
         inspect_wall_archive(corrupted)
+
+    dangling = tmp_path / "dangling-ref.teldra"
+    with ZipFile(source) as original:
+        entries = {name: original.read(name) for name in original.namelist()}
+    twin = json.loads(entries["twin.json"])
+    twin["building"]["refs"][0]["ifcGlobalId"] = "0" * 22
+    entries["twin.json"] = _json(twin)
+    project = json.loads(entries["project.json"])
+    project["twin"]["sha256"] = _hash(entries["twin.json"])
+    entries["project.json"] = _json(project)
+    with ZipFile(dangling, "w", compression=ZIP_STORED) as output:
+        for name, data in entries.items():
+            output.writestr(name, data)
+    with pytest.raises(WallArchiveEditError, match="Unresolved authored building reference"):
+        inspect_wall_archive(dangling)
