@@ -184,6 +184,7 @@ def test_ambiguous_bound_door_window_is_not_attached_by_guessing() -> None:
         "opening relation was not created.",
     )
 
+
 def test_imported_unhosted_sh3d_wall_remains_editable_with_source_provenance(tmp_path) -> None:
     """An eligible imported wall can be edited without rewriting original SH3D metadata."""
     imported = import_home_to_ifc(parse_home_xml(FIXTURE.read_bytes()))
