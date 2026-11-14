@@ -5,7 +5,13 @@ from pathlib import Path
 import ifcopenshell.util.element
 import ifcopenshell.util.placement
 import pytest
-from teldra_ifc import open_model, resolve_global_id, write_model
+from teldra_ifc import (
+    StraightWall,
+    edit_straight_wall,
+    open_model,
+    resolve_global_id,
+    write_model,
+)
 from teldra_import_sh3d import (
     Sh3dIfcMappingError,
     import_home_to_ifc,
@@ -177,3 +183,31 @@ def test_ambiguous_bound_door_window_is_not_attached_by_guessing() -> None:
         "doorOrWindow:opening0: wall binding matched 2 candidate host walls; "
         "opening relation was not created.",
     )
+
+
+def test_imported_unhosted_sh3d_wall_remains_editable_with_source_provenance(tmp_path) -> None:
+    """An eligible imported wall can be edited without rewriting original SH3D metadata."""
+    imported = import_home_to_ifc(parse_home_xml(FIXTURE.read_bytes()))
+    guid = imported.source_to_global_id["wall:wall1"]
+    original_model = imported.model
+    original_ifc = original_model.to_string()
+    before_pset = ifcopenshell.util.element.get_psets(original_model.by_guid(guid))["Teldra_Source"]
+
+    updated = edit_straight_wall(
+        original_model,
+        guid,
+        StraightWall(
+            start=(5.0, 0.0),
+            end=(5.0, -4.5),
+            thickness_m=0.16,
+            height_m=2.8,
+        ),
+    )
+
+    assert original_model.to_string() == original_ifc
+    assert updated.by_guid(guid).GlobalId == guid
+    current_pset = ifcopenshell.util.element.get_psets(updated.by_guid(guid))["Teldra_Source"]
+    assert current_pset == before_pset
+    reopened = open_model(write_model(updated, tmp_path / "changed-imported-wall.ifc"))
+    assert reopened.by_guid(guid).Representation is not None
+    assert reopened.by_guid(guid).GlobalId == guid

@@ -8,6 +8,12 @@ from .model import (
     open_model,
     write_model,
 )
+from .wall_authoring import (
+    StraightWall,
+    WallAuthoringError,
+    create_straight_wall,
+    edit_straight_wall,
+)
 
 __all__ = [
     "HomeModelIds",
@@ -19,4 +25,8 @@ __all__ = [
     "open_model",
     "resolve_global_id",
     "write_model",
+    "StraightWall",
+    "WallAuthoringError",
+    "create_straight_wall",
+    "edit_straight_wall",
 ]
