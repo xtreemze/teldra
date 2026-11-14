@@ -159,3 +159,15 @@ test("mobile project actions expose a protected rebake-copy operation", async ({
   await mobile.click();
   await expect(page.getByTestId("workspace-rebake-count")).toHaveText("1");
 });
+
+test("read-only architectural selection explains unsupported wall editing rather than exposing inert gizmos", async ({page}) => {
+  await page.goto("/iframe.html?id=studio-selectionworkspace--golden-home&viewMode=story");
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  const x = Number(await page.getByTestId("workspace-projected-x").textContent());
+  const y = Number(await page.getByTestId("workspace-projected-y").textContent());
+  await page.mouse.click(x, y);
+  await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText("wall:fixture");
+  const actions = page.getByRole("group", {name: "Project actions"});
+  await expect(actions.getByRole("group", {name: "Start IFC furniture transform"})).toHaveCount(0);
+  await expect(actions).toContainText("Wall, floor and opening creation or modification is not yet supported");
+});
