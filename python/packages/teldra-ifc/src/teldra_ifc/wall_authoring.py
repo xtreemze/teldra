@@ -148,7 +148,25 @@ def _editable_wall_body(
     wall: ifcopenshell.entity_instance,
 ) -> ifcopenshell.entity_instance:
     """Exactly the topology/ownership gates used for actual wall edits."""
-    original = _editable_wall_body(model, wall)
+    for inverse in model.get_inverse(wall):
+        if inverse.is_a("IfcRelVoidsElement"):
+            raise WallAuthoringError(
+                "A wall hosting an opening requires dependent opening updates."
+            )
+        if inverse.is_a("IfcRelConnectsElements") or inverse.is_a("IfcRelSpaceBoundary"):
+            raise WallAuthoringError("Connected or space-boundary walls require topology updates.")
+    reps = list(wall.Representation.Representations) if wall.Representation else []
+    if len(reps) != 1 or reps[0].RepresentationIdentifier != "Body":
+        raise WallAuthoringError("Only a uniquely owned wall Body representation is editable.")
+    original = reps[0]
+    if (
+        original.RepresentationType != "SweptSolid"
+        or len(original.Items) != 1
+        or not original.Items[0].is_a("IfcExtrudedAreaSolid")
+    ):
+        raise WallAuthoringError("Only straight extruded wall geometry is editable.")
+    if len(model.get_inverse(original)) != 1:
+        raise WallAuthoringError("Shared IFC wall representation cannot be replaced.")
     return original
 
 
@@ -188,25 +206,7 @@ def edit_straight_wall(
     _validate_wall(geometry)
     model = _isolated_model(source)
     wall = _wall_by_guid(model, wall_global_id)
-    for inverse in model.get_inverse(wall):
-        if inverse.is_a("IfcRelVoidsElement"):
-            raise WallAuthoringError(
-                "A wall hosting an opening requires dependent opening updates."
-            )
-        if inverse.is_a("IfcRelConnectsElements") or inverse.is_a("IfcRelSpaceBoundary"):
-            raise WallAuthoringError("Connected or space-boundary walls require topology updates.")
-    reps = list(wall.Representation.Representations) if wall.Representation else []
-    if len(reps) != 1 or reps[0].RepresentationIdentifier != "Body":
-        raise WallAuthoringError("Only a uniquely owned wall Body representation is editable.")
-    original = reps[0]
-    if (
-        original.RepresentationType != "SweptSolid"
-        or len(original.Items) != 1
-        or not original.Items[0].is_a("IfcExtrudedAreaSolid")
-    ):
-        raise WallAuthoringError("Only straight extruded wall geometry is editable.")
-    if len(model.get_inverse(original)) != 1:
-        raise WallAuthoringError("Shared IFC wall representation cannot be replaced.")
+    original = _editable_wall_body(model, wall)
     ifcopenshell.api.geometry.unassign_representation(
         model,
         product=wall,
