@@ -96,3 +96,32 @@ test("CAD wall draft previews dimensions and exports an intent without mutating 
   expect(download.suggestedFilename()).toBe("teldra-wall-draft.json");
   await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("human review accepts a proposal into an isolated draft without IFC mutation", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button", {name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button", {name:"Wall draft (2D)"}).click();
+  const panel = page.getByRole("region", {name:"Wall plan draft"});
+  const review = panel.getByText("Review imported or agent-proposed wall draft");
+  await review.click();
+  const input = panel.getByRole("textbox", {name:"Wall draft JSON proposal"});
+  const proposal = JSON.stringify({
+    format:"teldra-wall-draft-v1",operation:"CreateWall",coordinateFrame:"ifc-world-metres-z-up",
+    wall:{start:[1,2],end:[5,2],thicknessMetres:0.2,heightMetres:2.8}
+  });
+  await input.fill(proposal);
+  await panel.getByRole("button", {name:"Preview proposal"}).click();
+  await expect(panel.getByTestId("wall-proposal-footprint")).toBeVisible();
+  await expect(panel.getByRole("status", {name:"Proposed wall dimensions"})).toContainText("4.000 m");
+  await expect(page.getByRole("button", {name:"Save project",exact:true})).toBeDisabled();
+  await panel.getByRole("button", {name:"Reject proposal"}).click();
+  await expect(panel.getByTestId("wall-proposal-footprint")).toHaveCount(0);
+  await input.fill(proposal);
+  await panel.getByRole("button", {name:"Preview proposal"}).click();
+  await panel.getByRole("button", {name:"Accept into draft"}).click();
+  await expect(panel.getByText("Length: 4.000 m")).toBeVisible();
+  await expect(panel.getByLabel("Start X (m)")).toHaveValue("1");
+  await expect(panel.getByLabel("End X (m)")).toHaveValue("5");
+  await expect(page.getByRole("button", {name:"Save project",exact:true})).toBeDisabled();
+});
