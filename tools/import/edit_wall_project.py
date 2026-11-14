@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
 import tempfile
 from pathlib import Path
 from zipfile import ZIP_STORED, ZipFile
@@ -198,9 +199,30 @@ def edit_wall_archive_copy(
         with ZipFile(archive_path, "w", compression=ZIP_STORED) as archive:
             for filename, data in sorted(entries.items()):
                 archive.writestr(filename, data)
-        # File opened exclusively only after every edit and GLB validation succeeds.
-        with destination.open("xb") as output:
-            output.write(archive_path.read_bytes())
+        # Reopen exactly the serialized artifact, not just its in-memory inputs.
+        # Never publish a file whose manifest, IFC and GLB disagree.
+        committed_entries = _archive_files(archive_path)
+        if committed_entries != entries:
+            raise WallArchiveEditError("Serialized project differs from the staged artifacts.")
+        _, committed_twin = _verify(committed_entries)
+        committed_ifc = ifcopenshell.file.from_string(
+            committed_entries["building.ifc"].decode("utf-8")
+        )
+        for ref in committed_twin["building"]["refs"]:
+            try:
+                resolved = committed_ifc.by_guid(ref["ifcGlobalId"])
+            except (RuntimeError, ValueError):
+                resolved = None
+            if resolved is None:
+                raise WallArchiveEditError(f"Rebuilt project lost authored IFC identity: {ref['id']}")
+        scene = json.loads(committed_entries["scene.manifest.json"])
+        if not any(node.get("ifcGlobalId") == changed_guid for node in scene["nodes"]):
+            raise WallArchiveEditError("Rebuilt scene omits the authored wall geometry.")
+        # Staging resides on the same filesystem as destination. Publishing an
+        # existing, complete staging file via a hard link is atomic and O_EXCL-like:
+        # an existing destination is never overwritten, even under a race.
+        # Unsupported filesystems fail closed, not via a partial-copy fallback.
+        os.link(archive_path, destination)
     return changed_guid
 
 def read_wall_draft_json(path: Path) -> StraightWall:
