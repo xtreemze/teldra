@@ -494,9 +494,6 @@ export function StudioSelectionWorkspace(
         </div>
       </Show>
       <div class="teldra-studio-selection-workspace__project-actions" role="group" aria-label="Project actions">
-        <button type="button" aria-expanded={wallDraftOpen()} aria-controls="teldra-wall-draft-panel"
-          title="Draw a precision CAD wall draft. IFC Apply is not yet available."
-          onClick={() => setWallDraftOpen(value => !value)}>Wall draft (2D)</button>
         <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}><StudioIcon name="scene" /> Scene</button>
         <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}><StudioIcon name="inspector" /> Inspector</button>
         <output aria-live="polite" data-testid={selectedDevice() ? "project-dirty-state" : undefined}>{dirty() ? "Unsaved changes" : "Saved"}</output>
@@ -528,11 +525,6 @@ export function StudioSelectionWorkspace(
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
         <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
       </div>
-      <Show when={wallDraftOpen()}>
-        <div id="teldra-wall-draft-panel" class="teldra-studio-selection-workspace__wall-draft">
-          <WallPlanDraft />
-        </div>
-      </Show>
       <Show when={transformModal() || transformMessage()}>
         <div class="teldra-studio-selection-workspace__transform-hint" role="status" aria-live="polite" data-testid="transform-shortcut-status">
           <Show when={transformModal()}>{modal => <span>{modal().mode === "translate" ? "Move (G)" : modal().mode === "rotate" ? "Rotate (R)" : "Scale (S)"} {modal().axis?.toUpperCase() ?? ""} {modal().numeric} · X/Y/Z constrain · Enter apply · Esc cancel</span>}</Show>
@@ -613,11 +605,20 @@ export function StudioSelectionWorkspace(
         class="teldra-studio-selection-workspace__inspector"
         aria-label="Project selection and device inspector"
       >
-        <section id="teldra-scene-panel" class="teldra-studio-selection-workspace__scene-panel" hidden={!sceneOpen()}
+        <section id="teldra-scene-panel" class="teldra-studio-selection-workspace__scene-panel"
+          classList={{"teldra-studio-selection-workspace__scene-panel--drafting": wallDraftOpen()}} hidden={!sceneOpen()}
           data-mobile-detent={sceneDetent()} aria-labelledby="studio-device-list-title">
           <MobileSheetHandle label="Scene" detent={sceneDetent()}
             onDetentChange={next => setMobileDetent("scene", next)} onClose={() => closeMobileSheet("scene")} />
           <h2 id="studio-device-list-title">Scene</h2>
+          <button type="button" aria-expanded={wallDraftOpen()} aria-controls="teldra-wall-draft-panel"
+            title="Draw a precision CAD wall draft. IFC Apply is not yet available."
+            onClick={() => setWallDraftOpen(value => !value)}>Wall draft (2D)</button>
+          <Show when={wallDraftOpen()}>
+            <div id="teldra-wall-draft-panel" class="teldra-studio-selection-workspace__wall-draft">
+              <WallPlanDraft />
+            </div>
+          </Show>
           <p class="teldra-studio-selection-workspace__hint">Select an item here or in the scene.</p>
           <label class="teldra-studio-selection-workspace__search">Search scene<input type="search" placeholder="Name, type, or ID" value={search()} onInput={(event) => setSearch(event.currentTarget.value)} /></label>
           <h3>Devices <span class="teldra-studio-selection-workspace__count">{devices().length}</span></h3>
