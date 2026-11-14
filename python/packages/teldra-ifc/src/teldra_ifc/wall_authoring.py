@@ -56,7 +56,8 @@ def _isolated_model(source: ifcopenshell.file) -> ifcopenshell.file:
 
 def _body_context(model: ifcopenshell.file) -> ifcopenshell.entity_instance:
     contexts = [
-        c for c in model.by_type("IfcGeometricRepresentationSubContext")
+        c
+        for c in model.by_type("IfcGeometricRepresentationSubContext")
         if c.ContextIdentifier == "Body" and c.ContextType == "Model"
     ]
     if len(contexts) != 1:
@@ -95,7 +96,9 @@ def _create_body(
         is_si=True,
     )
     ifcopenshell.api.geometry.assign_representation(
-        model, product=wall, representation=rep,
+        model,
+        product=wall,
+        representation=rep,
     )
     return rep
 
@@ -117,11 +120,15 @@ def create_straight_wall(
     model = _isolated_model(source)
     storey = _storey(model, storey_global_id)
     wall = ifcopenshell.api.root.create_entity(
-        model, ifc_class="IfcWall", name=name,
+        model,
+        ifc_class="IfcWall",
+        name=name,
     )
     wall.ObjectType = "TeldraAuthoringStraightWall"
     ifcopenshell.api.spatial.assign_container(
-        model, relating_structure=storey, products=[wall],
+        model,
+        relating_structure=storey,
+        products=[wall],
     )
     _create_body(model, wall, geometry)
     return model, wall.GlobalId
@@ -159,10 +166,13 @@ def edit_straight_wall(
     if len(model.get_inverse(original)) != 1:
         raise WallAuthoringError("Shared IFC wall representation cannot be replaced.")
     ifcopenshell.api.geometry.unassign_representation(
-        model, product=wall, representation=original,
+        model,
+        product=wall,
+        representation=original,
     )
     ifcopenshell.api.geometry.remove_representation(
-        model, representation=original,
+        model,
+        representation=original,
     )
     _create_body(model, wall, geometry)
     if wall.GlobalId != wall_global_id:
