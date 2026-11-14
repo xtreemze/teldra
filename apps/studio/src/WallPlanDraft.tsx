@@ -3,9 +3,10 @@ import {
   constrainPlanAngle,
   straightWallFootprint,
   validateStraightWallDraft,
-  parseWallDraftIntent,
+  stageWallProposal,
+  acceptWallProposal,
+  type StagedWallProposal,
   serializeWallDraftIntent,
-  type WallDraftIntent,
   type PlanPoint,
   type StraightWallDraft,
 } from "@teldra/application";
@@ -16,7 +17,7 @@ const PIXELS_PER_METRE = 32;
 const GRID_METRES = 0.25;
 
 /** Non-authoritative 2D CAD draft: never updates IFC or marks the project dirty. */
-export function WallPlanDraft() {
+export function WallPlanDraft(props: { currentRevision: () => number }) {
   const [start, setStart] = createSignal<PlanPoint | null>(null);
   const [end, setEnd] = createSignal<PlanPoint | null>(null);
   const [pointer, setPointer] = createSignal<PlanPoint | null>(null);
@@ -26,11 +27,11 @@ export function WallPlanDraft() {
   const [gridEnabled, setGridEnabled] = createSignal(true);
   const [message, setMessage] = createSignal("");
   const [proposalInput, setProposalInput] = createSignal("");
-  const [pendingProposal, setPendingProposal] = createSignal<WallDraftIntent | null>(null);
+  const [pendingProposal, setPendingProposal] = createSignal<StagedWallProposal | null>(null);
   const [proposalMessage, setProposalMessage] = createSignal("");
   const previewProposal = () => {
     try {
-      const parsed = parseWallDraftIntent(proposalInput());
+      const parsed = stageWallProposal(proposalInput(), props.currentRevision());
       setPendingProposal(parsed);
       setProposalMessage("");
     } catch (error) {
@@ -46,17 +47,25 @@ export function WallPlanDraft() {
   const acceptProposal = () => {
     const proposal = pendingProposal();
     if (!proposal) return;
-    // Turn off angle snapping so acceptance preserves the exact reviewed geometry.
-    setAngleStep(0);
-    setStart([...proposal.wall.start] as PlanPoint);
-    setEnd([...proposal.wall.end] as PlanPoint);
-    setPointer(null);
-    setThickness(proposal.wall.thicknessMetres);
-    setHeight(proposal.wall.heightMetres);
-    setPendingProposal(null);
-    setProposalInput("");
-    setProposalMessage("Proposal accepted into the local wall draft. IFC remains unchanged.");
-    setMessage("");
+    try {
+      // Read live revision from the controller; no cached Solid signal here.
+      const wall = acceptWallProposal(proposal, props.currentRevision());
+      // Turn off snapping so acceptance preserves the exact reviewed geometry.
+      setAngleStep(0);
+      setStart([wall.start[0], wall.start[1]]);
+      setEnd([wall.end[0], wall.end[1]]);
+      setPointer(null);
+      setThickness(wall.thicknessMetres);
+      setHeight(wall.heightMetres);
+      setPendingProposal(null);
+      setProposalInput("");
+      setProposalMessage("Proposal accepted into the local wall draft. IFC remains unchanged.");
+      setMessage("");
+    } catch (error) {
+      // A rejected stale review never alters the already staged local draft.
+      setPendingProposal(null);
+      setProposalMessage(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const rawEnd = () => end() ?? pointer();
@@ -155,7 +164,7 @@ export function WallPlanDraft() {
       <Show when={validDraft()}><polygon points={corners()} fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="2" /></Show>
       <Show when={pendingProposal()}>{proposal => <polygon
         data-testid="wall-proposal-footprint"
-        points={straightWallFootprint(proposal().wall).map(p => toScreen(p).join(",")).join(" ")}
+        points={straightWallFootprint(proposal().intent.wall).map(p => toScreen(p).join(",")).join(" ")}
         fill="none" stroke="#e6bb77" stroke-width="2" stroke-dasharray="6 4" />}</Show>
       <Show when={start()}>{p => <circle cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="5" fill="currentColor" />}</Show>
       <Show when={constrainedEnd()}>{p => <circle cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="5" fill="currentColor" />}</Show>
@@ -186,10 +195,10 @@ export function WallPlanDraft() {
         <button type="button" disabled={!pendingProposal() && !proposalInput()} onClick={rejectProposal}>Reject proposal</button>
       </div>
       <Show when={pendingProposal()}>{proposal => <div role="status" aria-label="Proposed wall dimensions">
-        <strong>Pending review — not applied</strong>
-        <p>From ({proposal().wall.start.join(", ")}) m to ({proposal().wall.end.join(", ")}) m;
-          length {Math.hypot(proposal().wall.end[0] - proposal().wall.start[0], proposal().wall.end[1] - proposal().wall.start[1]).toFixed(3)} m;
-          thickness {proposal().wall.thicknessMetres} m; height {proposal().wall.heightMetres} m.</p>
+        <strong>Pending review — not applied (project revision {proposal().baseRevision})</strong>
+        <p>From ({proposal().intent.wall.start.join(", ")}) m to ({proposal().intent.wall.end.join(", ")}) m;
+          length {Math.hypot(proposal().intent.wall.end[0] - proposal().intent.wall.start[0], proposal().intent.wall.end[1] - proposal().intent.wall.start[1]).toFixed(3)} m;
+          thickness {proposal().intent.wall.thicknessMetres} m; height {proposal().intent.wall.heightMetres} m.</p>
       </div>}</Show>
       <Show when={proposalMessage()}><p role="status">{proposalMessage()}</p></Show>
     </details>
