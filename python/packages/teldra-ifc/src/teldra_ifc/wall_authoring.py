@@ -65,15 +65,24 @@ def _body_context(model: ifcopenshell.file) -> ifcopenshell.entity_instance:
     return contexts[0]
 
 
+def _find_global_id(model: ifcopenshell.file, guid: str) -> ifcopenshell.entity_instance | None:
+    if not guid:
+        return None
+    try:
+        return model.by_guid(guid)
+    except RuntimeError:
+        return None
+
+
 def _storey(model: ifcopenshell.file, guid: str) -> ifcopenshell.entity_instance:
-    element = model.by_guid(guid) if guid else None
+    element = _find_global_id(model, guid)
     if element is None or not element.is_a("IfcBuildingStorey"):
         raise WallAuthoringError("A valid target IfcBuildingStorey GlobalId is required.")
     return element
 
 
 def _wall_by_guid(model: ifcopenshell.file, guid: str) -> ifcopenshell.entity_instance:
-    element = model.by_guid(guid) if guid else None
+    element = _find_global_id(model, guid)
     if element is None or not element.is_a("IfcWall"):
         raise WallAuthoringError("A valid IfcWall GlobalId is required.")
     return element
@@ -148,10 +157,13 @@ def edit_straight_wall(
     _validate_wall(geometry)
     model = _isolated_model(source)
     wall = _wall_by_guid(model, wall_global_id)
-    if wall.VoidsElements:
-        raise WallAuthoringError("A wall hosting an opening requires dependent opening updates.")
     for inverse in model.get_inverse(wall):
-        if inverse.is_a("IfcRelConnectsPathElements") or inverse.is_a("IfcRelSpaceBoundary"):
+        if inverse.is_a("IfcRelVoidsElement"):
+            raise WallAuthoringError("A wall hosting an opening requires dependent opening updates.")
+        if (
+            inverse.is_a("IfcRelConnectsElements")
+            or inverse.is_a("IfcRelSpaceBoundary")
+        ):
             raise WallAuthoringError("Connected or space-boundary walls require topology updates.")
     reps = list(wall.Representation.Representations) if wall.Representation else []
     if len(reps) != 1 or reps[0].RepresentationIdentifier != "Body":
