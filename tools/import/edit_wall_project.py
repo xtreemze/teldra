@@ -146,3 +146,39 @@ def edit_wall_archive_copy(
         with destination.open("xb") as output:
             output.write(archive_path.read_bytes())
     return changed_guid
+
+def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path, help="Existing architecture-only .teldra archive")
+    parser.add_argument("destination", type=Path, help="New .teldra archive; never overwritten")
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--wall-guid", help="Edit an existing eligible wall IFC GlobalId")
+    target.add_argument("--storey-guid", help="Create a wall in this IfcBuildingStorey GlobalId")
+    parser.add_argument("--start", type=float, nargs=2, required=True, metavar=("X", "Y"))
+    parser.add_argument("--end", type=float, nargs=2, required=True, metavar=("X", "Y"))
+    parser.add_argument("--thickness", type=float, required=True, help="Wall thickness in metres")
+    parser.add_argument("--height", type=float, required=True, help="Wall height in metres")
+    parser.add_argument("--elevation", type=float, default=0.0, help="Wall base elevation in metres")
+    parser.add_argument("--name", default="Wall", help="Name for a newly created wall")
+    args = parser.parse_args()
+    guid = edit_wall_archive_copy(
+        args.source,
+        args.destination,
+        wall=StraightWall(
+            start=tuple(args.start),
+            end=tuple(args.end),
+            thickness_m=args.thickness,
+            height_m=args.height,
+            elevation_m=args.elevation,
+        ),
+        storey_global_id=args.storey_guid,
+        wall_global_id=args.wall_guid,
+        name=args.name,
+    )
+    print(json.dumps({"output": str(args.destination), "ifcGlobalId": guid}))
+
+
+if __name__ == "__main__":
+    main()
