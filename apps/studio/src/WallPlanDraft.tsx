@@ -56,12 +56,12 @@ export function WallPlanDraft() {
       ? [Math.round(raw[0] / GRID_METRES) * GRID_METRES, Math.round(raw[1] / GRID_METRES) * GRID_METRES]
       : raw;
   };
-  const clickPlan = (event: MouseEvent) => {
+  const clickPlan = (event: MouseEvent & { currentTarget: SVGSVGElement }) => {
     const point = toPlan(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
     if (!start() || end()) { setStart(point); setEnd(null); setMessage(""); }
     else { setEnd(point); setPointer(null); }
   };
-  const movePlan = (event: MouseEvent) => {
+  const movePlan = (event: MouseEvent & { currentTarget: SVGSVGElement }) => {
     if (start() && !end()) {
       setPointer(toPlan(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect()));
     }
