@@ -147,6 +147,41 @@ def edit_wall_archive_copy(
             output.write(archive_path.read_bytes())
     return changed_guid
 
+def read_wall_draft_json(path: Path) -> StraightWall:
+    """Load an explicitly versioned review draft from Studio, never arbitrary commands."""
+    if path.stat().st_size > 64 * 1024:
+        raise WallArchiveEditError("Wall draft exceeds the allowed size.")
+    intent = json.loads(path.read_text(encoding="utf-8"))
+    if (
+        not isinstance(intent, dict)
+        or intent.get("format") != "teldra-wall-draft-v1"
+        or intent.get("operation") != "CreateWall"
+        or intent.get("coordinateFrame") != "ifc-world-metres-z-up"
+    ):
+        raise WallArchiveEditError("Unsupported wall draft version, operation or coordinate frame.")
+    wall = intent.get("wall")
+    if not isinstance(wall, dict):
+        raise WallArchiveEditError("Wall draft geometry must be an object.")
+    if set(wall) != {"start", "end", "thicknessMetres", "heightMetres"}:
+        raise WallArchiveEditError("Wall draft contains missing or unsupported geometry fields.")
+    for point in ("start", "end"):
+        if (
+            not isinstance(wall[point], list)
+            or len(wall[point]) != 2
+            or any(type(value) not in (int, float) for value in wall[point])
+        ):
+            raise WallArchiveEditError("Draft endpoints require two numeric metre coordinates.")
+    for dimension in ("thicknessMetres", "heightMetres"):
+        if type(wall[dimension]) not in (int, float):
+            raise WallArchiveEditError("Draft wall dimensions must be numeric metres.")
+    return StraightWall(
+        start=tuple(wall["start"]),
+        end=tuple(wall["end"]),
+        thickness_m=wall["thicknessMetres"],
+        height_m=wall["heightMetres"],
+    )
+
+
 def main() -> None:
     import argparse
 
@@ -156,23 +191,34 @@ def main() -> None:
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--wall-guid", help="Edit an existing eligible wall IFC GlobalId")
     target.add_argument("--storey-guid", help="Create a wall in this IfcBuildingStorey GlobalId")
-    parser.add_argument("--start", type=float, nargs=2, required=True, metavar=("X", "Y"))
-    parser.add_argument("--end", type=float, nargs=2, required=True, metavar=("X", "Y"))
-    parser.add_argument("--thickness", type=float, required=True, help="Wall thickness in metres")
-    parser.add_argument("--height", type=float, required=True, help="Wall height in metres")
+    parser.add_argument("--draft-file", type=Path, help="Studio exported teldra-wall-draft-v1 JSON")
+    parser.add_argument("--start", type=float, nargs=2, metavar=("X", "Y"))
+    parser.add_argument("--end", type=float, nargs=2, metavar=("X", "Y"))
+    parser.add_argument("--thickness", type=float, help="Wall thickness in metres")
+    parser.add_argument("--height", type=float, help="Wall height in metres")
     parser.add_argument("--elevation", type=float, default=0.0, help="Wall base elevation in metres")
     parser.add_argument("--name", default="Wall", help="Name for a newly created wall")
     args = parser.parse_args()
-    guid = edit_wall_archive_copy(
-        args.source,
-        args.destination,
-        wall=StraightWall(
+    if args.draft_file is not None:
+        if args.wall_guid or any(
+            item is not None for item in (args.start, args.end, args.thickness, args.height)
+        ) or args.elevation != 0:
+            parser.error("--draft-file requires --storey-guid and cannot mix with manual geometry.")
+        draft = read_wall_draft_json(args.draft_file)
+    else:
+        if any(item is None for item in (args.start, args.end, args.thickness, args.height)):
+            parser.error("Manual edits require --start, --end, --thickness and --height.")
+        draft = StraightWall(
             start=tuple(args.start),
             end=tuple(args.end),
             thickness_m=args.thickness,
             height_m=args.height,
             elevation_m=args.elevation,
-        ),
+        )
+    guid = edit_wall_archive_copy(
+        args.source,
+        args.destination,
+        wall=draft,
         storey_global_id=args.storey_guid,
         wall_global_id=args.wall_guid,
         name=args.name,
