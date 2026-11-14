@@ -14,6 +14,7 @@ from teldra_web_export import export_ifc_web_scene
 EDIT_SCRIPT = Path(__file__).parents[4] / "tools" / "import" / "edit_wall_project.py"
 MODULE = runpy.run_path(str(EDIT_SCRIPT))
 edit_wall_archive_copy = MODULE["edit_wall_archive_copy"]
+read_wall_draft_json = MODULE["read_wall_draft_json"]
 WallArchiveEditError = MODULE["WallArchiveEditError"]
 
 
@@ -180,3 +181,41 @@ def test_invalid_archive_references_and_existing_destination_fail_closed(tmp_pat
             wall=StraightWall((0, 0), (4, 0), 0.2, 2.6),
         )
     assert not output.exists()
+
+def test_studio_wall_draft_json_roundtrip_and_rejects_wrong_contract(tmp_path):
+    draft = tmp_path / "draft.json"
+    intent = {
+        "format": "teldra-wall-draft-v1",
+        "operation": "CreateWall",
+        "coordinateFrame": "ifc-world-metres-z-up",
+        "wall": {
+            "start": [0, 0],
+            "end": [3.5, 0],
+            "thicknessMetres": 0.15,
+            "heightMetres": 2.7,
+        },
+    }
+    draft.write_text(json.dumps(intent), encoding="utf-8")
+    parsed = read_wall_draft_json(draft)
+    assert parsed == StraightWall((0, 0), (3.5, 0), 0.15, 2.7)
+
+    source, storey, _ = _fixture(tmp_path)
+    output = tmp_path / "reviewed-draft.teldra"
+    guid = edit_wall_archive_copy(source, output, storey_global_id=storey, wall=parsed)
+    with ZipFile(output) as archive:
+        model = ifcopenshell.file.from_string(archive.read("building.ifc").decode())
+    assert model.by_guid(guid).is_a("IfcWall")
+
+    for key, value in [
+        ("format", "unknown-draft"),
+        ("operation", "DeleteWall"),
+        ("coordinateFrame", "unknown"),
+    ]:
+        invalid = {**intent, key: value}
+        draft.write_text(json.dumps(invalid), encoding="utf-8")
+        with pytest.raises(WallArchiveEditError, match="Unsupported"):
+            read_wall_draft_json(draft)
+    invalid = {**intent, "wall": {**intent["wall"], "start": [True, 0]}}
+    draft.write_text(json.dumps(invalid), encoding="utf-8")
+    with pytest.raises(WallArchiveEditError, match="numeric"):
+        read_wall_draft_json(draft)
