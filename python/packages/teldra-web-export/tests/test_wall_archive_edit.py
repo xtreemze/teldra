@@ -344,7 +344,7 @@ def test_wall_edit_publishes_a_verified_archive_copy_without_mutating_original(t
         item["sha256"] == _hash(entries[item["path"]])
         for item in (manifest["building"], manifest["twin"], *manifest["derived"])
     )
-    with pytest.raises(FileExistsError):
+    with pytest.raises(WallArchiveEditError, match="overwrite"):
         edit_wall_archive_copy(
             source,
             destination,
