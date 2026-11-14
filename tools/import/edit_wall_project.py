@@ -88,6 +88,40 @@ def _verify(entries: dict[str, bytes]) -> tuple[dict, dict]:
     return manifest, twin
 
 
+def inspect_wall_archive(source: Path) -> dict:
+    """Read-only eligibility report for the exact reviewed archive snapshot.
+
+    The SHA-256 can be supplied to --expected-source-sha256 when editing.
+    No resulting archive, IFC model, or project state is written here.
+    """
+    reviewed_sha256 = _digest(source.read_bytes())
+    entries = _archive_files(source, expected_sha256=reviewed_sha256)
+    _, twin = _verify(entries)
+    model = ifcopenshell.file.from_string(entries["building.ifc"].decode("utf-8"))
+    if model.schema != "IFC4":
+        raise WallArchiveEditError("Only canonical IFC4 source archives are supported.")
+    storeys = sorted(
+        (
+            {"ifcGlobalId": storey.GlobalId, "name": storey.Name or "Unnamed storey"}
+            for storey in model.by_type("IfcBuildingStorey")
+        ),
+        key=lambda storey: storey["ifcGlobalId"],
+    )
+    # A building can be valid but have no eligible storey for wall creation.
+    return {
+        "eligible": bool(storeys),
+        "sourceSha256": reviewed_sha256,
+        "ifcSchema": model.schema,
+        "storeys": storeys,
+        "buildingReferences": len(twin["building"]["refs"]),
+        "source": str(source),
+        "constraint": (
+            "Architecture-only. Original archive unchanged. New-copy wall edits only; "
+            "hosted/opening topology and native SH3D visual rebuilding are unsupported."
+        ),
+    }
+
+
 def edit_wall_archive_copy(
     source: Path,
     destination: Path,
