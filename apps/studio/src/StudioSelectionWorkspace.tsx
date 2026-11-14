@@ -496,7 +496,7 @@ export function StudioSelectionWorkspace(
       <div class="teldra-studio-selection-workspace__project-actions" role="group" aria-label="Project actions">
         <button type="button" aria-expanded={wallDraftOpen()} aria-controls="teldra-wall-draft-panel"
           title="Draw a precision CAD wall draft. IFC Apply is not yet available."
-          onClick={() => setWallDraftOpen(value => !value())}>Wall draft (2D)</button>
+          onClick={() => setWallDraftOpen(value => !value)}>Wall draft (2D)</button>
         <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}><StudioIcon name="scene" /> Scene</button>
         <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}><StudioIcon name="inspector" /> Inspector</button>
         <output aria-live="polite" data-testid={selectedDevice() ? "project-dirty-state" : undefined}>{dirty() ? "Unsaved changes" : "Saved"}</output>
