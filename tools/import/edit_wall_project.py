@@ -6,6 +6,7 @@ GLB cannot currently be regenerated losslessly from IFC alone.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import tempfile
 from pathlib import Path
@@ -29,8 +30,19 @@ def _json(value: dict) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
-def _archive_files(source: Path) -> dict[str, bytes]:
-    with ZipFile(source) as archive:
+def _archive_files(source: Path, *, expected_sha256: str | None = None) -> dict[str, bytes]:
+    # Read exactly one immutable snapshot so the checked source fingerprint and
+    # the IFC subsequently edited can never refer to different file versions.
+    snapshot = source.read_bytes()
+    if expected_sha256 is not None:
+        if (
+            len(expected_sha256) != 64
+            or any(char not in "0123456789abcdef" for char in expected_sha256)
+        ):
+            raise WallArchiveEditError("Expected source SHA-256 must be 64 lowercase hex digits.")
+        if _digest(snapshot) != expected_sha256:
+            raise WallArchiveEditError("Source archive changed since review; re-open and re-review.")
+    with ZipFile(io.BytesIO(snapshot)) as archive:
         names = archive.namelist()
         if len(set(names)) != len(names) or len(names) > 256:
             raise WallArchiveEditError("Duplicate or excessive archive entries.")
@@ -84,6 +96,7 @@ def edit_wall_archive_copy(
     storey_global_id: str | None = None,
     wall_global_id: str | None = None,
     name: str = "Wall",
+    expected_source_sha256: str | None = None,
 ) -> str:
     """Create or edit one straight wall and rebuild an architecture-only .teldra.
 
@@ -94,7 +107,7 @@ def edit_wall_archive_copy(
         raise WallArchiveEditError("Specify exactly one storey for create or wall for edit.")
     if source.resolve() == destination.resolve() or destination.exists():
         raise WallArchiveEditError("Refusing to overwrite any existing project archive.")
-    entries = _archive_files(source)
+    entries = _archive_files(source, expected_sha256=expected_source_sha256)
     manifest, twin = _verify(entries)
     original_ifc = ifcopenshell.file.from_string(entries["building.ifc"].decode("utf-8"))
     if wall_global_id is not None:
@@ -192,6 +205,10 @@ def main() -> None:
     target.add_argument("--wall-guid", help="Edit an existing eligible wall IFC GlobalId")
     target.add_argument("--storey-guid", help="Create a wall in this IfcBuildingStorey GlobalId")
     parser.add_argument("--draft-file", type=Path, help="Studio exported teldra-wall-draft-v1 JSON")
+    parser.add_argument(
+        "--expected-source-sha256",
+        help="Required reviewed source archive SHA-256; reject if source bytes changed.",
+    )
     parser.add_argument("--start", type=float, nargs=2, metavar=("X", "Y"))
     parser.add_argument("--end", type=float, nargs=2, metavar=("X", "Y"))
     parser.add_argument("--thickness", type=float, help="Wall thickness in metres")
@@ -222,6 +239,7 @@ def main() -> None:
         storey_global_id=args.storey_guid,
         wall_global_id=args.wall_guid,
         name=args.name,
+        expected_source_sha256=args.expected_source_sha256,
     )
     print(json.dumps({"output": str(args.destination), "ifcGlobalId": guid}))
 
