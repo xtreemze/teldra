@@ -220,3 +220,43 @@ def test_studio_wall_draft_json_roundtrip_and_rejects_wrong_contract(tmp_path):
     draft.write_text(json.dumps(invalid), encoding="utf-8")
     with pytest.raises(WallArchiveEditError, match="numeric"):
         read_wall_draft_json(draft)
+
+
+def test_wall_archive_source_fingerprint_guards_reviewed_input(tmp_path):
+    source, storey, _ = _fixture(tmp_path)
+    approved = _hash(source.read_bytes())
+    output = tmp_path / "matching-source.teldra"
+    guid = edit_wall_archive_copy(
+        source,
+        output,
+        storey_global_id=storey,
+        wall=StraightWall((5, 0), (5, 3), 0.2, 2.6),
+        expected_source_sha256=approved,
+    )
+    assert guid
+    assert output.exists()
+
+    changed = tmp_path / "changed-source.teldra"
+    with ZipFile(source) as archive, ZipFile(changed, "w", compression=ZIP_STORED) as dest:
+        for filename in archive.namelist():
+            dest.writestr(filename, archive.read(filename))
+        dest.writestr("irrelevant-note.txt", b"changed since human review")
+    rejected = tmp_path / "must-not-exist.teldra"
+    with pytest.raises(WallArchiveEditError, match="changed since review"):
+        edit_wall_archive_copy(
+            changed,
+            rejected,
+            storey_global_id=storey,
+            wall=StraightWall((5, 0), (5, 3), 0.2, 2.6),
+            expected_source_sha256=approved,
+        )
+    assert not rejected.exists()
+    with pytest.raises(WallArchiveEditError, match="64 lowercase hex"):
+        edit_wall_archive_copy(
+            source,
+            rejected,
+            storey_global_id=storey,
+            wall=StraightWall((5, 0), (5, 3), 0.2, 2.6),
+            expected_source_sha256="not-a-sha",
+        )
+    assert not rejected.exists()
