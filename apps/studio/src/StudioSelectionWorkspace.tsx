@@ -6,6 +6,7 @@ import { IfcFurnitureEdit, type FurnitureEditControls } from "./IfcFurnitureEdit
 import { transformShortcut, numericFurniturePose, numericFurnitureScale, type TransformModal } from "./transform-shortcuts";
 import { SelectedDeviceLiveState } from "./SelectedDeviceLiveState";
 import { SpatialEdit } from "./SpatialEdit";
+import { WallPlanDraft } from "./WallPlanDraft";
 import { signalMobileFeedback, signalMobileSound } from "./mobile-feedback";
 import { readMobileFeedbackPreferences, writeMobileFeedbackPreferences } from "./mobile-feedback-preferences";
 import { MobileTransformPad } from "./MobileTransformPad";
@@ -39,6 +40,7 @@ export function StudioSelectionWorkspace(
     (typeof window === "undefined" || !window.matchMedia("(max-width: 48rem)").matches),
   );
   const [search, setSearch] = createSignal("");
+  const [wallDraftOpen, setWallDraftOpen] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const [rebaking, setRebaking] = createSignal(false);
   const [actionError, setActionError] = createSignal("");
@@ -492,6 +494,9 @@ export function StudioSelectionWorkspace(
         </div>
       </Show>
       <div class="teldra-studio-selection-workspace__project-actions" role="group" aria-label="Project actions">
+        <button type="button" aria-expanded={wallDraftOpen()} aria-controls="teldra-wall-draft-panel"
+          title="Draw a precision CAD wall draft. IFC Apply is not yet available."
+          onClick={() => setWallDraftOpen(value => !value())}>Wall draft (2D)</button>
         <button type="button" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel" onClick={() => {setSceneOpen(!sceneOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setInspectorOpen(false);}}><StudioIcon name="scene" /> Scene</button>
         <button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel" onClick={() => {setInspectorOpen(!inspectorOpen()); if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);}}><StudioIcon name="inspector" /> Inspector</button>
         <output aria-live="polite" data-testid={selectedDevice() ? "project-dirty-state" : undefined}>{dirty() ? "Unsaved changes" : "Saved"}</output>
@@ -523,6 +528,11 @@ export function StudioSelectionWorkspace(
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
         <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
       </div>
+      <Show when={wallDraftOpen()}>
+        <div id="teldra-wall-draft-panel" class="teldra-studio-selection-workspace__wall-draft">
+          <WallPlanDraft />
+        </div>
+      </Show>
       <Show when={transformModal() || transformMessage()}>
         <div class="teldra-studio-selection-workspace__transform-hint" role="status" aria-live="polite" data-testid="transform-shortcut-status">
           <Show when={transformModal()}>{modal => <span>{modal().mode === "translate" ? "Move (G)" : modal().mode === "rotate" ? "Rotate (R)" : "Scale (S)"} {modal().axis?.toUpperCase() ?? ""} {modal().numeric} · X/Y/Z constrain · Enter apply · Esc cancel</span>}</Show>
