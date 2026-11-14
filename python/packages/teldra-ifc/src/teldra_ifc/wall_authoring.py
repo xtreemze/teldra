@@ -159,7 +159,9 @@ def edit_straight_wall(
     wall = _wall_by_guid(model, wall_global_id)
     for inverse in model.get_inverse(wall):
         if inverse.is_a("IfcRelVoidsElement"):
-            raise WallAuthoringError("A wall hosting an opening requires dependent opening updates.")
+            raise WallAuthoringError(
+                "A wall hosting an opening requires dependent opening updates."
+            )
         if (
             inverse.is_a("IfcRelConnectsElements")
             or inverse.is_a("IfcRelSpaceBoundary")
