@@ -70,6 +70,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, str, str]:
         "scene.manifest.json": (tmp_path / "scene.manifest.json").read_bytes(),
         "twin.json": twin,
     }
+
     def artifact(path):
         return {"path": path, "sha256": _hash(entries[path])}
     entries["project.json"] = _json(
