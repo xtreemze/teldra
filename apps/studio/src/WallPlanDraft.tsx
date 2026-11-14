@@ -132,7 +132,7 @@ export function WallPlanDraft() {
         <strong>{title}</strong>
         <For each={["X", "Y"] as const}>{(axis, index) => <label>{axis} (m)
           <input aria-label={`${title} ${axis} (m)`} type="number" step="any" value={(kind === "start" ? start() : end())?.[index()] ?? 0}
-            onChange={event => editPoint(kind, index() as 0 | 1, event.currentTarget.valueAsNumber)} />
+            onInput={event => editPoint(kind, index() as 0 | 1, event.currentTarget.valueAsNumber)} />
         </label>}</For>
       </div>}</For>
       <label>Thickness (m) <input type="number" min=".001" max="100" step="any" value={thickness()} onInput={event => setThickness(event.currentTarget.valueAsNumber)} /></label>
