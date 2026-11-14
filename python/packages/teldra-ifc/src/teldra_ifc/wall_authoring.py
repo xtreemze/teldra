@@ -162,10 +162,7 @@ def edit_straight_wall(
             raise WallAuthoringError(
                 "A wall hosting an opening requires dependent opening updates."
             )
-        if (
-            inverse.is_a("IfcRelConnectsElements")
-            or inverse.is_a("IfcRelSpaceBoundary")
-        ):
+        if inverse.is_a("IfcRelConnectsElements") or inverse.is_a("IfcRelSpaceBoundary"):
             raise WallAuthoringError("Connected or space-boundary walls require topology updates.")
     reps = list(wall.Representation.Representations) if wall.Representation else []
     if len(reps) != 1 or reps[0].RepresentationIdentifier != "Body":
