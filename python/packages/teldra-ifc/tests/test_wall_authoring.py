@@ -17,8 +17,7 @@ def _fixture():
 
 
 def _straight():
-    return StraightWall(start=(0.0, 0.0), end=(4.0, 0.0),
-                        thickness_m=0.2, height_m=2.6)
+    return StraightWall(start=(0.0, 0.0), end=(4.0, 0.0), thickness_m=0.2, height_m=2.6)
 
 
 def test_create_wall_uses_canonical_ifc_ownership_and_preserves_source():
@@ -44,10 +43,16 @@ def test_edit_wall_preserves_guid_and_untouched_source_references(tmp_path):
     model, guid = create_straight_wall(model, storey_guid, _straight())
     before = model.to_string()
     original_guids = {item.GlobalId for item in model.by_type("IfcRoot")}
-    modified = edit_straight_wall(model, guid, StraightWall(
-        start=(1.0, 2.0), end=(6.0, 2.0),
-        thickness_m=0.35, height_m=3.0,
-    ))
+    modified = edit_straight_wall(
+        model,
+        guid,
+        StraightWall(
+            start=(1.0, 2.0),
+            end=(6.0, 2.0),
+            thickness_m=0.35,
+            height_m=3.0,
+        ),
+    )
 
     assert model.to_string() == before
     assert modified.by_guid(guid).GlobalId == guid
@@ -64,10 +69,10 @@ def test_rejects_degenerate_wall_without_mutating_source():
     model, storey_guid = _fixture()
     before = model.to_string()
     bad = [
-        StraightWall((0, 0), (0, 0), .2, 2.6),
-        StraightWall((0, 0), (float("nan"), 0), .2, 2.6),
-        StraightWall((0, 0), (4, 0), -.2, 2.6),
-        StraightWall((0, 0), (4, 0), .2, float("inf")),
+        StraightWall((0, 0), (0, 0), 0.2, 2.6),
+        StraightWall((0, 0), (float("nan"), 0), 0.2, 2.6),
+        StraightWall((0, 0), (4, 0), -0.2, 2.6),
+        StraightWall((0, 0), (4, 0), 0.2, float("inf")),
     ]
     for geometry in bad:
         with pytest.raises(WallAuthoringError):
@@ -80,7 +85,9 @@ def test_rejects_hosted_wall_edit_and_preserves_opening_relation():
     model, guid = create_straight_wall(model, storey_guid, _straight())
     wall = model.by_guid(guid)
     opening = ifcopenshell.api.root.create_entity(
-        model, ifc_class="IfcOpeningElement", name="Door opening",
+        model,
+        ifc_class="IfcOpeningElement",
+        name="Door opening",
     )
     model.createIfcRelVoidsElement(
         GlobalId=__import__("ifcopenshell").guid.new(),
