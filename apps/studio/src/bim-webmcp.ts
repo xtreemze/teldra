@@ -51,14 +51,14 @@ export function makeBimReadTools(controller: StudioProjectController): ReadTool[
         if (args.kind !== undefined && typeof args.kind !== "string")
           throw new Error("kind must be a string.");
         const offset = args.offset ?? 0, limit = args.limit ?? 50;
-        if (!Number.isSafeInteger(offset) || (offset as number) < 0 ||
-            !Number.isSafeInteger(limit) || (limit as number) < 1 || (limit as number) > MAX_RESULTS)
+        if (typeof offset !== "number" || !Number.isSafeInteger(offset) || offset < 0 ||
+            typeof limit !== "number" || !Number.isSafeInteger(limit) || limit < 1 || limit > MAX_RESULTS)
           throw new Error("Invalid object pagination.");
         const refs = controller.twin.building.refs.filter(ref => args.kind === undefined || ref.kind === args.kind);
         return JSON.stringify({
           total: refs.length,
           offset,
-          objects: refs.slice(offset as number, (offset as number) + (limit as number))
+          objects: refs.slice(offset, offset + limit)
             .map(ref => ({ canonicalId: ref.id, ifcGlobalId: ref.ifcGlobalId, kind: ref.kind, name: ref.name ?? null })),
         });
       },
