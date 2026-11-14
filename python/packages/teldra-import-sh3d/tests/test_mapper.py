@@ -205,7 +205,8 @@ def test_imported_unhosted_sh3d_wall_remains_editable_with_source_provenance(tmp
 
     assert original_model.to_string() == original_ifc
     assert updated.by_guid(guid).GlobalId == guid
-    assert ifcopenshell.util.element.get_psets(updated.by_guid(guid))["Teldra_Source"] == before_pset
+    current_pset = ifcopenshell.util.element.get_psets(updated.by_guid(guid))["Teldra_Source"]
+    assert current_pset == before_pset
     reopened = open_model(write_model(updated, tmp_path / "changed-imported-wall.ifc"))
     assert reopened.by_guid(guid).Representation is not None
     assert reopened.by_guid(guid).GlobalId == guid
