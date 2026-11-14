@@ -270,7 +270,7 @@ def test_wall_archive_preflight_reports_exact_source_and_ifc_storeys(tmp_path):
     assert report["eligible"] is True
     assert report["sourceSha256"] == _hash(unchanged)
     assert report["ifcSchema"] == "IFC4"
-    assert report["storeys"] == [{"ifcGlobalId": storey, "name": "Ground"}]
+    assert report["storeys"] == [{"ifcGlobalId": storey, "name": "Ground Floor"}]
     assert report["buildingReferences"] == 2
     assert source.read_bytes() == unchanged
     assert sorted(path.name for path in tmp_path.glob("*.teldra")) == [source.name]
