@@ -398,7 +398,8 @@ def test_wall_removal_rebuilds_verified_architecture_only_copy(tmp_path):
     output = tmp_path / "removed-wall.teldra"
     assert (
         edit_wall_archive_copy(
-            source, output,
+            source,
+            output,
             delete_wall_global_id=guid,
             expected_source_sha256=_hash(before),
         )
@@ -426,7 +427,9 @@ def test_wall_removal_rejects_invalid_targets_and_native_visuals(tmp_path):
     bad = tmp_path / "no-delete.teldra"
     with pytest.raises(WallArchiveEditError, match="geometry"):
         edit_wall_archive_copy(
-            source, bad, delete_wall_global_id=guid,
+            source,
+            bad,
+            delete_wall_global_id=guid,
             wall=StraightWall((0, 0), (4, 0), 0.2, 2.6),
         )
     with pytest.raises(WallArchiveEditError, match="uniquely authored"):
