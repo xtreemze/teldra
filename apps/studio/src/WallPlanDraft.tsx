@@ -127,14 +127,100 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
     readonly originalEnd: PlanPoint;
     readonly originalAngleStep: number;
   }
+  interface WallTranslation {
+    readonly pointerId: number;
+    readonly pointerOrigin: PlanPoint;
+    readonly originalStart: PlanPoint;
+    readonly originalEnd: PlanPoint;
+    readonly originalAngleStep: number;
+  }
   let endpointDrag: EndpointDrag | null = null;
+  let wallTranslation: WallTranslation | null = null;
   let ignoreCanvasClick = false;
+  const translatedPoint = (point: PlanPoint, dx: number, dy: number): PlanPoint => [
+    Math.round((point[0] + dx) * 1e9) / 1e9,
+    Math.round((point[1] + dy) * 1e9) / 1e9,
+  ];
+  const translateDraft = (originalStart: PlanPoint, originalEnd: PlanPoint, dx: number, dy: number) => {
+    setStart(translatedPoint(originalStart, dx, dy));
+    setEnd(translatedPoint(originalEnd, dx, dy));
+  };
+  const beginWallTranslation = (event: PointerEvent & { currentTarget: SVGLineElement }) => {
+    if (endpointDrag || wallTranslation || !start() || !end() || !event.isPrimary) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    const finalEnd = constrainedEnd();
+    if (!finalEnd) return;
+    wallTranslation = {
+      pointerId: event.pointerId,
+      pointerOrigin: toPlan(event.clientX, event.clientY, svg.getBoundingClientRect()),
+      originalStart: [...start()!] as PlanPoint,
+      originalEnd: [...end()!] as PlanPoint,
+      originalAngleStep: angleStep(),
+    };
+    setEnd([finalEnd[0], finalEnd[1]]);
+    setAngleStep(0);
+    svg.setPointerCapture(event.pointerId);
+    svg.focus();
+    setMessage("Moving wall draft. Escape cancels; release confirms the local position.");
+  };
+  const moveWallTranslation = (event: PointerEvent & { currentTarget: SVGSVGElement }) => {
+    const drag = wallTranslation;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const point = toPlan(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
+    translateDraft(
+      drag.originalStart,
+      drag.originalEnd,
+      point[0] - drag.pointerOrigin[0],
+      point[1] - drag.pointerOrigin[1],
+    );
+  };
+  const finishWallTranslation = (
+    event: PointerEvent & { currentTarget: SVGSVGElement },
+    cancel: boolean,
+  ) => {
+    const drag = wallTranslation;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (cancel) {
+      setStart(drag.originalStart);
+      setEnd(drag.originalEnd);
+      setAngleStep(drag.originalAngleStep);
+      setMessage("Wall translation cancelled. The draft is unchanged.");
+    } else {
+      moveWallTranslation(event);
+      setMessage("Wall translated in local draft; IFC and project history remain unchanged.");
+    }
+    wallTranslation = null;
+    if (event.currentTarget.hasPointerCapture(drag.pointerId))
+      event.currentTarget.releasePointerCapture(drag.pointerId);
+    ignoreCanvasClick = true;
+    window.setTimeout(() => { ignoreCanvasClick = false; }, 0);
+  };
+  const nudgeWall = (event: KeyboardEvent & { currentTarget: SVGLineElement }) => {
+    const distance = gridEnabled() ? GRID_METRES : 0.05;
+    const change: Record<string, PlanPoint> = {
+      ArrowUp: [0, distance],
+      ArrowDown: [0, -distance],
+      ArrowLeft: [-distance, 0],
+      ArrowRight: [distance, 0],
+    };
+    const delta = change[event.key];
+    const a = start(), b = constrainedEnd();
+    if (!delta || !a || !b) return;
+    event.preventDefault();
+    event.stopPropagation();
+    setAngleStep(0);
+    translateDraft(a, b, delta[0], delta[1]);
+    setMessage("Wall translated by keyboard; IFC remains unchanged.");
+  };
 
   const beginHandleDrag = (
     endpoint: Endpoint,
     event: PointerEvent & { currentTarget: SVGCircleElement },
   ) => {
-    if (endpointDrag || !start() || !end() || !event.isPrimary) return;
+    if (endpointDrag || wallTranslation || !start() || !end() || !event.isPrimary) return;
     event.preventDefault();
     event.stopPropagation();
     const svg = event.currentTarget.ownerSVGElement;
@@ -214,7 +300,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
     setMessage("Keyboard-adjusted wall " + endpoint + " handle; IFC remains unchanged.");
   };
   const clickPlan = (event: MouseEvent & { currentTarget: SVGSVGElement }) => {
-    if (ignoreCanvasClick || endpointDrag) { ignoreCanvasClick = false; return; }
+    if (ignoreCanvasClick || endpointDrag || wallTranslation) { ignoreCanvasClick = false; return; }
     const point = toPlan(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
     if (!start() || end()) { setStart(point); setEnd(null); setMessage(""); }
     else { setEnd(point); setPointer(null); }
@@ -278,7 +364,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
 
   return <section aria-label="Wall plan draft" class="teldra-wall-plan-draft">
     <h3>Draw wall — 2D plan</h3>
-    <p>Drag the amber endpoint handles to reshape a completed wall. Arrow keys move the focused handle by 0.25 m with grid snapping, or 0.05 m without it. Escape cancels an active drag. The numeric controls provide exact metre input.</p>
+    <p>Drag the amber endpoint handles to reshape a completed wall, or drag its centreline to translate the entire wall. Arrow keys nudge the focused handle or centreline by 0.25 m with grid snapping, or 0.05 m without it. Escape cancels an active drag. The numeric controls provide exact metre input.</p>
     <p>Click the start and end points, or enter exact coordinates. Units are metres. Choose which face of the wall you are drawing, as in BIM parametric wall tools. This remains a reviewable CAD draft; it cannot yet modify or save IFC walls.</p>
     <div role="group" aria-label="Wall drafting constraints">
       <label><input type="checkbox" checked={gridEnabled()} onChange={event => setGridEnabled(event.currentTarget.checked)} /> Snap to 0.25 m grid</label>
@@ -305,21 +391,27 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
       tabindex="0"
       style={{ width: "100%", "max-width": "640px", "background-color": "var(--surface, #1b1b1b)", "touch-action": "manipulation", cursor: "crosshair" }}
       onClick={clickPlan} onMouseMove={movePlan} onMouseLeave={() => setPointer(null)}
-      onPointerMove={moveHandleDrag}
-      onPointerUp={event => finishHandleDrag(event, false)}
-      onPointerCancel={event => finishHandleDrag(event, true)}
+      onPointerMove={event => { moveHandleDrag(event); moveWallTranslation(event); }}
+      onPointerUp={event => { finishHandleDrag(event, false); finishWallTranslation(event, false); }}
+      onPointerCancel={event => { finishHandleDrag(event, true); finishWallTranslation(event, true); }}
       onKeyDown={event => {
-        if (event.key !== "Escape" || !endpointDrag) return;
+        if (event.key !== "Escape") return;
+        const handle = endpointDrag;
+        const translation = wallTranslation;
+        if (!handle && !translation) return;
         event.preventDefault();
         event.stopPropagation();
-        const drag = endpointDrag;
         endpointDrag = null;
+        wallTranslation = null;
+        const drag = handle ?? translation!;
         setStart(drag.originalStart);
         setEnd(drag.originalEnd);
         setAngleStep(drag.originalAngleStep);
         if (event.currentTarget.hasPointerCapture(drag.pointerId))
           event.currentTarget.releasePointerCapture(drag.pointerId);
-        setMessage("Handle drag cancelled. The wall draft is unchanged.");
+        ignoreCanvasClick = true;
+        window.setTimeout(() => { ignoreCanvasClick = false; }, 0);
+        setMessage("Wall drag cancelled. The draft is unchanged.");
       }}>
       <For each={gridLines}>{v => <>
         <line x1={WIDTH / 2 + v * PIXELS_PER_METRE} y1="0" x2={WIDTH / 2 + v * PIXELS_PER_METRE} y2={HEIGHT} stroke="currentColor" stroke-opacity=".12" />
@@ -328,6 +420,16 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
       <line x1={WIDTH / 2} x2={WIDTH / 2} y1="0" y2={HEIGHT} stroke="currentColor" stroke-opacity=".35" />
       <line x1="0" x2={WIDTH} y1={HEIGHT / 2} y2={HEIGHT / 2} stroke="currentColor" stroke-opacity=".35" />
       <Show when={validDraft()}><polygon points={corners()} fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="2" /></Show>
+      <Show when={end() && start() && constrainedEnd()}><line
+        data-testid="wall-translate-handle" role="button" aria-label="Move entire wall" tabindex="0"
+        x1={toScreen(start()!)[0]} y1={toScreen(start()!)[1]}
+        x2={toScreen(constrainedEnd()!)[0]} y2={toScreen(constrainedEnd()!)[1]}
+        stroke="#e6bb77" stroke-opacity=".01" stroke-width="22"
+        style={{ cursor: "move", "touch-action": "none", "pointer-events": "stroke" }}
+        onPointerDown={beginWallTranslation}
+        onKeyDown={nudgeWall}
+        onClick={event => { ignoreCanvasClick = false; event.stopPropagation(); }}
+      /></Show>
       <Show when={pendingProposal()}>{proposal => <polygon
         data-testid="wall-proposal-footprint"
         points={straightWallFootprint(proposal().intent.wall).map(p => toScreen(p).join(",")).join(" ")}
