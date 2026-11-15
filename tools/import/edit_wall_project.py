@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import tempfile
 from pathlib import Path
 from zipfile import ZIP_STORED, ZipFile
@@ -299,18 +300,28 @@ def edit_wall_archive_copy(
         os.link(archive_path, destination)
     return changed_guid
 
-def read_wall_draft_json(path: Path) -> StraightWall:
-    """Load an explicitly versioned review draft from Studio, never arbitrary commands."""
+def _read_wall_intent(
+    path: Path,
+    *,
+    expected_format: str,
+    operation: str,
+) -> tuple[dict, StraightWall]:
+    """Validate untrusted Studio wall draft files with one geometry contract."""
     if path.stat().st_size > 64 * 1024:
         raise WallArchiveEditError("Wall draft exceeds the allowed size.")
     intent = json.loads(path.read_text(encoding="utf-8"))
     if (
         not isinstance(intent, dict)
-        or intent.get("format") != "teldra-wall-draft-v1"
-        or intent.get("operation") != "CreateWall"
+        or intent.get("format") != expected_format
+        or intent.get("operation") != operation
         or intent.get("coordinateFrame") != "ifc-world-metres-z-up"
     ):
         raise WallArchiveEditError("Unsupported wall draft version, operation or coordinate frame.")
+    allowed = {"format", "operation", "coordinateFrame", "wall", "warning"}
+    if operation == "EditWall":
+        allowed.add("targetIfcGlobalId")
+    if set(intent) - allowed:
+        raise WallArchiveEditError("Wall draft includes unsupported command fields.")
     wall = intent.get("wall")
     if not isinstance(wall, dict):
         raise WallArchiveEditError("Wall draft geometry must be an object.")
@@ -326,12 +337,35 @@ def read_wall_draft_json(path: Path) -> StraightWall:
     for dimension in ("thicknessMetres", "heightMetres"):
         if type(wall[dimension]) not in (int, float):
             raise WallArchiveEditError("Draft wall dimensions must be numeric metres.")
-    return StraightWall(
+    return intent, StraightWall(
         start=tuple(wall["start"]),
         end=tuple(wall["end"]),
         thickness_m=wall["thicknessMetres"],
         height_m=wall["heightMetres"],
     )
+
+
+def read_wall_draft_json(path: Path) -> StraightWall:
+    """Read a CreateWall proposal only; edit/delete intents cannot be substituted."""
+    _, wall = _read_wall_intent(
+        path, expected_format="teldra-wall-draft-v1", operation="CreateWall"
+    )
+    return wall
+
+
+def read_wall_edit_draft_json(path: Path) -> tuple[str, StraightWall]:
+    """Read an explicitly selected IFC wall target and proposed new dimensions.
+
+    This is *not* an authorization: the archive editor separately checks the
+    source SHA-256, IFC identity, hosted openings and representation ownership.
+    """
+    intent, wall = _read_wall_intent(
+        path, expected_format="teldra-wall-edit-v1", operation="EditWall"
+    )
+    guid = intent.get("targetIfcGlobalId")
+    if not isinstance(guid, str) or re.fullmatch(r"[0-9A-Za-z_$]{22}", guid) is None:
+        raise WallArchiveEditError("EditWall requires a valid compressed IFC GlobalId.")
+    return guid, wall
 
 
 def main() -> None:
@@ -344,6 +378,11 @@ def main() -> None:
     target.add_argument("--wall-guid", help="Edit an existing eligible wall IFC GlobalId")
     target.add_argument("--delete-wall-guid", help="Delete an existing independent wall by IFC GlobalId")
     target.add_argument("--storey-guid", help="Create a wall in this IfcBuildingStorey GlobalId")
+    target.add_argument(
+        "--edit-draft-file",
+        type=Path,
+        help="Edit one selected IFC wall using a reviewed Studio teldra-wall-edit-v1 JSON",
+    )
     parser.add_argument("--draft-file", type=Path, help="Studio exported teldra-wall-draft-v1 JSON")
     parser.add_argument(
         "--expected-source-sha256",
@@ -356,7 +395,14 @@ def main() -> None:
     parser.add_argument("--elevation", type=float, default=0.0, help="Wall base elevation in metres")
     parser.add_argument("--name", default="Wall", help="Name for a newly created wall")
     args = parser.parse_args()
-    if args.delete_wall_guid is not None:
+    selected_wall_guid = args.wall_guid
+    if args.edit_draft_file is not None:
+        if args.draft_file or any(
+            item is not None for item in (args.start, args.end, args.thickness, args.height)
+        ) or args.elevation != 0:
+            parser.error("--edit-draft-file cannot mix with manual or CreateWall geometry.")
+        selected_wall_guid, draft = read_wall_edit_draft_json(args.edit_draft_file)
+    elif args.delete_wall_guid is not None:
         if args.draft_file or any(
             item is not None for item in (args.start, args.end, args.thickness, args.height)
         ) or args.elevation != 0:
@@ -383,7 +429,7 @@ def main() -> None:
         args.destination,
         wall=draft,
         storey_global_id=args.storey_guid,
-        wall_global_id=args.wall_guid,
+        wall_global_id=selected_wall_guid,
         delete_wall_global_id=args.delete_wall_guid,
         name=args.name,
         expected_source_sha256=args.expected_source_sha256,
