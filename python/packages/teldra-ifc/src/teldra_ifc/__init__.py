@@ -12,6 +12,7 @@ from .wall_authoring import (
     StraightWall,
     WallAuthoringError,
     create_straight_wall,
+    delete_straight_wall,
     edit_straight_wall,
     inspect_wall_edit_eligibility,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "StraightWall",
     "WallAuthoringError",
     "create_straight_wall",
+    "delete_straight_wall",
     "edit_straight_wall",
     "inspect_wall_edit_eligibility",
 ]
