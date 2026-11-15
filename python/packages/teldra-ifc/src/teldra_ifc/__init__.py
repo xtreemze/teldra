@@ -15,6 +15,7 @@ from .wall_authoring import (
     delete_straight_wall,
     edit_straight_wall,
     inspect_wall_edit_eligibility,
+    inspect_wall_delete_eligibility,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "delete_straight_wall",
     "edit_straight_wall",
     "inspect_wall_edit_eligibility",
+    "inspect_wall_delete_eligibility",
 ]
