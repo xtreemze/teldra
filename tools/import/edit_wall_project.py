@@ -136,6 +136,11 @@ def inspect_wall_archive(source: Path) -> dict:
         deletable, delete_reason = inspect_wall_delete_eligibility(
             model, ref["ifcGlobalId"]
         )
+        if deletable and any(
+            device.get("buildingRefId") == ref["id"] for device in twin["devices"]
+        ):
+            deletable = False
+            delete_reason = "A device still references this wall's canonical ID."
         if deletable and renderable_refs <= 1:
             deletable = False
             delete_reason = "Cannot remove the last renderable building object."
@@ -201,6 +206,13 @@ def edit_wall_archive_copy(
         ]
         if len(authored) != 1:
             raise WallArchiveEditError("Wall deletion requires one uniquely authored twin wall.")
+        if any(
+            device.get("buildingRefId") == authored[0]["id"]
+            for device in twin["devices"]
+        ):
+            raise WallArchiveEditError(
+                "Cannot delete an IFC wall referenced by a Teldra device."
+            )
         staged_ifc = delete_straight_wall(original_ifc, delete_wall_global_id)
         changed_guid = delete_wall_global_id
         twin["building"]["refs"] = [
