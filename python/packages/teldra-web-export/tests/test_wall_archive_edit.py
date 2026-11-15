@@ -279,6 +279,8 @@ def test_wall_archive_preflight_reports_exact_source_and_ifc_storeys(tmp_path):
             "name": "Wall",
             "editable": True,
             "blockedReason": None,
+            "deletable": False,
+            "deleteBlockedReason": "Cannot remove the last renderable building object.",
         }
     ]
     assert source.read_bytes() == unchanged
@@ -389,4 +391,134 @@ def test_corrupted_rebuilt_scene_is_never_published(tmp_path, monkeypatch):
             wall=StraightWall((6, 0), (6, 4), 0.2, 2.6),
         )
     assert source.read_bytes() == original
+    assert not destination.exists()
+
+
+def test_wall_removal_rebuilds_verified_architecture_only_copy(tmp_path):
+    source, storey, guid = _fixture(tmp_path)
+    before = source.read_bytes()
+    populated = tmp_path / "two-walls.teldra"
+    second_guid = edit_wall_archive_copy(
+        source,
+        populated,
+        storey_global_id=storey,
+        wall=StraightWall((6, 0), (6, 4), 0.2, 2.6),
+        expected_source_sha256=_hash(before),
+    )
+    populated_before = populated.read_bytes()
+    eligibility = inspect_wall_archive(populated)
+    candidates = {wall["ifcGlobalId"]: wall for wall in eligibility["walls"]}
+    assert candidates[guid]["deletable"] is True
+    assert candidates[guid]["deleteBlockedReason"] is None
+    assert candidates[second_guid]["deletable"] is True
+    output = tmp_path / "removed-wall.teldra"
+    assert (
+        edit_wall_archive_copy(
+            populated,
+            output,
+            delete_wall_global_id=guid,
+            expected_source_sha256=_hash(populated_before),
+        )
+        == guid
+    )
+    assert source.read_bytes() == before
+    assert populated.read_bytes() == populated_before
+    with ZipFile(output) as archive:
+        assert archive.testzip() is None
+        twin = json.loads(archive.read("twin.json"))
+        scene = json.loads(archive.read("scene.manifest.json"))
+        model = ifcopenshell.file.from_string(archive.read("building.ifc").decode())
+        project = json.loads(archive.read("project.json"))
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    assert any(wall.GlobalId == second_guid for wall in model.by_type("IfcWall"))
+    assert not any(wall.GlobalId == guid for wall in model.by_type("IfcWall"))
+    assert not any(ref["ifcGlobalId"] == guid for ref in twin["building"]["refs"])
+    assert not any(node["ifcGlobalId"] == guid for node in scene["nodes"])
+    assert all(
+        artifact["sha256"] == _hash(entries[artifact["path"]])
+        for artifact in (project["building"], project["twin"], *project["derived"])
+    )
+
+
+def test_wall_removal_refuses_last_renderable_object_without_output(tmp_path):
+    source, _, guid = _fixture(tmp_path)
+    destination = tmp_path / "would-be-empty.teldra"
+    before = source.read_bytes()
+    with pytest.raises(WallArchiveEditError, match="last renderable"):
+        edit_wall_archive_copy(
+            source,
+            destination,
+            delete_wall_global_id=guid,
+        )
+    assert source.read_bytes() == before
+    assert not destination.exists()
+
+
+def test_wall_removal_rejects_invalid_targets_and_native_visuals(tmp_path):
+    source, storey, guid = _fixture(tmp_path)
+    bad = tmp_path / "no-delete.teldra"
+    with pytest.raises(WallArchiveEditError, match="geometry"):
+        edit_wall_archive_copy(
+            source,
+            bad,
+            delete_wall_global_id=guid,
+            wall=StraightWall((0, 0), (4, 0), 0.2, 2.6),
+        )
+    with pytest.raises(WallArchiveEditError, match="uniquely authored"):
+        edit_wall_archive_copy(source, bad, delete_wall_global_id=storey)
+    assert not bad.exists()
+
+    native = tmp_path / "native-with-source.teldra"
+    with ZipFile(source) as original, ZipFile(native, "w") as destination:
+        for filename in original.namelist():
+            destination.writestr(filename, original.read(filename))
+        destination.writestr("source.sh3d", b"untouched source")
+    with pytest.raises(WallArchiveEditError, match="cannot yet be regenerated"):
+        edit_wall_archive_copy(native, bad, delete_wall_global_id=guid)
+    assert not bad.exists()
+
+
+def test_wall_deletion_rejects_twin_device_reference_without_creating_output(tmp_path):
+    source, storey, guid = _fixture(tmp_path)
+    populated = tmp_path / "two-walls-for-binding.teldra"
+    edit_wall_archive_copy(
+        source,
+        populated,
+        storey_global_id=storey,
+        wall=StraightWall((6, 0), (6, 4), 0.2, 2.6),
+    )
+    with ZipFile(populated) as original:
+        entries = {name: original.read(name) for name in original.namelist()}
+    twin = json.loads(entries["twin.json"])
+    twin["devices"].append(
+        {
+            "id": "device:wall-sensor",
+            "name": "Wall sensor",
+            "buildingRefId": f"ifc:{guid}",
+            "capabilities": [{"id": "cap:temperature", "kind": "sensor"}],
+        }
+    )
+    entries["twin.json"] = _json(twin)
+    project = json.loads(entries["project.json"])
+    project["twin"]["sha256"] = _hash(entries["twin.json"])
+    entries["project.json"] = _json(project)
+    referenced = tmp_path / "device-referenced-wall.teldra"
+    with ZipFile(referenced, "w", compression=ZIP_STORED) as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    before = referenced.read_bytes()
+    report = inspect_wall_archive(referenced)
+    target = next(wall for wall in report["walls"] if wall["ifcGlobalId"] == guid)
+    assert target["editable"] is True
+    assert target["deletable"] is False
+    assert "device still references" in target["deleteBlockedReason"]
+    destination = tmp_path / "rejected-wall-delete.teldra"
+    with pytest.raises(WallArchiveEditError, match="referenced by a Teldra device"):
+        edit_wall_archive_copy(
+            referenced,
+            destination,
+            delete_wall_global_id=guid,
+            expected_source_sha256=_hash(before),
+        )
+    assert referenced.read_bytes() == before
     assert not destination.exists()

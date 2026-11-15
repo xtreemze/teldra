@@ -18,8 +18,10 @@ import ifcopenshell
 from teldra_ifc import (
     StraightWall,
     create_straight_wall,
+    delete_straight_wall,
     edit_straight_wall,
     inspect_wall_edit_eligibility,
+    inspect_wall_delete_eligibility,
 )
 from teldra_web_export import export_ifc_web_scene
 
@@ -122,17 +124,34 @@ def inspect_wall_archive(source: Path) -> dict:
         ),
         key=lambda storey: storey["ifcGlobalId"],
     )
+    renderable_refs = sum(
+        getattr(model.by_guid(ref["ifcGlobalId"]), "Representation", None) is not None
+        for ref in twin["building"]["refs"]
+    )
     walls = []
     for ref in twin["building"]["refs"]:
         if ref.get("kind") != "wall":
             continue
         editable, reason = inspect_wall_edit_eligibility(model, ref["ifcGlobalId"])
+        deletable, delete_reason = inspect_wall_delete_eligibility(
+            model, ref["ifcGlobalId"]
+        )
+        if deletable and any(
+            device.get("buildingRefId") == ref["id"] for device in twin["devices"]
+        ):
+            deletable = False
+            delete_reason = "A device still references this wall's canonical ID."
+        if deletable and renderable_refs <= 1:
+            deletable = False
+            delete_reason = "Cannot remove the last renderable building object."
         walls.append({
             "canonicalId": ref["id"],
             "ifcGlobalId": ref["ifcGlobalId"],
             "name": ref.get("name") or "Unnamed wall",
             "editable": editable,
             "blockedReason": reason,
+            "deletable": deletable,
+            "deleteBlockedReason": delete_reason,
         })
     walls.sort(key=lambda wall: (wall["ifcGlobalId"], wall["canonicalId"]))
     # A building can be valid but have no eligible storey for wall creation.
@@ -155,25 +174,52 @@ def edit_wall_archive_copy(
     source: Path,
     destination: Path,
     *,
-    wall: StraightWall,
+    wall: StraightWall | None = None,
     storey_global_id: str | None = None,
     wall_global_id: str | None = None,
+    delete_wall_global_id: str | None = None,
     name: str = "Wall",
     expected_source_sha256: str | None = None,
 ) -> str:
     """Create or edit one straight wall and rebuild an architecture-only .teldra.
 
-    Exactly one of storey_global_id or wall_global_id must be supplied.
+    Exactly one of storey_global_id, wall_global_id or delete_wall_global_id is required.
     New archive destination must not exist. The input is never modified.
     """
-    if (storey_global_id is None) == (wall_global_id is None):
-        raise WallArchiveEditError("Specify exactly one storey for create or wall for edit.")
+    targets = sum(
+        value is not None
+        for value in (storey_global_id, wall_global_id, delete_wall_global_id)
+    )
+    if targets != 1:
+        raise WallArchiveEditError("Specify exactly one target for wall create, edit or delete.")
+    if (delete_wall_global_id is None) != (wall is not None):
+        raise WallArchiveEditError("Wall geometry is required for create/edit and forbidden for delete.")
     if source.resolve() == destination.resolve() or destination.exists():
         raise WallArchiveEditError("Refusing to overwrite any existing project archive.")
     entries = _archive_files(source, expected_sha256=expected_source_sha256)
     manifest, twin = _verify(entries)
     original_ifc = ifcopenshell.file.from_string(entries["building.ifc"].decode("utf-8"))
-    if wall_global_id is not None:
+    if delete_wall_global_id is not None:
+        authored = [
+            ref for ref in twin["building"]["refs"]
+            if ref["ifcGlobalId"] == delete_wall_global_id and ref.get("kind") == "wall"
+        ]
+        if len(authored) != 1:
+            raise WallArchiveEditError("Wall deletion requires one uniquely authored twin wall.")
+        if any(
+            device.get("buildingRefId") == authored[0]["id"]
+            for device in twin["devices"]
+        ):
+            raise WallArchiveEditError(
+                "Cannot delete an IFC wall referenced by a Teldra device."
+            )
+        staged_ifc = delete_straight_wall(original_ifc, delete_wall_global_id)
+        changed_guid = delete_wall_global_id
+        twin["building"]["refs"] = [
+            ref for ref in twin["building"]["refs"]
+            if ref["ifcGlobalId"] != delete_wall_global_id
+        ]
+    elif wall_global_id is not None:
         staged_ifc = edit_straight_wall(original_ifc, wall_global_id, wall)
         changed_guid = wall_global_id
     else:
@@ -199,6 +245,10 @@ def edit_wall_archive_copy(
             if getattr(staged_ifc.by_guid(ref["ifcGlobalId"]), "Representation", None)
             is not None
         }
+        if not canonical:
+            raise WallArchiveEditError(
+                "Cannot remove the last renderable building object until empty-scene export is supported."
+            )
         export_ifc_web_scene(
             staging / "building.ifc",
             staging / "building.glb",
@@ -235,7 +285,12 @@ def edit_wall_archive_copy(
             if resolved is None:
                 raise WallArchiveEditError(f"Rebuilt project lost authored IFC identity: {ref['id']}")
         scene = json.loads(committed_entries["scene.manifest.json"])
-        if not any(node.get("ifcGlobalId") == changed_guid for node in scene["nodes"]):
+        wall_in_scene = any(
+            node.get("ifcGlobalId") == changed_guid for node in scene["nodes"]
+        )
+        if delete_wall_global_id is not None and wall_in_scene:
+            raise WallArchiveEditError("Rebuilt scene retains the deleted wall geometry.")
+        if delete_wall_global_id is None and not wall_in_scene:
             raise WallArchiveEditError("Rebuilt scene omits the authored wall geometry.")
         # Staging resides on the same filesystem as destination. Publishing an
         # existing, complete staging file via a hard link is atomic and O_EXCL-like:
@@ -287,6 +342,7 @@ def main() -> None:
     parser.add_argument("destination", type=Path, help="New .teldra archive; never overwritten")
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--wall-guid", help="Edit an existing eligible wall IFC GlobalId")
+    target.add_argument("--delete-wall-guid", help="Delete an existing independent wall by IFC GlobalId")
     target.add_argument("--storey-guid", help="Create a wall in this IfcBuildingStorey GlobalId")
     parser.add_argument("--draft-file", type=Path, help="Studio exported teldra-wall-draft-v1 JSON")
     parser.add_argument(
@@ -300,7 +356,13 @@ def main() -> None:
     parser.add_argument("--elevation", type=float, default=0.0, help="Wall base elevation in metres")
     parser.add_argument("--name", default="Wall", help="Name for a newly created wall")
     args = parser.parse_args()
-    if args.draft_file is not None:
+    if args.delete_wall_guid is not None:
+        if args.draft_file or any(
+            item is not None for item in (args.start, args.end, args.thickness, args.height)
+        ) or args.elevation != 0:
+            parser.error("Wall deletion cannot accept draft or manual geometry.")
+        draft = None
+    elif args.draft_file is not None:
         if args.wall_guid or any(
             item is not None for item in (args.start, args.end, args.thickness, args.height)
         ) or args.elevation != 0:
@@ -322,6 +384,7 @@ def main() -> None:
         wall=draft,
         storey_global_id=args.storey_guid,
         wall_global_id=args.wall_guid,
+        delete_wall_global_id=args.delete_wall_guid,
         name=args.name,
         expected_source_sha256=args.expected_source_sha256,
     )
