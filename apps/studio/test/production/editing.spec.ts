@@ -160,3 +160,24 @@ test("wall proposal approval rejects stale preview after canonical history advan
   await expect(panel.getByTestId("wall-proposal-footprint")).toHaveCount(0);
   await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("Bonsai-style wall reference faces preserve canonical IFC geometry on mode switching", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button",{name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button",{name:"Wall draft (2D)"}).click();
+  const panel = page.getByRole("region",{name:"Wall plan draft"});
+  const baselines = panel.getByRole("group",{name:"Wall reference baseline"});
+  await baselines.getByRole("button",{name:"Exterior face"}).click();
+  await panel.getByLabel("Start X (m)").fill("0");
+  await panel.getByLabel("Start Y (m)").fill("0");
+  await panel.getByLabel("End X (m)").fill("4");
+  await panel.getByLabel("End Y (m)").fill("0");
+  await panel.getByLabel("Thickness (m)").fill("0.2");
+  await expect(panel.getByTestId("wall-ifc-centreline")).toContainText("(0.000, -0.100) to (4.000, -0.100)");
+  await baselines.getByRole("button",{name:"Centreline"}).click();
+  await expect(panel.getByTestId("wall-ifc-centreline")).toContainText("(0.000, -0.100) to (4.000, -0.100)");
+  await expect(panel.getByLabel("Start Y (m)")).toHaveValue("-0.1");
+  await expect(panel.getByRole("button",{name:"Apply to IFC (not yet supported)"})).toBeDisabled();
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+});

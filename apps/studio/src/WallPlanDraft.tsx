@@ -7,6 +7,9 @@ import {
   acceptWallProposal,
   type StagedWallProposal,
   serializeWallDraftIntent,
+  wallFromReferenceBaseline,
+  wallReferenceFromCentreline,
+  type WallReferenceBaseline,
   type PlanPoint,
   type StraightWallDraft,
 } from "@teldra/application";
@@ -25,6 +28,7 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
   const [height, setHeight] = createSignal(2.6);
   const [angleStep, setAngleStep] = createSignal(45);
   const [gridEnabled, setGridEnabled] = createSignal(true);
+  const [baseline, setBaseline] = createSignal<WallReferenceBaseline>("centreline");
   const [message, setMessage] = createSignal("");
   const [proposalInput, setProposalInput] = createSignal("");
   const [pendingProposal, setPendingProposal] = createSignal<StagedWallProposal | null>(null);
@@ -52,6 +56,7 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
       const wall = acceptWallProposal(proposal, props.currentRevision());
       // Turn off snapping so acceptance preserves the exact reviewed geometry.
       setAngleStep(0);
+      setBaseline("centreline");
       setStart([wall.start[0], wall.start[1]]);
       setEnd([wall.end[0], wall.end[1]]);
       setPointer(null);
@@ -76,15 +81,27 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
     if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1e-6) return b;
     return angleStep() > 0 ? constrainPlanAngle(a, b, angleStep()) : b;
   };
-  const draft = createMemo((): StraightWallDraft | null => {
+  const validDraft = createMemo((): StraightWallDraft | null => {
     const a = start(), b = constrainedEnd();
-    return a && b ? { start: a, end: b, thicknessMetres: thickness(), heightMetres: height() } : null;
+    if (!a || !b) return null;
+    try {
+      return validateStraightWallDraft(
+        wallFromReferenceBaseline(a, b, thickness(), height(), baseline()),
+      );
+    } catch { return null; }
   });
-  const validDraft = createMemo(() => {
-    const d = draft();
-    if (!d) return null;
-    try { return validateStraightWallDraft(d); } catch { return null; }
-  });
+  const chooseBaseline = (next: WallReferenceBaseline) => {
+    const existing = end() ? validDraft() : null;
+    if (existing) {
+      // Switching references must not translate IFC-bound centreline geometry.
+      const [referenceStart, referenceEnd] = wallReferenceFromCentreline(existing, next);
+      setAngleStep(0);
+      setStart(referenceStart);
+      setEnd(referenceEnd);
+    }
+    setBaseline(next);
+    setMessage("");
+  };
   const length = () => {
     const a = start(), b = constrainedEnd();
     return a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : 0;
@@ -142,7 +159,7 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
 
   return <section aria-label="Wall plan draft" class="teldra-wall-plan-draft">
     <h3>Draw wall — 2D plan</h3>
-    <p>Click the start and end points, or enter exact coordinates. Units are metres. This is a reviewable CAD draft only; it cannot yet modify or save IFC walls.</p>
+    <p>Click the start and end points, or enter exact coordinates. Units are metres. Choose which face of the wall you are drawing, as in BIM parametric wall tools. This remains a reviewable CAD draft; it cannot yet modify or save IFC walls.</p>
     <div role="group" aria-label="Wall drafting constraints">
       <label><input type="checkbox" checked={gridEnabled()} onChange={event => setGridEnabled(event.currentTarget.checked)} /> Snap to 0.25 m grid</label>
       <label>Angle constraint
@@ -152,6 +169,18 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
         </select>
       </label>
     </div>
+    <fieldset class="teldra-wall-plan-draft__baseline">
+      <legend>Wall reference line</legend>
+      <div role="group" aria-label="Wall reference baseline">
+        <For each={["exterior", "centreline", "interior"] as const}>{mode =>
+          <button type="button" aria-pressed={baseline() === mode}
+            onClick={() => chooseBaseline(mode)}>
+            {mode === "exterior" ? "Exterior face" : mode === "centreline" ? "Centreline" : "Interior face"}
+          </button>
+        }</For>
+      </div>
+      <p>Exterior is the left face from start to end; interior is the right. Switching reference does not move a completed wall. IFC exports always contain its centreline.</p>
+    </fieldset>
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Interactive metre-based wall plan, click twice to draw a wall"
       style={{ width: "100%", "max-width": "640px", "background-color": "var(--surface, #1b1b1b)", "touch-action": "manipulation", cursor: "crosshair" }}
       onClick={clickPlan} onMouseMove={movePlan} onMouseLeave={() => setPointer(null)}>
@@ -181,6 +210,7 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
       <label>Thickness (m) <input type="number" min=".001" max="100" step="any" value={thickness()} onInput={event => setThickness(event.currentTarget.valueAsNumber)} /></label>
       <label>Height (m) <input type="number" min=".001" max="100" step="any" value={height()} onInput={event => setHeight(event.currentTarget.valueAsNumber)} /></label>
       <output aria-live="polite">Length: {length().toFixed(3)} m</output>
+      <Show when={validDraft()}>{wall => <p data-testid="wall-ifc-centreline">IFC centreline: ({wall().start.map(n => n.toFixed(3)).join(", ")}) to ({wall().end.map(n => n.toFixed(3)).join(", ")}) m</p>}</Show>
     </fieldset>
     <details class="teldra-wall-plan-draft__proposal-review">
       <summary>Review imported or agent-proposed wall draft</summary>
