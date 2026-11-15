@@ -220,6 +220,10 @@ def edit_wall_archive_copy(
             if getattr(staged_ifc.by_guid(ref["ifcGlobalId"]), "Representation", None)
             is not None
         }
+        if not canonical:
+            raise WallArchiveEditError(
+                "Cannot remove the last renderable building object until empty-scene export is supported."
+            )
         export_ifc_web_scene(
             staging / "building.ifc",
             staging / "building.glb",
