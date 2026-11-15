@@ -420,7 +420,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
       <line x1={WIDTH / 2} x2={WIDTH / 2} y1="0" y2={HEIGHT} stroke="currentColor" stroke-opacity=".35" />
       <line x1="0" x2={WIDTH} y1={HEIGHT / 2} y2={HEIGHT / 2} stroke="currentColor" stroke-opacity=".35" />
       <Show when={validDraft()}><polygon points={corners()} fill="currentColor" fill-opacity=".22" stroke="currentColor" stroke-width="2" /></Show>
-      <Show when={end() && start() && constrainedEnd()}>{() => <line
+      <Show when={end() && start() && constrainedEnd()}><line
         data-testid="wall-translate-handle" role="button" aria-label="Move entire wall" tabindex="0"
         x1={toScreen(start()!)[0]} y1={toScreen(start()!)[1]}
         x2={toScreen(constrainedEnd()!)[0]} y2={toScreen(constrainedEnd()!)[1]}
@@ -429,7 +429,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
         onPointerDown={beginWallTranslation}
         onKeyDown={nudgeWall}
         onClick={event => { ignoreCanvasClick = false; event.stopPropagation(); }}
-      />}</Show>
+      /></Show>
       <Show when={pendingProposal()}>{proposal => <polygon
         data-testid="wall-proposal-footprint"
         points={straightWallFootprint(proposal().intent.wall).map(p => toScreen(p).join(",")).join(" ")}
