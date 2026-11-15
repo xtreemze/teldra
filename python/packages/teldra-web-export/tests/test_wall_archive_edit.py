@@ -531,18 +531,23 @@ def test_versioned_selected_wall_edit_draft_roundtrips_through_cli(tmp_path):
     source, _, guid = _fixture(tmp_path)
     reviewed_sha = _hash(source.read_bytes())
     handoff = tmp_path / "selected-wall-edit.json"
-    handoff.write_text(json.dumps({
-        "format": "teldra-wall-edit-v1",
-        "operation": "EditWall",
-        "coordinateFrame": "ifc-world-metres-z-up",
-        "targetIfcGlobalId": guid,
-        "wall": {
-            "start": [1, 0],
-            "end": [7, 0],
-            "thicknessMetres": 0.25,
-            "heightMetres": 2.9,
-        },
-    }), encoding="utf-8")
+    handoff.write_text(
+        json.dumps(
+            {
+                "format": "teldra-wall-edit-v1",
+                "operation": "EditWall",
+                "coordinateFrame": "ifc-world-metres-z-up",
+                "targetIfcGlobalId": guid,
+                "wall": {
+                    "start": [1, 0],
+                    "end": [7, 0],
+                    "thicknessMetres": 0.25,
+                    "heightMetres": 2.9,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     selected, geometry = read_wall_edit_draft_json(handoff)
     assert selected == guid
     assert geometry.start == (1, 0)
@@ -567,8 +572,7 @@ def test_versioned_selected_wall_edit_draft_roundtrips_through_cli(tmp_path):
     with ZipFile(destination) as archive:
         assert archive.testzip() is None
         assert guid in {
-            node["ifcGlobalId"]
-            for node in json.loads(archive.read("scene.manifest.json"))["nodes"]
+            node["ifcGlobalId"] for node in json.loads(archive.read("scene.manifest.json"))["nodes"]
         }
         ifc = ifcopenshell.file.from_string(archive.read("building.ifc").decode())
         assert ifc.by_guid(guid).Representation is not None
