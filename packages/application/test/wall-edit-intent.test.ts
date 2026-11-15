@@ -31,6 +31,7 @@ describe("selected existing IFC wall edit handoff", () => {
       { operation: "CreateWall" },
       { coordinateFrame: "screen-pixels" },
       { format: "teldra-wall-draft-v1" },
+      { otherCommand: "DeleteAll" },
       { wall: {...wall, start: [true, 1]} },
       { wall: {...wall, thicknessMetres: -1} },
     ]) {
