@@ -221,3 +221,37 @@ test("selected IFC wall exports an explicit EditWall handoff without changing th
   expect((await download).suggestedFilename()).toBe("teldra-wall-edit.json");
   await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("BIM wall endpoint gizmos drag and keyboard-nudge a local draft without editing IFC", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button",{name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button",{name:"Wall draft (2D)"}).click();
+  const panel = page.getByRole("region",{name:"Wall plan draft"});
+  await panel.getByLabel("Angle constraint").selectOption("0");
+  await panel.getByLabel("Start X (m)").fill("0");
+  await panel.getByLabel("Start Y (m)").fill("0");
+  await panel.getByLabel("End X (m)").fill("4");
+  await panel.getByLabel("End Y (m)").fill("0");
+  const svg = panel.getByRole("img", {name:/Interactive metre-based wall plan/});
+  const endHandle = panel.getByTestId("wall-end-handle");
+  const handleBox = await endHandle.boundingBox();
+  const svgBox = await svg.boundingBox();
+  expect(handleBox).not.toBeNull();
+  expect(svgBox).not.toBeNull();
+  const x = handleBox!.x + handleBox!.width / 2;
+  const y = handleBox!.y + handleBox!.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + (2 * 32 * svgBox!.width / 640), y, {steps:8});
+  await page.mouse.up();
+  await expect(panel.getByLabel("End X (m)")).toHaveValue("6");
+  await expect(panel.getByTestId("wall-ifc-centreline")).toContainText("(0.000, 0.000) to (6.000, 0.000)");
+  const startHandle = panel.getByTestId("wall-start-handle");
+  await startHandle.focus();
+  await startHandle.press("ArrowRight");
+  await expect(panel.getByLabel("Start X (m)")).toHaveValue("0.25");
+  await expect(panel.getByTestId("wall-ifc-centreline")).toContainText("(0.250, 0.000) to (6.000, 0.000)");
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+  await expect(panel.getByRole("button",{name:"Apply to IFC (not yet supported)"})).toBeDisabled();
+});
