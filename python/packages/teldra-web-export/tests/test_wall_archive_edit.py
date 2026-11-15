@@ -548,6 +548,23 @@ def test_versioned_selected_wall_edit_draft_roundtrips_through_cli(tmp_path):
         ),
         encoding="utf-8",
     )
+    unfenced_destination = tmp_path / "unfenced-edit.teldra"
+    unfenced = subprocess.run(
+        [
+            sys.executable,
+            str(EDIT_SCRIPT),
+            str(source),
+            str(unfenced_destination),
+            "--edit-draft-file",
+            str(handoff),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert unfenced.returncode != 0
+    assert "--expected-source-sha256" in unfenced.stderr
+    assert not unfenced_destination.exists()
     selected, geometry = read_wall_edit_draft_json(handoff)
     assert selected == guid
     assert geometry.start == (1, 0)
