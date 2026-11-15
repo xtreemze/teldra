@@ -627,9 +627,17 @@ export function StudioSelectionWorkspace(
           <MobileSheetHandle label="Scene" detent={sceneDetent()}
             onDetentChange={next => setMobileDetent("scene", next)} onClose={() => closeMobileSheet("scene")} />
           <h2 id="studio-device-list-title">Scene</h2>
-          <button type="button" aria-expanded={wallDraftOpen()} aria-controls="teldra-wall-draft-panel"
-            title="Draw a precision CAD wall draft. IFC Apply is not yet available."
-            onClick={() => setWallDraftOpen(value => !value)}>Wall draft (2D)</button>
+          <div role="toolbar" aria-label="BIM authoring tools" class="teldra-studio-selection-workspace__bim-tools">
+            <button type="button" aria-pressed={!wallDraftOpen()} onClick={() => setWallDraftOpen(false)}
+              title="Explore IFC-backed building and scene entities">Explore</button>
+            <button type="button" aria-pressed={wallDraftOpen()} aria-expanded={wallDraftOpen()}
+              aria-controls="teldra-wall-draft-panel"
+              title="Draw a parametric wall draft. Review IFC centreline before exporting. IFC Apply is not yet available."
+              onClick={() => setWallDraftOpen(value => !value)}>Wall draft (2D)</button>
+            <button type="button" disabled title="Door placement requires IFC hosted-opening authoring and derived scene reconciliation">Door (planned)</button>
+            <button type="button" disabled title="Window placement requires IFC hosted-opening authoring and derived scene reconciliation">Window (planned)</button>
+            <button type="button" disabled title="Slab authoring requires an IFC geometric representation transaction">Slab (planned)</button>
+          </div>
           <Show when={wallDraftOpen()}>
             <div id="teldra-wall-draft-panel" class="teldra-studio-selection-workspace__wall-draft">
               <WallPlanDraft currentRevision={() => props.controller.revision} />
@@ -713,6 +721,15 @@ export function StudioSelectionWorkspace(
                       : "Building / scene entity"}
                   </p>
                 </Show>
+                <Show when={selectedBuildingRef()?.kind === "wall" && selectedBuildingRef()}>{(wall) =>
+                  <section class="teldra-studio-selection-workspace__wall-context" aria-label="IFC wall authoring context">
+                    <h3>Wall — IFC authoring</h3>
+                    <p>Selected {wall().name ?? "wall"} (<code>{wall().ifcGlobalId}</code>) is IFC-backed. The browser cannot yet author hosted openings or reconcile its native 21D scene geometry.</p>
+                    <button type="button" onClick={() => { setWallDraftOpen(true); setSceneOpen(true); }}
+                      title="Open an isolated parametric wall draft; does not modify the selected IFC wall">Open wall drafting tool</button>
+                    <button type="button" disabled title="Requires a verified IFC writer, dependency updates and lossless scene regeneration">Edit selected IFC wall (not yet supported)</button>
+                  </section>
+                }</Show>
                 <Show when={selectedBuildingRef()}>{(ref) => <dl class="teldra-studio-selection-workspace__details">
                   <div><dt>Source name</dt><dd>{ref().name ?? "Unnamed"}</dd></div>
                   <div><dt>Type</dt><dd>{ref().kind}</dd></div>
