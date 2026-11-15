@@ -93,3 +93,50 @@ Implement the smallest passing vertical slice through #119 and #121 before expan
 - #121: wall/space/opening/door authoring
 - #122: furnishing, #123: finishes, #124: documentation, #125: Bonsai interoperability
 - #74: compatibility and fault injection; #82: transform limits; #90: touch certification
+
+
+## Implemented restricted headless workflow (November 2026)
+
+The full Studio transaction described above remains proposed. A supported
+**architecture-only new-copy** path exists for independent straight IFC4 walls.
+It refuses archives retaining the original `source.sh3d` or native visual
+producer assets, because the original 21D materials and scene geometry cannot
+yet be regenerated losslessly.
+
+From the `python/` workspace, first inspect the input archive without mutation:
+
+```sh
+uv run --locked python ../tools/import/inspect_wall_project.py source.teldra
+```
+
+The JSON report includes `sourceSha256`, IFC storey GlobalIds, and per-wall
+`editable`/`deletable` flags with precise blocking reasons. In Studio, select
+a wall and open **Scene → Wall draft (2D)**. After reviewing the intended
+replacement geometry, use **Export selected wall edit JSON**. The draft
+contains the selected wall's compressed IFC GlobalId and exactly the
+world-metre centreline and dimensions entered; Studio does **not** infer or
+preload the existing wall's geometry. This intentionally prevents misleading
+visual claims for a partially mapped wall.
+
+Apply the handoff to a **new destination file** with the reviewed source digest:
+
+```sh
+uv run --locked python ../tools/import/edit_wall_project.py \
+  source.teldra edited.teldra \
+  --edit-draft-file teldra-wall-edit.json \
+  --expected-source-sha256 SOURCE_SHA256_FROM_PREFLIGHT
+```
+
+The writer revalidates wall representation ownership, hosted openings,
+connectivity and source SHA-256, then rebuilds and verifies IFC/twin/GLB/scene
+provenance before atomic publication. Existing IFC GlobalIds are preserved
+when wall geometry is replaced. To create a wall, use Studio's
+`teldra-wall-draft-v1` export with `--storey-guid GUID --draft-file FILE`.
+To delete an eligible independent wall, use `--delete-wall-guid GUID` and
+`--expected-source-sha256`; deletions are blocked if a Teldra device still
+references the wall or if no renderable scene elements would remain.
+
+These operations do not constitute full browser IFC Apply, connected-junction
+or hosted-opening editing, source SH3D roundtrip or 21D visual parity. Such
+operations must remain unavailable in Studio until the complete transaction
+and material-preserving reconciliation tests in this ADR pass.
