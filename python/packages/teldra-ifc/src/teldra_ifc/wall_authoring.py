@@ -220,3 +220,33 @@ def edit_straight_wall(
     if wall.GlobalId != wall_global_id:
         raise WallAuthoringError("IFC GlobalId changed unexpectedly.")
     return model
+
+
+
+def delete_straight_wall(
+    source: ifcopenshell.file,
+    wall_global_id: str,
+) -> ifcopenshell.file:
+    """Remove a standalone, unhosted, straight IFC4 wall on an isolated model.
+
+    A conservative inverse-relationship allowlist prevents deleting a wall that
+    participates in unknown structural, group, type, boundary or connectivity
+    contracts. Native SH3D visual projects are rejected by the archive caller.
+    """
+    model = _isolated_model(source)
+    wall = _wall_by_guid(model, wall_global_id)
+    _editable_wall_body(model, wall)
+    for relation in model.get_inverse(wall):
+        # The API can safely dissolve the wall's own spatial containment.
+        if relation.is_a("IfcRelContainedInSpatialStructure"):
+            if relation.RelatingStructure is None:
+                raise WallAuthoringError("Wall spatial containment is malformed.")
+            continue
+        raise WallAuthoringError(
+            "Wall deletion requires dependent IFC relationship updates: "
+            + relation.is_a()
+        )
+    ifcopenshell.api.root.remove_product(model, product=wall)
+    if _find_global_id(model, wall_global_id) is not None:
+        raise WallAuthoringError("IFC wall deletion did not remove its GlobalId.")
+    return model
