@@ -7,6 +7,7 @@ import {
   acceptWallProposal,
   type StagedWallProposal,
   serializeWallDraftIntent,
+  serializeExistingWallEditIntent,
   wallFromReferenceBaseline,
   wallReferenceFromCentreline,
   type WallReferenceBaseline,
@@ -20,7 +21,7 @@ const PIXELS_PER_METRE = 32;
 const GRID_METRES = 0.25;
 
 /** Non-authoritative 2D CAD draft: never updates IFC or marks the project dirty. */
-export function WallPlanDraft(props: { currentRevision: () => number }) {
+export function WallPlanDraft(props: { currentRevision: () => number; selectedWallGlobalId?: () => string | null }) {
   const [start, setStart] = createSignal<PlanPoint | null>(null);
   const [end, setEnd] = createSignal<PlanPoint | null>(null);
   const [pointer, setPointer] = createSignal<PlanPoint | null>(null);
@@ -150,6 +151,29 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
     document.body.append(a);
     try { a.click(); } finally { a.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 5_000); }
   };
+  const exportSelectedWallEdit = () => {
+    const wall = validDraft();
+    const target = props.selectedWallGlobalId?.();
+    if (!wall || !end() || !target) {
+      setMessage("Select an IFC wall and complete the replacement geometry before exporting.");
+      return;
+    }
+    try {
+      // Capture the live selected GlobalId at export time, never a stale ID
+      // from a previous selection or pending agent proposal.
+      const intent = serializeExistingWallEditIntent(wall, target);
+      const url = URL.createObjectURL(new Blob([intent], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "teldra-wall-edit.json";
+      document.body.append(link);
+      try { link.click(); }
+      finally { link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 5_000); }
+      setMessage("Exported a reviewed EditWall handoff. IFC remains unchanged; only architecture-only archives are eligible for the separate writer.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error));
+    }
+  };
   const corners = () => {
     const wall = validDraft();
     if (!wall) return "";
@@ -235,6 +259,13 @@ export function WallPlanDraft(props: { currentRevision: () => number }) {
     <div role="group" aria-label="Wall draft actions">
       <button type="button" onClick={reset}>Clear draft</button>
       <button type="button" disabled={!validDraft() || !end()} onClick={exportIntent}>Export wall draft JSON</button>
+      <Show when={props.selectedWallGlobalId?.()}>{guid => <section aria-label="Selected IFC wall edit handoff">
+        <p>Selected IFC wall: <code>{guid()}</code>. The plan contains manually entered replacement geometry; it does not reconstruct the existing wall automatically.</p>
+        <button type="button" disabled={!validDraft() || !end()} onClick={exportSelectedWallEdit}>
+          Export selected wall edit JSON
+        </button>
+        <p>Requires an eligible architecture-only archive and separate source SHA-256 verification. Never use for native 21D visual geometry without reconciliation.</p>
+      </section>}</Show>
       <button type="button" disabled title="Awaiting IFC-authoritative Studio wall transactions">Apply to IFC (not yet supported)</button>
     </div>
     <Show when={message()}><p role="alert">{message()}</p></Show>

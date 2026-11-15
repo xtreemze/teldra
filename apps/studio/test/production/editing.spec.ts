@@ -198,3 +198,26 @@ test("BIM authoring tool palette isolates wall drafting and disables unsupported
   await expect(page.getByRole("region",{name:"Wall plan draft"})).toHaveCount(0);
   await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("selected IFC wall exports an explicit EditWall handoff without changing the project", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button",{name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  const wall = page.getByRole("list",{name:"Building objects",exact:true})
+    .getByRole("button",{name:/wall/i}).first();
+  await wall.click();
+  const selected = await page.getByTestId("workspace-selected-canonical-id").textContent();
+  expect(selected).toBeTruthy();
+  await page.getByRole("button",{name:"Wall draft (2D)"}).click();
+  const panel = page.getByRole("region",{name:"Wall plan draft"});
+  await panel.getByLabel("Start X (m)").fill("1");
+  await panel.getByLabel("Start Y (m)").fill("1");
+  await panel.getByLabel("End X (m)").fill("4");
+  await panel.getByLabel("End Y (m)").fill("1");
+  const handoff = panel.getByRole("region",{name:"Selected IFC wall edit handoff"});
+  await expect(handoff).toContainText("Selected IFC wall");
+  const download = page.waitForEvent("download");
+  await handoff.getByRole("button",{name:"Export selected wall edit JSON"}).click();
+  expect((await download).suggestedFilename()).toBe("teldra-wall-edit.json");
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+});

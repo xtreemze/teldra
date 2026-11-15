@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import runpy
+import subprocess
+import sys
 from pathlib import Path
 from zipfile import ZIP_STORED, ZipFile
 
@@ -15,6 +17,7 @@ EDIT_SCRIPT = Path(__file__).parents[4] / "tools" / "import" / "edit_wall_projec
 MODULE = runpy.run_path(str(EDIT_SCRIPT))
 edit_wall_archive_copy = MODULE["edit_wall_archive_copy"]
 read_wall_draft_json = MODULE["read_wall_draft_json"]
+read_wall_edit_draft_json = MODULE["read_wall_edit_draft_json"]
 inspect_wall_archive = MODULE["inspect_wall_archive"]
 WallArchiveEditError = MODULE["WallArchiveEditError"]
 
@@ -521,4 +524,106 @@ def test_wall_deletion_rejects_twin_device_reference_without_creating_output(tmp
             expected_source_sha256=_hash(before),
         )
     assert referenced.read_bytes() == before
+    assert not destination.exists()
+
+
+def test_versioned_selected_wall_edit_draft_roundtrips_through_cli(tmp_path):
+    source, _, guid = _fixture(tmp_path)
+    reviewed_sha = _hash(source.read_bytes())
+    handoff = tmp_path / "selected-wall-edit.json"
+    handoff.write_text(
+        json.dumps(
+            {
+                "format": "teldra-wall-edit-v1",
+                "operation": "EditWall",
+                "coordinateFrame": "ifc-world-metres-z-up",
+                "targetIfcGlobalId": guid,
+                "wall": {
+                    "start": [1, 0],
+                    "end": [7, 0],
+                    "thicknessMetres": 0.25,
+                    "heightMetres": 2.9,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    unfenced_destination = tmp_path / "unfenced-edit.teldra"
+    unfenced = subprocess.run(
+        [
+            sys.executable,
+            str(EDIT_SCRIPT),
+            str(source),
+            str(unfenced_destination),
+            "--edit-draft-file",
+            str(handoff),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert unfenced.returncode != 0
+    assert "--expected-source-sha256" in unfenced.stderr
+    assert not unfenced_destination.exists()
+    selected, geometry = read_wall_edit_draft_json(handoff)
+    assert selected == guid
+    assert geometry.start == (1, 0)
+    destination = tmp_path / "selected-wall-edited.teldra"
+    outcome = subprocess.run(
+        [
+            sys.executable,
+            str(EDIT_SCRIPT),
+            str(source),
+            str(destination),
+            "--edit-draft-file",
+            str(handoff),
+            "--expected-source-sha256",
+            reviewed_sha,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert json.loads(outcome.stdout)["ifcGlobalId"] == guid
+    assert _hash(source.read_bytes()) == reviewed_sha
+    with ZipFile(destination) as archive:
+        assert archive.testzip() is None
+        assert guid in {
+            node["ifcGlobalId"] for node in json.loads(archive.read("scene.manifest.json"))["nodes"]
+        }
+        ifc = ifcopenshell.file.from_string(archive.read("building.ifc").decode())
+        assert ifc.by_guid(guid).Representation is not None
+
+
+def test_selected_wall_edit_draft_fails_closed_on_invalid_identity_and_operations(tmp_path):
+    source, _, guid = _fixture(tmp_path)
+    handoff = tmp_path / "untrusted-wall-edit.json"
+    base = {
+        "format": "teldra-wall-edit-v1",
+        "operation": "EditWall",
+        "coordinateFrame": "ifc-world-metres-z-up",
+        "targetIfcGlobalId": guid,
+        "wall": {
+            "start": [0, 0],
+            "end": [4, 0],
+            "thicknessMetres": 0.2,
+            "heightMetres": 2.6,
+        },
+    }
+    for change in (
+        {"operation": "DeleteWall"},
+        {"coordinateFrame": "screen-pixels"},
+        {"targetIfcGlobalId": "wrong-id"},
+        {"wall": {**base["wall"], "start": [True, 0]}},
+        {"otherCommand": "DeleteAll"},
+    ):
+        handoff.write_text(json.dumps({**base, **change}), encoding="utf-8")
+        with pytest.raises(WallArchiveEditError):
+            read_wall_edit_draft_json(handoff)
+    # A validly formatted unknown GUID is rejected by the actual IFC writer.
+    handoff.write_text(json.dumps({**base, "targetIfcGlobalId": "0" * 22}), encoding="utf-8")
+    selected, geometry = read_wall_edit_draft_json(handoff)
+    destination = tmp_path / "must-not-exist.teldra"
+    with pytest.raises(ValueError, match="IfcWall"):
+        edit_wall_archive_copy(source, destination, wall_global_id=selected, wall=geometry)
     assert not destination.exists()

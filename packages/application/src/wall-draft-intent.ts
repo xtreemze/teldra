@@ -87,3 +87,89 @@ export function serializeWallDraftIntent(wall: StraightWallDraft): string {
   };
   return JSON.stringify(intent, null, 2);
 }
+
+/**
+ * A distinct transport format for an explicitly selected, existing IFC wall.
+ * Importers must never infer the edit target from a display name or geometry.
+ * This is a draft handoff, not a permission to mutate project state.
+ */
+export interface ExistingWallEditIntent {
+  readonly format: "teldra-wall-edit-v1";
+  readonly operation: "EditWall";
+  readonly coordinateFrame: "ifc-world-metres-z-up";
+  readonly targetIfcGlobalId: string;
+  readonly wall: StraightWallDraft;
+  readonly warning: string;
+}
+
+export function assertIfcGlobalId(guid: string): void {
+  if (!/^[0-9A-Za-z_$]{22}$/.test(guid)) {
+    throw new Error("Target wall must have a 22-character compressed IFC GlobalId.");
+  }
+}
+
+export function serializeExistingWallEditIntent(
+  wall: StraightWallDraft,
+  targetIfcGlobalId: string,
+): string {
+  validateStraightWallDraft(wall);
+  assertIfcGlobalId(targetIfcGlobalId);
+  return JSON.stringify({
+    format: "teldra-wall-edit-v1",
+    operation: "EditWall",
+    coordinateFrame: "ifc-world-metres-z-up",
+    targetIfcGlobalId,
+    wall: {
+      start: [wall.start[0], wall.start[1]],
+      end: [wall.end[0], wall.end[1]],
+      thicknessMetres: wall.thicknessMetres,
+      heightMetres: wall.heightMetres,
+    },
+    warning: "Review-only proposal for one identified IFC wall. Requires separate source hash verification and eligible architecture-only .teldra writer.",
+  } satisfies ExistingWallEditIntent, null, 2);
+}
+
+/** Strictly parse an EditWall handoff; never accepts CreateWall or DeleteWall. */
+export function parseExistingWallEditIntent(input: string): ExistingWallEditIntent {
+  if (encoder.encode(input).byteLength > MAX_INTENT_BYTES) {
+    throw new Error("Wall edit draft exceeds the 64 KiB size limit.");
+  }
+  let parsed: unknown;
+  try { parsed = JSON.parse(input) as unknown; }
+  catch { throw new Error("Wall edit draft must be valid JSON."); }
+  const record = object(parsed, "Wall edit draft");
+  if (record.format !== "teldra-wall-edit-v1" ||
+      record.operation !== "EditWall" ||
+      record.coordinateFrame !== "ifc-world-metres-z-up") {
+    throw new Error("Unsupported wall edit draft version, operation or coordinate frame.");
+  }
+  const allowedFields = new Set([
+    "format", "operation", "coordinateFrame", "targetIfcGlobalId", "wall", "warning",
+  ]);
+  if (Object.keys(record).some(key => !allowedFields.has(key))) {
+    throw new Error("Wall edit draft includes unsupported command fields.");
+  }
+  if (typeof record.targetIfcGlobalId !== "string") {
+    throw new Error("Wall edit draft must identify a target IFC GlobalId.");
+  }
+  assertIfcGlobalId(record.targetIfcGlobalId);
+  const shape = object(record.wall, "Wall edit geometry");
+  if (Object.keys(shape).sort().join(",") !==
+      ["end", "heightMetres", "start", "thicknessMetres"].join(",")) {
+    throw new Error("Wall edit geometry contains missing or unsupported fields.");
+  }
+  const wall = validateStraightWallDraft({
+    start: point(shape.start, "Wall start"),
+    end: point(shape.end, "Wall end"),
+    thicknessMetres: shape.thicknessMetres as number,
+    heightMetres: shape.heightMetres as number,
+  });
+  return {
+    format: "teldra-wall-edit-v1",
+    operation: "EditWall",
+    coordinateFrame: "ifc-world-metres-z-up",
+    targetIfcGlobalId: record.targetIfcGlobalId,
+    wall,
+    warning: "Review-only proposal. Does not edit canonical IFC or project history.",
+  };
+}

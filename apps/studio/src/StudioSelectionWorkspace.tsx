@@ -640,7 +640,7 @@ export function StudioSelectionWorkspace(
           </div>
           <Show when={wallDraftOpen()}>
             <div id="teldra-wall-draft-panel" class="teldra-studio-selection-workspace__wall-draft">
-              <WallPlanDraft currentRevision={() => props.controller.revision} />
+              <WallPlanDraft currentRevision={() => props.controller.revision} selectedWallGlobalId={() => selectedBuildingRef()?.kind === "wall" ? selectedBuildingRef()!.ifcGlobalId : null} />
             </div>
           </Show>
           <p class="teldra-studio-selection-workspace__hint">Select an item here or in the scene.</p>
