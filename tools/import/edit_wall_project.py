@@ -21,6 +21,7 @@ from teldra_ifc import (
     delete_straight_wall,
     edit_straight_wall,
     inspect_wall_edit_eligibility,
+    inspect_wall_delete_eligibility,
 )
 from teldra_web_export import export_ifc_web_scene
 
@@ -123,17 +124,29 @@ def inspect_wall_archive(source: Path) -> dict:
         ),
         key=lambda storey: storey["ifcGlobalId"],
     )
+    renderable_refs = sum(
+        getattr(model.by_guid(ref["ifcGlobalId"]), "Representation", None) is not None
+        for ref in twin["building"]["refs"]
+    )
     walls = []
     for ref in twin["building"]["refs"]:
         if ref.get("kind") != "wall":
             continue
         editable, reason = inspect_wall_edit_eligibility(model, ref["ifcGlobalId"])
+        deletable, delete_reason = inspect_wall_delete_eligibility(
+            model, ref["ifcGlobalId"]
+        )
+        if deletable and renderable_refs <= 1:
+            deletable = False
+            delete_reason = "Cannot remove the last renderable building object."
         walls.append({
             "canonicalId": ref["id"],
             "ifcGlobalId": ref["ifcGlobalId"],
             "name": ref.get("name") or "Unnamed wall",
             "editable": editable,
             "blockedReason": reason,
+            "deletable": deletable,
+            "deleteBlockedReason": delete_reason,
         })
     walls.sort(key=lambda wall: (wall["ifcGlobalId"], wall["canonicalId"]))
     # A building can be valid but have no eligible storey for wall creation.
