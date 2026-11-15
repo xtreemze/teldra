@@ -222,7 +222,6 @@ def edit_straight_wall(
     return model
 
 
-
 def delete_straight_wall(
     source: ifcopenshell.file,
     wall_global_id: str,
@@ -243,8 +242,7 @@ def delete_straight_wall(
                 raise WallAuthoringError("Wall spatial containment is malformed.")
             continue
         raise WallAuthoringError(
-            "Wall deletion requires dependent IFC relationship updates: "
-            + relation.is_a()
+            "Wall deletion requires dependent IFC relationship updates: " + relation.is_a()
         )
     ifcopenshell.api.root.remove_product(model, product=wall)
     if _find_global_id(model, wall_global_id) is not None:
