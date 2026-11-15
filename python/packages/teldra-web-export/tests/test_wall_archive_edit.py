@@ -490,12 +490,14 @@ def test_wall_deletion_rejects_twin_device_reference_without_creating_output(tmp
     with ZipFile(populated) as original:
         entries = {name: original.read(name) for name in original.namelist()}
     twin = json.loads(entries["twin.json"])
-    twin["devices"].append({
-        "id": "device:wall-sensor",
-        "name": "Wall sensor",
-        "buildingRefId": f"ifc:{guid}",
-        "capabilities": [{"id": "cap:temperature", "kind": "sensor"}],
-    })
+    twin["devices"].append(
+        {
+            "id": "device:wall-sensor",
+            "name": "Wall sensor",
+            "buildingRefId": f"ifc:{guid}",
+            "capabilities": [{"id": "cap:temperature", "kind": "sensor"}],
+        }
+    )
     entries["twin.json"] = _json(twin)
     project = json.loads(entries["project.json"])
     project["twin"]["sha256"] = _hash(entries["twin.json"])
