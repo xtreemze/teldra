@@ -6,3 +6,5 @@ export * from "./furniture-dimensions.js";
 export * from "./architectural-plan-draft.js";
 export * from "./wall-draft-intent.js";
 export * from "./wall-proposal-review.js";
+export * from "./building-georeference.js";
+export * from "./architectural-dependencies.js";
