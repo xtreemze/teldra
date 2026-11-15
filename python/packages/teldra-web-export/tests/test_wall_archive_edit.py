@@ -476,3 +476,47 @@ def test_wall_removal_rejects_invalid_targets_and_native_visuals(tmp_path):
     with pytest.raises(WallArchiveEditError, match="cannot yet be regenerated"):
         edit_wall_archive_copy(native, bad, delete_wall_global_id=guid)
     assert not bad.exists()
+
+
+def test_wall_deletion_rejects_twin_device_reference_without_creating_output(tmp_path):
+    source, storey, guid = _fixture(tmp_path)
+    populated = tmp_path / "two-walls-for-binding.teldra"
+    edit_wall_archive_copy(
+        source,
+        populated,
+        storey_global_id=storey,
+        wall=StraightWall((6, 0), (6, 4), 0.2, 2.6),
+    )
+    with ZipFile(populated) as original:
+        entries = {name: original.read(name) for name in original.namelist()}
+    twin = json.loads(entries["twin.json"])
+    twin["devices"].append({
+        "id": "device:wall-sensor",
+        "name": "Wall sensor",
+        "buildingRefId": f"ifc:{guid}",
+        "capabilities": [{"id": "cap:temperature", "kind": "sensor"}],
+    })
+    entries["twin.json"] = _json(twin)
+    project = json.loads(entries["project.json"])
+    project["twin"]["sha256"] = _hash(entries["twin.json"])
+    entries["project.json"] = _json(project)
+    referenced = tmp_path / "device-referenced-wall.teldra"
+    with ZipFile(referenced, "w", compression=ZIP_STORED) as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    before = referenced.read_bytes()
+    report = inspect_wall_archive(referenced)
+    target = next(wall for wall in report["walls"] if wall["ifcGlobalId"] == guid)
+    assert target["editable"] is True
+    assert target["deletable"] is False
+    assert "device still references" in target["deleteBlockedReason"]
+    destination = tmp_path / "rejected-wall-delete.teldra"
+    with pytest.raises(WallArchiveEditError, match="referenced by a Teldra device"):
+        edit_wall_archive_copy(
+            referenced,
+            destination,
+            delete_wall_global_id=guid,
+            expected_source_sha256=_hash(before),
+        )
+    assert referenced.read_bytes() == before
+    assert not destination.exists()
