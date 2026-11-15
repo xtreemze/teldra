@@ -7,6 +7,7 @@ from teldra_ifc.wall_authoring import (
     StraightWall,
     WallAuthoringError,
     create_straight_wall,
+    delete_straight_wall,
     edit_straight_wall,
     inspect_wall_edit_eligibility,
 )
@@ -144,3 +145,51 @@ def test_edit_eligibility_rejects_missing_and_non_geometric_wall():
     eligible, reason = inspect_wall_edit_eligibility(model, original_wall.GlobalId)
     assert eligible is False
     assert "Body representation" in reason
+
+
+def test_delete_independent_straight_wall_preserves_original_and_other_guids():
+    model, storey_guid = _fixture()
+    model, wall_guid = create_straight_wall(model, storey_guid, _straight())
+    original = model.to_string()
+    original_other_guids = {
+        element.GlobalId
+        for element in model.by_type("IfcRoot")
+        if element.GlobalId != wall_guid
+    }
+    removed = delete_straight_wall(model, wall_guid)
+    assert model.to_string() == original
+    assert not any(wall.GlobalId == wall_guid for wall in removed.by_type("IfcWall"))
+    assert all(removed.by_guid(guid) is not None for guid in original_other_guids)
+
+
+def test_delete_refuses_hosted_openings_and_keeps_original_relationships():
+    model, storey_guid = _fixture()
+    model, wall_guid = create_straight_wall(model, storey_guid, _straight())
+    opening = ifcopenshell.api.root.create_entity(
+        model, ifc_class="IfcOpeningElement", name="Window opening"
+    )
+    model.createIfcRelVoidsElement(
+        GlobalId=__import__("ifcopenshell").guid.new(),
+        RelatingBuildingElement=model.by_guid(wall_guid),
+        RelatedOpeningElement=opening,
+    )
+    before = model.to_string()
+    with pytest.raises(WallAuthoringError, match="hosting an opening"):
+        delete_straight_wall(model, wall_guid)
+    assert model.to_string() == before
+
+
+def test_delete_refuses_unreviewed_wall_relationships():
+    model, storey_guid = _fixture()
+    model, wall_guid = create_straight_wall(model, storey_guid, _straight())
+    wall = model.by_guid(wall_guid)
+    group = ifcopenshell.api.root.create_entity(model, ifc_class="IfcGroup", name="Group")
+    model.createIfcRelAssignsToGroup(
+        GlobalId=__import__("ifcopenshell").guid.new(),
+        RelatedObjects=[wall],
+        RelatingGroup=group,
+    )
+    before = model.to_string()
+    with pytest.raises(WallAuthoringError, match="IfcRelAssignsToGroup"):
+        delete_straight_wall(model, wall_guid)
+    assert model.to_string() == before
