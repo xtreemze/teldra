@@ -397,6 +397,8 @@ def main() -> None:
     args = parser.parse_args()
     selected_wall_guid = args.wall_guid
     if args.edit_draft_file is not None:
+        if not args.expected_source_sha256:
+            parser.error("--edit-draft-file requires --expected-source-sha256 from preflight.")
         if args.draft_file or any(
             item is not None for item in (args.start, args.end, args.thickness, args.height)
         ) or args.elevation != 0:
