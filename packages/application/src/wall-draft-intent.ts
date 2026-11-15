@@ -143,6 +143,12 @@ export function parseExistingWallEditIntent(input: string): ExistingWallEditInte
       record.coordinateFrame !== "ifc-world-metres-z-up") {
     throw new Error("Unsupported wall edit draft version, operation or coordinate frame.");
   }
+  const allowedFields = new Set([
+    "format", "operation", "coordinateFrame", "targetIfcGlobalId", "wall", "warning",
+  ]);
+  if (Object.keys(record).some(key => !allowedFields.has(key))) {
+    throw new Error("Wall edit draft includes unsupported command fields.");
+  }
   if (typeof record.targetIfcGlobalId !== "string") {
     throw new Error("Wall edit draft must identify a target IFC GlobalId.");
   }
