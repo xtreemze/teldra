@@ -198,7 +198,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
     if (!change) return;
     event.preventDefault();
     event.stopPropagation();
-    const point = endpoint === "start" ? start() : end();
+    const point = endpoint === "start" ? start() : (constrainedEnd() ?? end());
     if (!point) return;
     if (angleStep() > 0 && end()) {
       const constrained = constrainedEnd();
@@ -332,7 +332,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
         data-testid="wall-proposal-footprint"
         points={straightWallFootprint(proposal().intent.wall).map(p => toScreen(p).join(",")).join(" ")}
         fill="none" stroke="#e6bb77" stroke-width="2" stroke-dasharray="6 4" />}</Show>
-      <Show when={start() && end()}>{p => <circle
+      <Show when={end() ? start() : null}>{p => <circle
         data-testid="wall-start-handle" role="button" aria-label="Move wall start point" tabindex="0"
         cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="8"
         fill="#e6bb77" stroke="#243746" stroke-width="2"
