@@ -393,19 +393,29 @@ def test_corrupted_rebuilt_scene_is_never_published(tmp_path, monkeypatch):
 
 
 def test_wall_removal_rebuilds_verified_architecture_only_copy(tmp_path):
-    source, _, guid = _fixture(tmp_path)
+    source, storey, guid = _fixture(tmp_path)
     before = source.read_bytes()
+    populated = tmp_path / "two-walls.teldra"
+    second_guid = edit_wall_archive_copy(
+        source,
+        populated,
+        storey_global_id=storey,
+        wall=StraightWall((6, 0), (6, 4), 0.2, 2.6),
+        expected_source_sha256=_hash(before),
+    )
+    populated_before = populated.read_bytes()
     output = tmp_path / "removed-wall.teldra"
     assert (
         edit_wall_archive_copy(
-            source,
+            populated,
             output,
             delete_wall_global_id=guid,
-            expected_source_sha256=_hash(before),
+            expected_source_sha256=_hash(populated_before),
         )
         == guid
     )
     assert source.read_bytes() == before
+    assert populated.read_bytes() == populated_before
     with ZipFile(output) as archive:
         assert archive.testzip() is None
         twin = json.loads(archive.read("twin.json"))
@@ -413,6 +423,7 @@ def test_wall_removal_rebuilds_verified_architecture_only_copy(tmp_path):
         model = ifcopenshell.file.from_string(archive.read("building.ifc").decode())
         project = json.loads(archive.read("project.json"))
         entries = {name: archive.read(name) for name in archive.namelist()}
+    assert any(wall.GlobalId == second_guid for wall in model.by_type("IfcWall"))
     assert not any(wall.GlobalId == guid for wall in model.by_type("IfcWall"))
     assert not any(ref["ifcGlobalId"] == guid for ref in twin["building"]["refs"])
     assert not any(node["ifcGlobalId"] == guid for node in scene["nodes"])
@@ -420,6 +431,20 @@ def test_wall_removal_rebuilds_verified_architecture_only_copy(tmp_path):
         artifact["sha256"] == _hash(entries[artifact["path"]])
         for artifact in (project["building"], project["twin"], *project["derived"])
     )
+
+
+def test_wall_removal_refuses_last_renderable_object_without_output(tmp_path):
+    source, _, guid = _fixture(tmp_path)
+    destination = tmp_path / "would-be-empty.teldra"
+    before = source.read_bytes()
+    with pytest.raises(WallArchiveEditError, match="last renderable"):
+        edit_wall_archive_copy(
+            source,
+            destination,
+            delete_wall_global_id=guid,
+        )
+    assert source.read_bytes() == before
+    assert not destination.exists()
 
 
 def test_wall_removal_rejects_invalid_targets_and_native_visuals(tmp_path):
