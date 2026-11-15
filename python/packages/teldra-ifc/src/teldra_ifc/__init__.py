@@ -14,8 +14,8 @@ from .wall_authoring import (
     create_straight_wall,
     delete_straight_wall,
     edit_straight_wall,
-    inspect_wall_edit_eligibility,
     inspect_wall_delete_eligibility,
+    inspect_wall_edit_eligibility,
 )
 
 __all__ = [
