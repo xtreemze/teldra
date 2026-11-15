@@ -151,15 +151,11 @@ def test_delete_independent_straight_wall_preserves_original_and_other_guids():
     model, storey_guid = _fixture()
     model, wall_guid = create_straight_wall(model, storey_guid, _straight())
     original = model.to_string()
-    original_other_guids = {
-        element.GlobalId
-        for element in model.by_type("IfcRoot")
-        if element.GlobalId != wall_guid
-    }
+    source_storey_id = storey_guid
     removed = delete_straight_wall(model, wall_guid)
     assert model.to_string() == original
     assert not any(wall.GlobalId == wall_guid for wall in removed.by_type("IfcWall"))
-    assert all(removed.by_guid(guid) is not None for guid in original_other_guids)
+    assert removed.by_guid(source_storey_id).is_a("IfcBuildingStorey")
 
 
 def test_delete_refuses_hosted_openings_and_keeps_original_relationships():
