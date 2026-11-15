@@ -222,6 +222,40 @@ def edit_straight_wall(
     return model
 
 
+def _assert_deletable_wall(
+    model: ifcopenshell.file,
+    wall: ifcopenshell.entity_instance,
+) -> None:
+    _editable_wall_body(model, wall)
+    for relation in model.get_inverse(wall):
+        # The API can safely dissolve the wall's own spatial containment.
+        if relation.is_a("IfcRelContainedInSpatialStructure"):
+            if relation.RelatingStructure is None:
+                raise WallAuthoringError("Wall spatial containment is malformed.")
+            continue
+        raise WallAuthoringError(
+            "Wall deletion requires dependent IFC relationship updates: " + relation.is_a()
+        )
+
+
+def inspect_wall_delete_eligibility(
+    source: ifcopenshell.file,
+    wall_global_id: str,
+) -> tuple[bool, str | None]:
+    """Nonmutating IFC-only preflight; archive-level empty-scene gate is separate."""
+    try:
+        if source.schema != "IFC4":
+            raise WallAuthoringError("Only IFC4 is supported for wall deletion.")
+        if abs(ifcopenshell.util.unit.calculate_unit_scale(source) - 1.0) > 1e-12:
+            raise WallAuthoringError("Only metre-based IFC models are currently writable.")
+        wall = _wall_by_guid(source, wall_global_id)
+        _body_context(source)
+        _assert_deletable_wall(source, wall)
+    except WallAuthoringError as error:
+        return False, str(error)
+    return True, None
+
+
 def delete_straight_wall(
     source: ifcopenshell.file,
     wall_global_id: str,
@@ -234,16 +268,7 @@ def delete_straight_wall(
     """
     model = _isolated_model(source)
     wall = _wall_by_guid(model, wall_global_id)
-    _editable_wall_body(model, wall)
-    for relation in model.get_inverse(wall):
-        # The API can safely dissolve the wall's own spatial containment.
-        if relation.is_a("IfcRelContainedInSpatialStructure"):
-            if relation.RelatingStructure is None:
-                raise WallAuthoringError("Wall spatial containment is malformed.")
-            continue
-        raise WallAuthoringError(
-            "Wall deletion requires dependent IFC relationship updates: " + relation.is_a()
-        )
+    _assert_deletable_wall(model, wall)
     ifcopenshell.api.root.remove_product(model, product=wall)
     if _find_global_id(model, wall_global_id) is not None:
         raise WallAuthoringError("IFC wall deletion did not remove its GlobalId.")
