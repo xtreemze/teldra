@@ -119,7 +119,102 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
       ? [Math.round(raw[0] / GRID_METRES) * GRID_METRES, Math.round(raw[1] / GRID_METRES) * GRID_METRES]
       : raw;
   };
+  type Endpoint = "start" | "end";
+  interface EndpointDrag {
+    readonly pointerId: number;
+    readonly endpoint: Endpoint;
+    readonly originalStart: PlanPoint;
+    readonly originalEnd: PlanPoint;
+    readonly originalAngleStep: number;
+  }
+  let endpointDrag: EndpointDrag | null = null;
+  let ignoreCanvasClick = false;
+
+  const beginHandleDrag = (
+    endpoint: Endpoint,
+    event: PointerEvent & { currentTarget: SVGCircleElement },
+  ) => {
+    if (endpointDrag || !start() || !end() || !event.isPrimary) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const svg = event.currentTarget.ownerSVGElement;
+    if (!svg) return;
+    endpointDrag = {
+      pointerId: event.pointerId,
+      endpoint,
+      originalStart: [...start()!] as PlanPoint,
+      originalEnd: [...end()!] as PlanPoint,
+      originalAngleStep: angleStep(),
+    };
+    // Freeze the displayed (possibly angle-constrained) end at drag start,
+    // then move only the chosen endpoint. No hidden alteration of the other handle.
+    setEnd([constrainedEnd()![0], constrainedEnd()![1]]);
+    setAngleStep(0);
+    svg.setPointerCapture(event.pointerId);
+    setMessage("Dragging wall " + endpoint + " handle. Escape cancels; release confirms the local draft.");
+    svg.focus();
+  };
+  const moveHandleDrag = (event: PointerEvent & { currentTarget: SVGSVGElement }) => {
+    if (!endpointDrag || event.pointerId !== endpointDrag.pointerId) return;
+    const point = toPlan(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
+    if (endpointDrag.endpoint === "start") setStart(point);
+    else setEnd(point);
+  };
+  const finishHandleDrag = (
+    event: PointerEvent & { currentTarget: SVGSVGElement },
+    cancel: boolean,
+  ) => {
+    const current = endpointDrag;
+    if (!current || event.pointerId !== current.pointerId) return;
+    if (cancel) {
+      setStart(current.originalStart);
+      setEnd(current.originalEnd);
+      setAngleStep(current.originalAngleStep);
+      setMessage("Handle drag cancelled. The wall draft is unchanged.");
+    } else {
+      moveHandleDrag(event);
+      setMessage("Wall endpoint updated in local draft; IFC and project history remain unchanged.");
+    }
+    endpointDrag = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    // Pointer capture retargets the synthetic click to the SVG canvas.
+    ignoreCanvasClick = true;
+    window.setTimeout(() => { ignoreCanvasClick = false; }, 0);
+  };
+  const handleArrowKey = (
+    endpoint: Endpoint,
+    event: KeyboardEvent & { currentTarget: SVGCircleElement },
+  ) => {
+    const delta = gridEnabled() ? GRID_METRES : 0.05;
+    const changes: Record<string, PlanPoint> = {
+      ArrowUp: [0, delta],
+      ArrowDown: [0, -delta],
+      ArrowLeft: [-delta, 0],
+      ArrowRight: [delta, 0],
+    };
+    const change = changes[event.key];
+    if (!change) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const point = endpoint === "start" ? start() : end();
+    if (!point) return;
+    if (angleStep() > 0 && end()) {
+      const constrained = constrainedEnd();
+      if (constrained) setEnd([constrained[0], constrained[1]]);
+      setAngleStep(0);
+    }
+    const moved: PlanPoint = [
+      Math.round((point[0] + change[0]) * 1e9) / 1e9,
+      Math.round((point[1] + change[1]) * 1e9) / 1e9,
+    ];
+    if (endpoint === "start") setStart(moved);
+    else setEnd(moved);
+    setMessage("Keyboard-adjusted wall " + endpoint + " handle; IFC remains unchanged.");
+  };
   const clickPlan = (event: MouseEvent & { currentTarget: SVGSVGElement }) => {
+    if (ignoreCanvasClick || endpointDrag) { ignoreCanvasClick = false; return; }
     const point = toPlan(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
     if (!start() || end()) { setStart(point); setEnd(null); setMessage(""); }
     else { setEnd(point); setPointer(null); }
@@ -183,6 +278,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
 
   return <section aria-label="Wall plan draft" class="teldra-wall-plan-draft">
     <h3>Draw wall — 2D plan</h3>
+    <p>Drag the amber endpoint handles to reshape a completed wall. Arrow keys move the focused handle by 0.25 m with grid snapping, or 0.05 m without it. Escape cancels an active drag. The numeric controls provide exact metre input.</p>
     <p>Click the start and end points, or enter exact coordinates. Units are metres. Choose which face of the wall you are drawing, as in BIM parametric wall tools. This remains a reviewable CAD draft; it cannot yet modify or save IFC walls.</p>
     <div role="group" aria-label="Wall drafting constraints">
       <label><input type="checkbox" checked={gridEnabled()} onChange={event => setGridEnabled(event.currentTarget.checked)} /> Snap to 0.25 m grid</label>
@@ -206,8 +302,25 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
       <p>Exterior is the left face from start to end; interior is the right. Switching reference does not move a completed wall. IFC exports always contain its centreline.</p>
     </fieldset>
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img" aria-label="Interactive metre-based wall plan, click twice to draw a wall"
+      tabindex="0"
       style={{ width: "100%", "max-width": "640px", "background-color": "var(--surface, #1b1b1b)", "touch-action": "manipulation", cursor: "crosshair" }}
-      onClick={clickPlan} onMouseMove={movePlan} onMouseLeave={() => setPointer(null)}>
+      onClick={clickPlan} onMouseMove={movePlan} onMouseLeave={() => setPointer(null)}
+      onPointerMove={moveHandleDrag}
+      onPointerUp={event => finishHandleDrag(event, false)}
+      onPointerCancel={event => finishHandleDrag(event, true)}
+      onKeyDown={event => {
+        if (event.key !== "Escape" || !endpointDrag) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const drag = endpointDrag;
+        endpointDrag = null;
+        setStart(drag.originalStart);
+        setEnd(drag.originalEnd);
+        setAngleStep(drag.originalAngleStep);
+        if (event.currentTarget.hasPointerCapture(drag.pointerId))
+          event.currentTarget.releasePointerCapture(drag.pointerId);
+        setMessage("Handle drag cancelled. The wall draft is unchanged.");
+      }}>
       <For each={gridLines}>{v => <>
         <line x1={WIDTH / 2 + v * PIXELS_PER_METRE} y1="0" x2={WIDTH / 2 + v * PIXELS_PER_METRE} y2={HEIGHT} stroke="currentColor" stroke-opacity=".12" />
         <line x1="0" y1={HEIGHT / 2 + v * PIXELS_PER_METRE} x2={WIDTH} y2={HEIGHT / 2 + v * PIXELS_PER_METRE} stroke="currentColor" stroke-opacity=".12" />
@@ -219,8 +332,24 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
         data-testid="wall-proposal-footprint"
         points={straightWallFootprint(proposal().intent.wall).map(p => toScreen(p).join(",")).join(" ")}
         fill="none" stroke="#e6bb77" stroke-width="2" stroke-dasharray="6 4" />}</Show>
-      <Show when={start()}>{p => <circle cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="5" fill="currentColor" />}</Show>
-      <Show when={constrainedEnd()}>{p => <circle cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="5" fill="currentColor" />}</Show>
+      <Show when={start() && end()}>{p => <circle
+        data-testid="wall-start-handle" role="button" aria-label="Move wall start point" tabindex="0"
+        cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="8"
+        fill="#e6bb77" stroke="#243746" stroke-width="2"
+        style={{ cursor: "grab", "touch-action": "none" }}
+        onPointerDown={event => beginHandleDrag("start", event)}
+        onKeyDown={event => handleArrowKey("start", event)}
+        onClick={event => { ignoreCanvasClick = false; event.stopPropagation(); }}
+      />}</Show>
+      <Show when={end() && constrainedEnd()}>{p => <circle
+        data-testid="wall-end-handle" role="button" aria-label="Move wall end point" tabindex="0"
+        cx={toScreen(p())[0]} cy={toScreen(p())[1]} r="8"
+        fill="#e6bb77" stroke="#243746" stroke-width="2"
+        style={{ cursor: "grab", "touch-action": "none" }}
+        onPointerDown={event => beginHandleDrag("end", event)}
+        onKeyDown={event => handleArrowKey("end", event)}
+        onClick={event => { ignoreCanvasClick = false; event.stopPropagation(); }}
+      />}</Show>
     </svg>
     <fieldset>
       <legend>Wall dimensions and endpoints</legend>
