@@ -279,6 +279,8 @@ def test_wall_archive_preflight_reports_exact_source_and_ifc_storeys(tmp_path):
             "name": "Wall",
             "editable": True,
             "blockedReason": None,
+            "deletable": False,
+            "deleteBlockedReason": "Cannot remove the last renderable building object.",
         }
     ]
     assert source.read_bytes() == unchanged
@@ -404,6 +406,11 @@ def test_wall_removal_rebuilds_verified_architecture_only_copy(tmp_path):
         expected_source_sha256=_hash(before),
     )
     populated_before = populated.read_bytes()
+    eligibility = inspect_wall_archive(populated)
+    candidates = {wall["ifcGlobalId"]: wall for wall in eligibility["walls"]}
+    assert candidates[guid]["deletable"] is True
+    assert candidates[guid]["deleteBlockedReason"] is None
+    assert candidates[second_guid]["deletable"] is True
     output = tmp_path / "removed-wall.teldra"
     assert (
         edit_wall_archive_copy(
