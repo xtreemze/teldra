@@ -390,3 +390,54 @@ def test_corrupted_rebuilt_scene_is_never_published(tmp_path, monkeypatch):
         )
     assert source.read_bytes() == original
     assert not destination.exists()
+
+
+def test_wall_removal_rebuilds_verified_architecture_only_copy(tmp_path):
+    source, _, guid = _fixture(tmp_path)
+    before = source.read_bytes()
+    output = tmp_path / "removed-wall.teldra"
+    assert (
+        edit_wall_archive_copy(
+            source, output,
+            delete_wall_global_id=guid,
+            expected_source_sha256=_hash(before),
+        )
+        == guid
+    )
+    assert source.read_bytes() == before
+    with ZipFile(output) as archive:
+        assert archive.testzip() is None
+        twin = json.loads(archive.read("twin.json"))
+        scene = json.loads(archive.read("scene.manifest.json"))
+        model = ifcopenshell.file.from_string(archive.read("building.ifc").decode())
+        project = json.loads(archive.read("project.json"))
+        entries = {name: archive.read(name) for name in archive.namelist()}
+    assert not any(wall.GlobalId == guid for wall in model.by_type("IfcWall"))
+    assert not any(ref["ifcGlobalId"] == guid for ref in twin["building"]["refs"])
+    assert not any(node["ifcGlobalId"] == guid for node in scene["nodes"])
+    assert all(
+        artifact["sha256"] == _hash(entries[artifact["path"]])
+        for artifact in (project["building"], project["twin"], *project["derived"])
+    )
+
+
+def test_wall_removal_rejects_invalid_targets_and_native_visuals(tmp_path):
+    source, storey, guid = _fixture(tmp_path)
+    bad = tmp_path / "no-delete.teldra"
+    with pytest.raises(WallArchiveEditError, match="geometry"):
+        edit_wall_archive_copy(
+            source, bad, delete_wall_global_id=guid,
+            wall=StraightWall((0, 0), (4, 0), 0.2, 2.6),
+        )
+    with pytest.raises(WallArchiveEditError, match="uniquely authored"):
+        edit_wall_archive_copy(source, bad, delete_wall_global_id=storey)
+    assert not bad.exists()
+
+    native = tmp_path / "native-with-source.teldra"
+    with ZipFile(source) as original, ZipFile(native, "w") as destination:
+        for filename in original.namelist():
+            destination.writestr(filename, original.read(filename))
+        destination.writestr("source.sh3d", b"untouched source")
+    with pytest.raises(WallArchiveEditError, match="cannot yet be regenerated"):
+        edit_wall_archive_copy(native, bad, delete_wall_global_id=guid)
+    assert not bad.exists()
