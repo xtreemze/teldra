@@ -459,3 +459,34 @@
     width: calc(100% - 1rem);
   }
 }
+
+/* IFC-first authoring tools share one context and keep unsupported operations visible but disabled. */
+.teldra-studio-selection-workspace__bim-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  padding-block: .35rem;
+}
+.teldra-studio-selection-workspace__bim-tools button {
+  min-height: 2.3rem;
+  font-size: .75rem;
+}
+.teldra-studio-selection-workspace__bim-tools button[aria-pressed="true"] {
+  border-color: #93bec3;
+  background: #264752;
+}
+.teldra-studio-selection-workspace__bim-tools button:disabled {
+  opacity: .58;
+  cursor: not-allowed;
+}
+.teldra-studio-selection-workspace__wall-context {
+  display: grid;
+  gap: .5rem;
+  padding: .6rem;
+  border: 1px solid #466271;
+  border-radius: .5rem;
+}
+.teldra-studio-selection-workspace__wall-context p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

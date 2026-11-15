@@ -181,3 +181,20 @@ test("Bonsai-style wall reference faces preserve canonical IFC geometry on mode 
   await expect(panel.getByRole("button",{name:"Apply to IFC (not yet supported)"})).toBeDisabled();
   await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("BIM authoring tool palette isolates wall drafting and disables unsupported architectural tools", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button",{name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  const tools = page.getByRole("toolbar",{name:"BIM authoring tools"});
+  await expect(tools.getByRole("button",{name:"Explore"})).toHaveAttribute("aria-pressed","true");
+  for (const name of ["Door (planned)","Window (planned)","Slab (planned)"]) {
+    await expect(tools.getByRole("button",{name})).toBeDisabled();
+  }
+  await tools.getByRole("button",{name:"Wall draft (2D)"}).click();
+  await expect(tools.getByRole("button",{name:"Wall draft (2D)"})).toHaveAttribute("aria-pressed","true");
+  await expect(page.getByRole("region",{name:"Wall plan draft"})).toBeVisible();
+  await tools.getByRole("button",{name:"Explore"}).click();
+  await expect(page.getByRole("region",{name:"Wall plan draft"})).toHaveCount(0);
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+});
