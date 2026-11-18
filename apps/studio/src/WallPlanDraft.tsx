@@ -130,6 +130,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
   interface WallTranslation {
     readonly pointerId: number;
     readonly pointerOrigin: PlanPoint;
+    readonly visibleEnd: PlanPoint;
     readonly originalStart: PlanPoint;
     readonly originalEnd: PlanPoint;
     readonly originalAngleStep: number;
@@ -156,6 +157,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
     wallTranslation = {
       pointerId: event.pointerId,
       pointerOrigin: toPlan(event.clientX, event.clientY, svg.getBoundingClientRect()),
+      visibleEnd: [finalEnd[0], finalEnd[1]],
       originalStart: [...start()!] as PlanPoint,
       originalEnd: [...end()!] as PlanPoint,
       originalAngleStep: angleStep(),
@@ -172,7 +174,7 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
     const point = toPlan(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
     translateDraft(
       drag.originalStart,
-      drag.originalEnd,
+      drag.visibleEnd,
       point[0] - drag.pointerOrigin[0],
       point[1] - drag.pointerOrigin[1],
     );
