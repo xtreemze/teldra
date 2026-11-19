@@ -102,7 +102,9 @@ hardware. Record the real browser and OS versions, device class/model and GPU,
 renderer version, viewport and DPR, test timestamp, reference project SHA-256,
 and a reference to the retained evidence. A result may be `not-tested`,
 `pass`, `fail` or (WebGPU only) `unavailable` with a documented capability
-probe. Do not report WebGPU initialization regressions as unavailability.
+probe (`capabilityProbe: "unsupported"` plus `reason`). A passing report must
+record `observedBackend` matching the result column. Do not report WebGPU
+initialization regressions as unavailability.
 A WebGPU waiver does not waive the WebGL2 fallback result.
 
 The evidence checks are reviewer attestations, not inferred from the user agent.
