@@ -50,6 +50,8 @@ export interface LightingProjection {
   };
 }
 
+export * from "./environment-tile.js";
+export * from "./osm-environment.js";
 export * from "./scene-regeneration.js";
 export * from "./scene-regeneration-coordinator.js";
 
