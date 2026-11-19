@@ -1,0 +1,193 @@
+{
+  "schemaVersion": "0.1.0",
+  "sourceCommit": null,
+  "rows": [
+    {
+      "browser": "chrome",
+      "platform": "windows",
+      "channel": "current",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "chrome",
+      "platform": "windows",
+      "channel": "previous",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "chrome",
+      "platform": "macos",
+      "channel": "current",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "chrome",
+      "platform": "macos",
+      "channel": "previous",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "chrome",
+      "platform": "linux",
+      "channel": "current",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "chrome",
+      "platform": "linux",
+      "channel": "previous",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "edge",
+      "platform": "windows",
+      "channel": "stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "edge",
+      "platform": "windows",
+      "channel": "extended-stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "edge",
+      "platform": "macos",
+      "channel": "stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "edge",
+      "platform": "macos",
+      "channel": "extended-stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "firefox",
+      "platform": "windows",
+      "channel": "stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "firefox",
+      "platform": "macos",
+      "channel": "stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "firefox",
+      "platform": "linux",
+      "channel": "stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "safari",
+      "platform": "macos",
+      "channel": "current",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "safari",
+      "platform": "ios",
+      "channel": "current",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "safari",
+      "platform": "ipados",
+      "channel": "current",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    },
+    {
+      "browser": "chrome-android",
+      "platform": "android",
+      "channel": "stable",
+      "webgl2": {
+        "status": "not-tested"
+      },
+      "webgpu": {
+        "status": "not-tested"
+      }
+    }
+  ]
+}
