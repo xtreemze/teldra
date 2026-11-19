@@ -11,6 +11,7 @@ from .model import (
     Sh3dHome,
     Sh3dLevel,
     Sh3dLightSource,
+    Sh3dLossEntry,
     Sh3dMaterial,
     Sh3dPoint,
     Sh3dRoom,
@@ -21,6 +22,83 @@ from .model import (
 
 CENTIMETRES_TO_METRES = 0.01
 MAX_HOME_XML_BYTES = 16 * 1024 * 1024
+
+_FURNITURE_ATTRIBUTES = frozenset(
+    {
+        "id",
+        "name",
+        "level",
+        "x",
+        "y",
+        "elevation",
+        "width",
+        "depth",
+        "height",
+        "angle",
+        "model",
+        "visible",
+        "modelMirrored",
+    }
+)
+
+# Semantic completeness contract (#164): the exact tags and attributes the parser
+# reads. Anything else present in Home.xml is reported as a loss, never dropped
+# silently. Keep in lockstep with the _parse_* functions below.
+_MODELLED_ATTRIBUTES: dict[str, frozenset[str]] = {
+    "home": frozenset({"version", "name", "wallHeight"}),
+    "environment": frozenset({"lightColor", "skyColor"}),
+    "level": frozenset(
+        {
+            "id",
+            "name",
+            "elevation",
+            "floorThickness",
+            "height",
+            "elevationIndex",
+            "visible",
+            "viewable",
+        }
+    ),
+    "pieceOfFurniture": _FURNITURE_ATTRIBUTES,
+    "shelfUnit": _FURNITURE_ATTRIBUTES,
+    "light": _FURNITURE_ATTRIBUTES | {"power"},
+    "doorOrWindow": _FURNITURE_ATTRIBUTES
+    | {
+        "wallThickness",
+        "wallDistance",
+        "wallWidth",
+        "wallLeft",
+        "wallHeight",
+        "wallTop",
+        "boundToWall",
+    },
+    "material": frozenset({"name", "key", "color", "shininess"}),
+    "lightSource": frozenset({"x", "y", "z", "color", "diameter"}),
+    "wall": frozenset(
+        {
+            "id",
+            "level",
+            "wallAtStart",
+            "wallAtEnd",
+            "xStart",
+            "yStart",
+            "xEnd",
+            "yEnd",
+            "thickness",
+            "height",
+            "heightAtEnd",
+            "arcExtent",
+        }
+    ),
+    "room": frozenset({"id", "level", "name", "floorVisible", "ceilingVisible"}),
+    "point": frozenset({"x", "y"}),
+    "camera": frozenset(
+        {"id", "name", "lens", "x", "y", "z", "yaw", "pitch", "fieldOfView", "attribute", "time"}
+    ),
+    "observerCamera": frozenset(
+        {"id", "name", "lens", "x", "y", "z", "yaw", "pitch", "fieldOfView", "attribute", "time"}
+    ),
+}
 
 
 class Sh3dFormatError(ValueError):
@@ -91,8 +169,10 @@ def parse_home_xml(payload: bytes | str) -> Sh3dHome:
     cameras = tuple(_parse_camera(node, index) for index, node in enumerate(camera_nodes))
 
     # Group children already carry absolute SH3D placement, not group-local
-    # transforms. Preserve each leaf's source identity without transforming twice.
-    unsupported = ()
+    # transforms. Preserve each leaf's source identity without transforming twice;
+    # the group container itself is reported as unmodelled below.
+    loss_entries = _classify_losses(root)
+    unsupported = tuple(sorted(entry.path for entry in loss_entries if entry.kind == "element"))
 
     return Sh3dHome(
         name=root.get("name"),
@@ -106,6 +186,32 @@ def parse_home_xml(payload: bytes | str) -> Sh3dHome:
         unsupported_elements=unsupported,
         preview_light_color=_environment_color(root, "lightColor", 0xD0D0D0),
         preview_sky_color=_environment_color(root, "skyColor", 0xCCE4FC),
+        loss_entries=loss_entries,
+    )
+
+
+def _classify_losses(root: ElementTree.Element) -> tuple[Sh3dLossEntry, ...]:
+    """Count every element/attribute outside the modelled contract."""
+
+    elements: dict[str, int] = {}
+    attributes: dict[str, int] = {}
+    for node in root.iter():
+        modelled = _MODELLED_ATTRIBUTES.get(node.tag)
+        if modelled is None:
+            elements[node.tag] = elements.get(node.tag, 0) + 1
+            continue
+        for name in node.attrib:
+            if name not in modelled:
+                key = f"{node.tag}@{name}"
+                attributes[key] = attributes.get(key, 0) + 1
+    return tuple(
+        sorted(
+            (
+                *(Sh3dLossEntry(path, "element", count) for path, count in elements.items()),
+                *(Sh3dLossEntry(path, "attribute", count) for path, count in attributes.items()),
+            ),
+            key=lambda entry: (entry.kind, entry.path),
+        )
     )
 
 

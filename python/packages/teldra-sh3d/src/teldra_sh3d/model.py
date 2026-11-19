@@ -126,6 +126,19 @@ class Sh3dCamera:
 
 
 @dataclass(frozen=True, slots=True)
+class Sh3dLossEntry:
+    """One SH3D element or attribute the semantic parser does not model.
+
+    ``path`` is the XML tag for elements and ``tag@attribute`` for attributes.
+    Everything in the source that is not modelled appears here: nothing is silent.
+    """
+
+    path: str
+    kind: Literal["element", "attribute"]
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
 class Sh3dHome:
     name: str | None
     version: int | None
@@ -138,3 +151,4 @@ class Sh3dHome:
     unsupported_elements: tuple[str, ...]
     preview_light_color: int = 0xD0D0D0
     preview_sky_color: int = 0xCCE4FC
+    loss_entries: tuple[Sh3dLossEntry, ...] = ()

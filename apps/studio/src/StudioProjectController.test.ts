@@ -335,11 +335,11 @@ it("commits geometry scale with pose as one IFC undo step and validates source-b
 
 it("roundtrips a real IFC4 mapped-instance scale through the canonical .teldra archive", async () => {
   const guid = "16W6mYG0DO8hR8U$bz6FSv";
-  const originalLine = "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,$,$,$);";
-  const changedLine = "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,#304,$,$);";
+  const originalLine = "#203=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#208,$,$,$);";
+  const changedLine = "#203=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#208,#304,$,$);";
   if (!goldenIfc.includes(originalLine)) throw new Error("IFC golden furniture fixture has changed.");
   const representation = [
-    "#300=IFCREPRESENTATIONMAP(#10,#64);",
+    "#300=IFCREPRESENTATIONMAP(#10,#57);",
     "#301=IFCCARTESIANTRANSFORMATIONOPERATOR3D($,$,#7,1.,$);",
     "#302=IFCMAPPEDITEM(#300,#301);",
     "#303=IFCSHAPEREPRESENTATION(#12,'Body','MappedRepresentation',(#302));",

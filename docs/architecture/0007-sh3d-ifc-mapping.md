@@ -32,7 +32,11 @@ The initial mapping is conservative:
 - straight SH3D walls → `IfcWall` with real body geometry
 - ordinary furniture → `IfcFurniture`
 - lights → `IfcLightFixture`
-- SH3D `doorOrWindow` → `IfcBuildingElementProxy` until its actual architectural type and host opening can be established without guessing
+- SH3D `doorOrWindow` → `IfcDoor` or `IfcWindow` (name keywords, else floor-level elevation; the basis is recorded as `ClassificationBasis`). A bound door/window with exactly one host wall gets an `IfcOpeningElement` with a Body solid placed in the host wall's frame (`IfcRelVoidsElement`), and is placed in the opening's frame (`IfcRelFillsElement`). Zero or multiple candidate hosts, unbound pieces and clipped openings are reported in the import warnings and `bim.unhostedDoorsAndWindows`; the door/window itself is never dropped.
+- SH3D rooms → `IfcSpace` with a `FootPrint` and an extruded `Body` (storey height); degenerate outlines keep identity and are reported.
+- Straight walls carry a Body, an `Axis` representation and a single-layer `IfcMaterialLayerSetUsage` (offset 0; reference line = SH3D centreline, body on its left, as in `@teldra/ifc-edit`). `wallAtStart`/`wallAtEnd` links whose endpoints coincide become `IfcRelConnectsPathElements`; others are reported.
+- Everything in `Home.xml` the parser does not model is listed in `import-report.json` `lossReport` (never silent).
+- Re-import with an existing model keeps GlobalIds of source elements, hosted openings, project/site/building and `Teldra_Source` property sets.
 - cameras remain presentation-side data and are returned by the importer rather than persisted as architectural IFC truth
 
 Curved-wall body geometry may initially be deferred with an explicit warning rather than silently flattened.

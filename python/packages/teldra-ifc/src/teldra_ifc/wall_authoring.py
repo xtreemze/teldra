@@ -13,8 +13,10 @@ from math import hypot, isfinite
 
 import ifcopenshell
 import ifcopenshell.api.geometry
+import ifcopenshell.api.material
 import ifcopenshell.api.root
 import ifcopenshell.api.spatial
+import ifcopenshell.util.element
 import ifcopenshell.util.unit
 
 
@@ -112,6 +114,47 @@ def _create_body(
     return rep
 
 
+def _refresh_axis_and_layers(
+    model: ifcopenshell.file,
+    wall: ifcopenshell.entity_instance,
+    geometry: StraightWall,
+) -> None:
+    """Keep an imported wall's Axis and layer-set usage consistent with its new Body."""
+    axes = [
+        r
+        for r in (wall.Representation.Representations if wall.Representation else [])
+        if r.RepresentationIdentifier == "Axis"
+    ]
+    if axes:
+        context = axes[0].ContextOfItems
+        ifcopenshell.api.geometry.unassign_representation(
+            model, product=wall, representation=axes[0]
+        )
+        ifcopenshell.api.geometry.remove_representation(model, representation=axes[0])
+        length = hypot(geometry.end[0] - geometry.start[0], geometry.end[1] - geometry.start[1])
+        axis = ifcopenshell.api.geometry.add_axis_representation(
+            model, context=context, axis=[(0.0, 0.0), (length, 0.0)]
+        )
+        ifcopenshell.api.geometry.assign_representation(model, product=wall, representation=axis)
+    usage = ifcopenshell.util.element.get_material(wall)
+    if usage is not None and usage.is_a("IfcMaterialLayerSetUsage"):
+        layers = usage.ForLayerSet.MaterialLayers
+        if len(layers) == 1 and abs(layers[0].LayerThickness - geometry.thickness_m) > 1e-9:
+            # Layer sets are shared between walls: never edit one in place.
+            layer_set = ifcopenshell.api.material.add_material_set(
+                model,
+                name=f"Wall {geometry.thickness_m * 1000:g} mm",
+                set_type="IfcMaterialLayerSet",
+            )
+            layer = ifcopenshell.api.material.add_layer(
+                model, layer_set=layer_set, material=layers[0].Material
+            )
+            ifcopenshell.api.material.edit_layer(
+                model, layer=layer, attributes={"LayerThickness": geometry.thickness_m}
+            )
+            usage.ForLayerSet = layer_set
+
+
 def create_straight_wall(
     source: ifcopenshell.file,
     storey_global_id: str,
@@ -155,8 +198,12 @@ def _editable_wall_body(
             )
         if inverse.is_a("IfcRelConnectsElements") or inverse.is_a("IfcRelSpaceBoundary"):
             raise WallAuthoringError("Connected or space-boundary walls require topology updates.")
-    reps = list(wall.Representation.Representations) if wall.Representation else []
-    if len(reps) != 1 or reps[0].RepresentationIdentifier != "Body":
+    all_reps = list(wall.Representation.Representations) if wall.Representation else []
+    # An Axis (reference line) representation travels with the Body and is
+    # regenerated on edit; any other extra representation is unsupported.
+    reps = [r for r in all_reps if r.RepresentationIdentifier == "Body"]
+    axes = [r for r in all_reps if r.RepresentationIdentifier == "Axis"]
+    if len(reps) != 1 or len(axes) > 1 or len(reps) + len(axes) != len(all_reps):
         raise WallAuthoringError("Only a uniquely owned wall Body representation is editable.")
     original = reps[0]
     if (
@@ -217,6 +264,7 @@ def edit_straight_wall(
         representation=original,
     )
     _create_body(model, wall, geometry)
+    _refresh_axis_and_layers(model, wall, geometry)
     if wall.GlobalId != wall_global_id:
         raise WallAuthoringError("IFC GlobalId changed unexpectedly.")
     return model
