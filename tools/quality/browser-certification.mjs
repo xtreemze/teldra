@@ -108,11 +108,12 @@ export function evaluateBrowserCertification(policy, report, expectedCommit) {
           frameMedianMs: mobile ? thresholds.mobileTargetFrameTimeMs : thresholds.desktopTargetFrameTimeMs,
           selectionP95Ms: thresholds.selectionP95Ms,
           cameraInputP95Ms: thresholds.cameraInputP95Ms,
+          liveStateToVisualP95Ms: thresholds.liveStateToVisualP95Ms,
           cachedStartupMs: mobile ? startup.referenceMobileCachedProjectInteractiveMs : startup.referenceDesktopCachedProjectInteractiveMs,
           ...(!mobile ? {coldStartupMs: startup.referenceDesktopColdProjectInteractiveMs} : {}),
         };
         for (const [field, maximum] of Object.entries(maxima)) {
-          if (!Number.isFinite(metrics?.[field]) || metrics[field] < 0) errors.push(label + ": missing measured " + field);
+          if (!Number.isFinite(metrics?.[field]) || metrics[field] < 0 || (field === "frameMedianMs" && metrics[field] === 0)) errors.push(label + ": missing measured " + field);
           else if (metrics[field] > maximum) blockers.push(label + ": " + field + " exceeds budget");
         }
         if (!Number.isFinite(metrics?.frameP95Ms) || metrics.frameP95Ms < (metrics.frameMedianMs ?? 0)) {
