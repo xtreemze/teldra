@@ -50,6 +50,9 @@ export interface LightingProjection {
   };
 }
 
+export * from "./scene-regeneration.js";
+export * from "./scene-regeneration-coordinator.js";
+
 export function createTwinProjection(project: TwinProject): TwinProjection {
   const buildingObjects: TwinObjectProjection[] = project.building.refs.map((reference) => ({
     canonicalId: reference.id,

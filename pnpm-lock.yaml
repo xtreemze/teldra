@@ -214,6 +214,9 @@ importers:
       '@teldra/project-format':
         specifier: workspace:*
         version: link:../../packages/project-format
+      '@teldra/projection':
+        specifier: workspace:*
+        version: link:../../packages/projection
       '@teldra/runtime-babylon':
         specifier: workspace:*
         version: link:../../packages/runtime-babylon
@@ -247,7 +250,7 @@ importers:
         version: 10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)
       storybook-solidjs-vite:
         specifier: 10.7.2
-        version: 10.7.2(solid-js@1.9.15)(storybook@10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1))(typescript@7.0.2)(vite-plugin-solid@2.11.14(@testing-library/jest-dom@6.9.1)(solid-js@1.9.15)(supports-color@7.2.0)(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1)))(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1))
+        version: 10.7.2(solid-js@1.9.15)(storybook@10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1))(typescript@6.0.3)(vite-plugin-solid@2.11.14(@testing-library/jest-dom@6.9.1)(solid-js@1.9.15)(supports-color@7.2.0)(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1)))(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1))
       vite:
         specifier: 8.3.2
         version: 8.3.2(esbuild@0.28.2)(yaml@2.9.1)
@@ -354,6 +357,9 @@ importers:
 
   packages/ifc-edit:
     dependencies:
+      '@teldra/projection':
+        specifier: workspace:*
+        version: link:../projection
       web-ifc:
         specifier: 0.0.78
         version: 0.0.78
@@ -402,6 +408,9 @@ importers:
       '@teldra/domain':
         specifier: workspace:*
         version: link:../domain
+      '@teldra/scene-manifest':
+        specifier: workspace:*
+        version: link:../scene-manifest
 
   packages/runtime-babylon:
     dependencies:
@@ -411,6 +420,9 @@ importers:
       '@babylonjs/loaders':
         specifier: 9.29.0
         version: 9.29.0(@babylonjs/core@9.29.0)(babylonjs-gltf2interface@9.32.0)
+      '@teldra/projection':
+        specifier: workspace:*
+        version: link:../projection
       '@teldra/scene-manifest':
         specifier: workspace:*
         version: link:../scene-manifest
@@ -4955,14 +4967,14 @@ snapshots:
     optionalDependencies:
       typescript: '@typescript/typescript6@6.0.2'
 
-  '@volar/language-service@2.4.30(typescript@7.0.2)':
+  '@volar/language-service@2.4.30(typescript@6.0.3)':
     dependencies:
       '@volar/language-core': 2.4.30
       vscode-languageserver-protocol: 3.18.5
       vscode-languageserver-textdocument: 1.0.16
       vscode-uri: 3.2.0
     optionalDependencies:
-      typescript: 7.0.2
+      typescript: 6.0.3
 
   '@volar/source-map@2.4.30': {}
 
@@ -4975,14 +4987,14 @@ snapshots:
     optionalDependencies:
       typescript: '@typescript/typescript6@6.0.2'
 
-  '@volar/typescript@2.4.30(typescript@7.0.2)':
+  '@volar/typescript@2.4.30(typescript@6.0.3)':
     dependencies:
       '@volar/language-core': 2.4.30
-      '@volar/language-service': 2.4.30(typescript@7.0.2)
+      '@volar/language-service': 2.4.30(typescript@6.0.3)
       path-browserify: 1.0.1
       vscode-uri: 3.2.0
     optionalDependencies:
-      typescript: 7.0.2
+      typescript: 6.0.3
 
   '@vscode/emmet-helper@2.11.0':
     dependencies:
@@ -6407,20 +6419,20 @@ snapshots:
 
   std-env@4.3.0: {}
 
-  storybook-solidjs-vite@10.7.2(solid-js@1.9.15)(storybook@10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1))(typescript@7.0.2)(vite-plugin-solid@2.11.14(@testing-library/jest-dom@6.9.1)(solid-js@1.9.15)(supports-color@7.2.0)(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1)))(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1)):
+  storybook-solidjs-vite@10.7.2(solid-js@1.9.15)(storybook@10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1))(typescript@6.0.3)(vite-plugin-solid@2.11.14(@testing-library/jest-dom@6.9.1)(solid-js@1.9.15)(supports-color@7.2.0)(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1)))(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1)):
     dependencies:
       '@storybook/builder-vite': 10.6.3(storybook@10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1))(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1))
       '@storybook/global': 5.0.0
       '@typescript/typescript6': 6.0.2
       '@volar/language-core': 2.4.30
-      '@volar/typescript': 2.4.30(typescript@7.0.2)
+      '@volar/typescript': 2.4.30(typescript@6.0.3)
       semver: 7.8.5
       solid-js: 1.9.15
       storybook: 10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)
       vite: 8.3.2(esbuild@0.28.2)(yaml@2.9.1)
       vite-plugin-solid: 2.11.14(@testing-library/jest-dom@6.9.1)(solid-js@1.9.15)(supports-color@7.2.0)(vite@8.3.2(esbuild@0.28.2)(yaml@2.9.1))
     optionalDependencies:
-      typescript: 7.0.2
+      typescript: 6.0.3
 
   storybook@10.6.0(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1):
     dependencies:

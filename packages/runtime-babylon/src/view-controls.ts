@@ -178,6 +178,16 @@ export class SceneLayers {
       this.apply(part, ids);
     }
   }
+  /** Unregisters a part (used when a derived mesh is replaced); empty layers disappear. */
+  remove(mesh: AbstractMesh): void {
+    const ids = this.memberships.get(mesh);
+    if (!ids) return;
+    for (const id of ids) {
+      const layer = this.layers.get(id);
+      if (layer && --layer.meshParts <= 0) this.layers.delete(id);
+    }
+    this.memberships.delete(mesh); this.hidden.delete(mesh); this.batched.delete(mesh);
+  }
   isVisible(mesh: AbstractMesh): boolean {
     const ids = this.memberships.get(mesh);
     return !!ids && (this.revealHidden || !this.hidden.has(mesh)) && ids.every(id => this.layers.get(id)?.visible);

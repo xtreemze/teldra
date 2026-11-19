@@ -25,6 +25,8 @@ import { FloorMinificationInspector, type FloorMinificationMode } from "./floor-
 import { clientToFramebufferPixel, describeSurfacePick, normalizeGpuRgb, inspectGpuMips, type SurfaceProbe, type GpuFloorEvidence } from "./surface-probe.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import type { FurnitureMeasuredBounds } from "./furniture-bounds.js";
+import { applySceneMeshUpdate, type SceneMeshUpdateContext } from "./scene-mesh-update.js";
+import type { SceneMeshApplyResult, SceneMeshUpdate } from "@teldra/projection";
 import { createMeshBatch, type BatchPart, type MeshBatch } from "./mesh-batching.js";
 import { registerBuiltInLoaders } from "@babylonjs/loaders/dynamic";
 import {
@@ -72,6 +74,14 @@ export interface BabylonTwinRuntime {
   renderStats(): { backend: BabylonBackend; reverseDepth: boolean; nearPlane: number; farPlane: number; width: number; height: number; hardwareScaling: number; fps: number; activeMeshes: number; drawCalls: number; sampleCount: number; cpuFrameMsP50: number | null; cpuFrameMsP95: number | null };
   batchingStats(): { eligibleParts: number; candidateGroups: number; possibleDrawCallReduction: number; sameCanonicalPotentialReduction: number };
   applyScenePlacements(placements: readonly ScenePlacement[]): void;
+  /**
+   * Replaces/adds/removes derived meshes of re-tessellated IFC elements (projection `SceneMeshUpdate`,
+   * scene frame) atomically; implements the projection `SceneMeshSink` port. On `ok: false` the
+   * previous scene is untouched. `revision` is the canonical IFC revision the update reflects.
+   */
+  applySceneMeshUpdate(update: SceneMeshUpdate, revision: number): SceneMeshApplyResult;
+  /** Canonical IFC revision of the last applied mesh update, or null if the loaded GLB is unpatched. */
+  sceneMeshRevision(): number | null;
   /** Exact indexed triangle extents in the original IFC local axes. */
   measureFurnitureGeometry(canonicalId: string, original: FurnitureWorldPose): FurnitureMeasuredBounds;
   /** Pure preflight: no canonical IFC change or scene mutation. */
@@ -125,7 +135,7 @@ export async function createBabylonTwinRuntime(
   options: BabylonTwinRuntimeOptions = {},
 ): Promise<BabylonTwinRuntime> {
   const manifest = parseSceneManifest(manifestInput);
-  const manifestByNodeKey = indexSceneManifest(manifest);
+  const manifestByNodeKey = new Map(indexSceneManifest(manifest));
   const identityByMesh = new WeakMap<AbstractMesh, TwinRenderIdentity>();
   const meshByNodeKey = new Map<string, AbstractMesh>();
   const meshesByCanonicalId = new Map<string, AbstractMesh[]>();
@@ -176,6 +186,7 @@ export async function createBabylonTwinRuntime(
   const batchByPart = new Map<AbstractMesh, MeshBatch>();
   const furniture = new FurnitureGizmoBridge(scene, Matrix.FromArray(manifest.scene.canonicalToScene),
     id => meshesByCanonicalId.get(id) ?? []);
+  let sceneMeshRevision: number | null = null;
   let projectedPlacementIds = new Set<string>();
   let committedPlacements: readonly ScenePlacement[] = [];
   const viewListeners = new Set<(state: ViewState) => void>();
@@ -435,6 +446,20 @@ export async function createBabylonTwinRuntime(
     assertFurnitureAffineProjectable(canonicalId, canonicalDelta) {
       furniture.assertAffineProjectable(canonicalId, canonicalDelta);
     },
+    applySceneMeshUpdate(update, revision) {
+      if (disposed || loading) return { ok: false, error: new Error("Viewport is not ready for a mesh update.") };
+      const context: SceneMeshUpdateContext = {
+        scene, manifestByNodeKey, identityByMesh, meshByNodeKey, meshesByCanonicalId, batchByPart,
+        sourceHiddenMeshes, layers, renderMeshes, physicalMeshes,
+      };
+      const result = applySceneMeshUpdate(context, update);
+      if (result.ok) {
+        sceneMeshRevision = revision;
+        if (lightingProfile !== "preview") assignSourceLights(scene, physicalMeshes);
+      }
+      return result;
+    },
+    sceneMeshRevision: () => sceneMeshRevision,
     applyScenePlacements(placements) {
       for (const placement of placements) {
         if (!meshesByCanonicalId.has(placement.canonicalId)) {

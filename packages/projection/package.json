@@ -12,7 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@teldra/domain": "workspace:*"
+    "@teldra/domain": "workspace:*",
+    "@teldra/scene-manifest": "workspace:*"
   },
   "nx": {
     "tags": ["layer:projection"]

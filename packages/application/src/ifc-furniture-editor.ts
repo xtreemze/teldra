@@ -1,3 +1,4 @@
+import { AffectedElementLog } from "./affected-elements.js";
 import { CommandProcessor, type CanonicalCommand, type CommandHistoryStatus, type CommandResolver } from "./commands.js";
 import type { FurnitureSourceDimensions } from "./furniture-dimensions.js";
 
@@ -24,6 +25,7 @@ export class IfcFurnitureEditor {
   readonly #processor: CommandProcessor<IfcState, IfcCommand>;
   readonly #adapter: IfcFurnitureAdapter;
   #sequence = 0;
+  readonly #affected = new AffectedElementLog();
   constructor(bytes: Uint8Array, adapter: IfcFurnitureAdapter) {
     this.#adapter = adapter;
     // Keep binary snapshots as bytes instead of expanding large IFC files into JSON number arrays.
@@ -47,6 +49,8 @@ export class IfcFurnitureEditor {
   }
   get bytes(): Uint8Array { return this.#processor.state.bytes.slice(); }
   get history(): CommandHistoryStatus { return this.#processor.history; }
+  /** GlobalIds touched by the latest edit/undo/redo; input for derived-scene regeneration. */
+  get lastAffectedGlobalIds(): readonly string[] { return this.#affected.last; }
   read(ifcGlobalId: string): FurnitureWorldPose { return this.#adapter.read(this.bytes, ifcGlobalId); }
   readScale(ifcGlobalId: string): FurnitureGeometryScale {
     if (!this.#adapter.readScale) throw new Error("This IFC editor has no mapped-geometry scale adapter.");
@@ -62,6 +66,7 @@ export class IfcFurnitureEditor {
       id: "ifc-transform-command:" + this.#sequence, kind: "ifc.furniture.transform",
       authority: "canonical-ifc", payload: { ifcGlobalId, position: pose.position, yawRadians: pose.yawRadians, scale },
     }] });
+    this.#affected.recordApply([ifcGlobalId]);
   }
   scale(ifcGlobalId: string, scale: FurnitureGeometryScale): void {
     if (!this.#adapter.writeScale) throw new Error("IFC geometry scaling is unavailable.");
@@ -72,11 +77,13 @@ export class IfcFurnitureEditor {
       id: "ifc-scale-command:" + this.#sequence, kind: "ifc.furniture.geometry-scale",
       authority: "canonical-ifc", payload: { ifcGlobalId, scale },
     }] });
+    this.#affected.recordApply([ifcGlobalId]);
   }
   place(ifcGlobalId: string, pose: FurnitureWorldPose): void {
     this.#sequence++;
     this.#processor.execute({ id: `ifc-pose:${this.#sequence}`, commands: [{ id: `ifc-pose-command:${this.#sequence}`, kind: "ifc.furniture.pose", authority: "canonical-ifc", payload: { ifcGlobalId, position: pose.position, yawRadians: pose.yawRadians } }] });
+    this.#affected.recordApply([ifcGlobalId]);
   }
-  undo(): boolean { return this.#processor.undo() !== null; }
-  redo(): boolean { return this.#processor.redo() !== null; }
+  undo(): boolean { const done = this.#processor.undo() !== null; if (done) this.#affected.recordUndo(); return done; }
+  redo(): boolean { const done = this.#processor.redo() !== null; if (done) this.#affected.recordRedo(); return done; }
 }
