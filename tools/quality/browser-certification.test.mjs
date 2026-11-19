@@ -13,7 +13,7 @@ function evidence(platform) {
     browserVersion: "1.2.3", osVersion: "1.2", hardware: "Reference device",
     gpu: "Reference GPU", rendererVersion: "1.0", viewport: {width: 390, height: 844, dpr: 2},
     projectSha256: fixtureSha, evidenceRef: "release-evidence/run.json",
-    metrics: {frameMedianMs: 12, frameP95Ms: 18, selectionP95Ms: 25, cameraInputP95Ms: 25,
+    metrics: {frameMedianMs: 12, frameP95Ms: 18, selectionP95Ms: 25, cameraInputP95Ms: 25, liveStateToVisualP95Ms: 50,
       cachedStartupMs: 1500, coldStartupMs: 3500, interactiveFps: 60},
     checks: {navigation: "pass", canonicalEditing: "pass", accessibility: "pass", performance: "pass",
       ...(mobile ? {touch: "pass", feedback: "pass", pwa: "pass"} : {})},
@@ -72,4 +72,13 @@ test("measured budget violations block an otherwise certified release", () => {
   assert.equal(result.errors.length, 0);
   assert.equal(result.ready, false);
   assert.ok(result.blockers.some(e => e.includes("selectionP95Ms exceeds budget")));
+});
+
+test("untested baseline is valid data but never release evidence", () => {
+  const report = JSON.parse(readFileSync(new URL("../../quality/browser-certification.json", import.meta.url), "utf8"));
+  assert.deepEqual(report, createBrowserCertification(policy));
+  const result = evaluateBrowserCertification(policy, report, sha);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.ready, false);
+  assert.ok(result.blockers.some(line => line.includes("exact requested release commit")));
 });
