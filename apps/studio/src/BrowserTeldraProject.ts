@@ -1,4 +1,4 @@
-import { canonicalTwinFingerprint } from "@teldra/application";
+import { canonicalTwinFingerprint, convexFootprintFromWalls, type LocalPoint } from "@teldra/application";
 import { assertTwinIntegrity, type TwinProject } from "@teldra/domain";
 import {
   openProjectPersistence,
@@ -90,12 +90,38 @@ export interface BrowserStudioProject {
   readonly scene?: BrowserStudioScene;
   /** Regenerate a separate validated archive copy; never changes the loaded project. */
   rebakeSavedSceneCopy?(): Promise<Uint8Array>;
+  /** Read-only building footprint (IFC metres) derived from the canonical IFC; `undefined` when none can be derived. */
+  readSiteFootprint?(): Promise<readonly LocalPoint[] | undefined>;
   close(): Promise<void>;
 }
 
 interface BrowserStudioSceneResource {
   readonly scene: BrowserStudioScene;
   dispose(): void;
+}
+
+let footprintApi: Promise<{ api: import("web-ifc").IfcAPI; read: typeof import("@teldra/ifc-edit").readWallFootprintSegments }> | undefined;
+
+/**
+ * Footprint evidence for site alignment: the convex outline of the IFC wall axes, read-only. Any IFC this
+ * reader cannot interpret simply yields no footprint, so manual placement stays available.
+ */
+async function readIfcSiteFootprint(bytes: Uint8Array): Promise<readonly LocalPoint[] | undefined> {
+  footprintApi ??= (async () => {
+    const [{ IfcAPI }, { readWallFootprintSegments }, wasm] = await Promise.all([
+      import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url"),
+    ]);
+    const api = new IfcAPI(); await api.Init(() => wasm.default, true);
+    return { api, read: readWallFootprintSegments };
+  })();
+  try {
+    const { api, read } = await footprintApi;
+    const walls = read(api, bytes);
+    if (walls.length === 0) return undefined;
+    return convexFootprintFromWalls(walls.map((w) => ({ start: w.start, end: w.end, thickness: w.thickness })));
+  } catch {
+    return undefined;
+  }
 }
 
 const inProcessLocks = new Map<string, string>();
@@ -612,6 +638,7 @@ export async function openBrowserTeldraProject(
       saveMode: handle.saveMode ?? "direct",
       projectKey: storage.projectKey,
       controller,
+      ...(buildingEntry ? { readSiteFootprint: () => readIfcSiteFootprint(buildingEntry.bytes) } : {}),
       ...(sceneResource === null ? {} : { scene: sceneResource.scene }),
       ...(sceneResource === null ? {} : {
         rebakeSavedSceneCopy: async () => {

@@ -1,0 +1,236 @@
+.teldra-site-placement {
+  display: grid;
+  gap: 0.75rem;
+  max-inline-size: 72rem;
+  padding: 1rem;
+  border: 1px solid var(--teldra-color-border, #6d7278);
+  border-radius: 0.75rem;
+  background: var(--teldra-color-surface, Canvas);
+  color: var(--teldra-color-text, CanvasText);
+  font: inherit;
+}
+
+.teldra-site-placement h2,
+.teldra-site-placement h3,
+.teldra-site-placement p {
+  margin: 0;
+}
+
+.teldra-site-placement h3 {
+  font-size: 0.95rem;
+  margin-block-start: 0.5rem;
+}
+
+.teldra-site-placement__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.teldra-site-placement__status {
+  padding: 0.15rem 0.6rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.teldra-site-placement__status[data-status="provisional"] {
+  color: var(--teldra-color-warning, #8a5a00);
+}
+
+.teldra-site-placement__status[data-status="user-confirmed"] {
+  color: var(--teldra-color-success, #1b6b3a);
+}
+
+.teldra-site-placement__note,
+.teldra-site-placement__hint,
+.teldra-site-placement__credit,
+.teldra-site-placement__provenance,
+.teldra-site-placement__legend {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.teldra-site-placement__error,
+.teldra-site-placement__warning {
+  color: var(--teldra-color-danger, #a11);
+  font-size: 0.9rem;
+}
+
+.teldra-site-placement__search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--teldra-color-border, #6d7278);
+  border-radius: 0.5rem;
+}
+
+.teldra-site-placement__field {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.85rem;
+}
+
+.teldra-site-placement__field input,
+.teldra-site-placement__field select {
+  inline-size: 100%;
+  min-inline-size: 7rem;
+  padding: 0.3rem 0.4rem;
+  font: inherit;
+}
+
+.teldra-site-placement__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 1fr);
+  gap: 1rem;
+}
+
+@media (max-width: 52rem) {
+  .teldra-site-placement__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.teldra-site-placement__map-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-block-end: 0.4rem;
+}
+
+.teldra-site-placement__map-frame {
+  position: relative;
+  border: 1px solid var(--teldra-color-border, #6d7278);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: #e8ebe6;
+}
+
+.teldra-site-placement__map {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  touch-action: none;
+  cursor: grab;
+}
+
+.teldra-site-placement__attribution {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-end: 0;
+  padding: 0.1rem 0.4rem;
+  background: rgb(255 255 255 / 0.8);
+  color: #222;
+  font-size: 0.7rem;
+}
+
+.teldra-site-placement__candidate {
+  fill: rgb(30 100 200 / 0.25);
+  stroke: #1e64c8;
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+
+.teldra-site-placement__candidate:hover,
+.teldra-site-placement__candidate:focus-visible {
+  fill: rgb(30 100 200 / 0.45);
+  outline: none;
+  stroke-width: 2.5;
+}
+
+.teldra-site-placement__candidate.is-selected {
+  fill: rgb(30 100 200 / 0.5);
+  stroke-width: 3;
+}
+
+.teldra-site-placement__ifc {
+  fill: rgb(220 90 20 / 0.35);
+  stroke: #c2410c;
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+  pointer-events: none;
+}
+
+.teldra-site-placement__swatch {
+  display: inline-block;
+  inline-size: 0.8rem;
+  block-size: 0.8rem;
+  margin-inline: 0.6rem 0.25rem;
+  vertical-align: middle;
+}
+
+.teldra-site-placement__swatch--candidate {
+  background: rgb(30 100 200 / 0.4);
+  border: 1px solid #1e64c8;
+}
+
+.teldra-site-placement__swatch--ifc {
+  background: rgb(220 90 20 / 0.4);
+  border: 1px dashed #c2410c;
+}
+
+.teldra-site-placement__side {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.teldra-site-placement__list {
+  display: grid;
+  gap: 0.25rem;
+  max-block-size: 11rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.teldra-site-placement__list button {
+  display: grid;
+  inline-size: 100%;
+  gap: 0.1rem;
+  padding: 0.35rem 0.5rem;
+  text-align: start;
+}
+
+.teldra-site-placement__list button[aria-pressed="true"] {
+  outline: 2px solid #1e64c8;
+}
+
+.teldra-site-placement__list span {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.teldra-site-placement__form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.teldra-site-placement__nudges,
+.teldra-site-placement__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.teldra-site-placement button {
+  padding: 0.35rem 0.7rem;
+  font: inherit;
+}
+
+.teldra-site-placement button.is-primary {
+  font-weight: 600;
+}
+
+.teldra-site-placement button:focus-visible,
+.teldra-site-placement input:focus-visible,
+.teldra-site-placement select:focus-visible {
+  outline: 2px solid #1e64c8;
+  outline-offset: 2px;
+}

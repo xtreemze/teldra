@@ -38,6 +38,7 @@ export const studioIconPaths = {
   zoomIn: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM21 21l-4.3-4.3M8 11h6m-3-3v6",
   zoomOut: "M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16ZM21 21l-4.3-4.3M8 11h6",
   reset: "M3 11a9 9 0 1 1 3 7M3 4v7h7",
+  site: "M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12ZM12 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
   scene: "M3 6 12 2l9 4v12l-9 4-9-4zM3 6l9 4 9-4m-9 4v12",
   inspector: "M4 3h16v18H4zM13 3v18M7 8h3m-3 4h3m-3 4h3",
   project: "M4 3h10l6 6v12H4zM14 3v6h6M8 14h8m-8 4h5",
@@ -70,6 +71,6 @@ export const studioIconGroups = {
   "Editing": ["select", "move", "rotate", "scale", "measure", "snap"],
   "Navigation": ["orbit", "pan", "isometric", "top", "front", "right", "frame", "focus", "zoomIn", "zoomOut", "reset"],
   "Visualization": ["layers", "appearance", "texture", "shadows", "visibility", "hidden"],
-  "Workspace": ["scene", "inspector", "project", "open", "save", "export", "undo", "redo", "settings", "help", "gesture", "haptics", "sound"],
+  "Workspace": ["site", "scene","inspector", "project", "open", "save", "export", "undo", "redo", "settings", "help", "gesture", "haptics", "sound"],
   "PWA & status": ["install", "update", "offline", "check", "cancel", "search", "more"],
 } as const satisfies Record<string, readonly StudioIconName[]>;
