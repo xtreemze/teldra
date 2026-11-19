@@ -6,11 +6,17 @@ test("Pages demo edits IFC furniture, saves atomically, and reopens with the sam
  await page.goto("./?demo=sample");await page.getByRole("button",{name:"Try demo",exact:true}).click();
  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
  const chair=()=>page.getByRole("list",{name:"Building objects",exact:true}).getByRole("button",{name:/^Chair/});
- await chair().click();await page.getByRole("group",{name:"Start IFC furniture transform"}).getByRole("button",{name:"Move",exact:true}).click();
- await expect(page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Move"})).toHaveAttribute("aria-pressed","true");
- await page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Rotate"}).click();
- await expect(page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Rotate"})).toHaveAttribute("aria-pressed","true");
- await page.getByRole("group",{name:"Furniture manipulation mode"}).getByRole("button",{name:"Move"}).click();
+ await chair().click();
+ const tools=page.getByRole("toolbar",{name:"Transform tools",exact:true});
+ await expect(tools).toBeVisible();
+ for(const name of ["Move","Rotate","Scale"])await expect(tools.getByRole("button",{name,exact:true})).toBeVisible();
+ await expect(tools.getByRole("button",{name:"Move",exact:true})).toHaveAttribute("aria-pressed","false");
+ await tools.getByRole("button",{name:"Move",exact:true}).click();
+ await expect(tools.getByRole("button",{name:"Move",exact:true})).toHaveAttribute("aria-pressed","true");
+ await tools.getByRole("button",{name:"Rotate",exact:true}).click();
+ await expect(tools.getByRole("button",{name:"Rotate",exact:true})).toHaveAttribute("aria-pressed","true");
+ await expect(tools.getByRole("button",{name:"Move",exact:true})).toHaveAttribute("aria-pressed","false");
+ await tools.getByRole("button",{name:"Move",exact:true}).click();
  const x=page.getByLabel("Position X (m)",{exact:true});await expect(x).toHaveValue("1");
  await page.getByLabel("Position snap (m, 0 off)",{exact:true}).fill("0.25");await x.fill("1.76");await page.getByLabel("Rotation (degrees)",{exact:true}).fill("45");
  await page.getByRole("button",{name:"Apply placement",exact:true}).click();
@@ -23,11 +29,24 @@ test("Pages demo edits IFC furniture, saves atomically, and reopens with the sam
  await page.addInitScript(()=>Object.defineProperty(window,"showOpenFilePicker",{value:undefined,configurable:true}));
  await page.reload();const picker=page.waitForEvent("filechooser");await page.getByRole("button",{name:"Open .teldra",exact:true}).click();
  await(await picker).setFiles(path);await expect(page.getByTestId("viewport-status")).toHaveText("ready");
- await chair().click();await page.getByRole("button",{name:"Edit placement",exact:true}).click();
+ await chair().click();await page.getByRole("toolbar",{name:"Transform tools",exact:true}).getByRole("button",{name:"Move",exact:true}).click();
  await expect(x).toHaveValue("1.75");expect(Number(await page.getByLabel("Rotation (degrees)",{exact:true}).inputValue())).toBeCloseTo(45);
- await page.keyboard.press("Escape");await expect(page.getByRole("button",{name:"Edit placement",exact:true})).toBeVisible();
+ await page.keyboard.press("Escape");await expect(page.getByRole("toolbar",{name:"Transform tools",exact:true}).getByRole("button",{name:"Move",exact:true})).toHaveAttribute("aria-pressed","false");
  expect(errors).toEqual([]);
  const a11y=await new AxeBuilder({page}).analyze();expect(a11y.violations).toEqual([]);
+});
+
+test("Transform toolbar explains unsupported selections with a workaround and never offers inert tools",async({page})=>{
+ await page.goto("./?demo=sample");await page.getByRole("button",{name:"Try demo",exact:true}).click();
+ await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ const tools=page.getByRole("toolbar",{name:"Transform tools",exact:true});
+ await page.getByRole("list",{name:"Building objects",exact:true}).getByRole("button",{name:/wall/i}).first().click();
+ await expect(tools).toBeVisible();
+ for(const name of ["Move","Rotate","Scale"])await expect(tools.getByRole("button",{name,exact:true})).toBeDisabled();
+ const why=page.getByTestId("transform-unavailable-reason");
+ await expect(why).toContainText("not yet supported");
+ await expect(why).toContainText("Workaround");
+ await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
 
 test("Pages routes and compact onboarding remain usable without direct file access",async({page})=>{
@@ -132,7 +151,7 @@ test("wall proposal approval rejects stale preview after canonical history advan
   await expect(page.getByTestId("viewport-status")).toHaveText("ready");
   await page.getByRole("list", {name:"Building objects",exact:true})
     .getByRole("button", {name:/^Chair/}).click();
-  await page.getByRole("group",{name:"Start IFC furniture transform"})
+  await page.getByRole("toolbar",{name:"Transform tools",exact:true})
     .getByRole("button",{name:"Move",exact:true}).click();
   const position = page.getByLabel("Position X (m)",{exact:true});
   await position.fill("1.5");

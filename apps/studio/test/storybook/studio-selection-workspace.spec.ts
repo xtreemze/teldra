@@ -169,5 +169,8 @@ test("read-only architectural selection explains unsupported wall editing rather
   await expect(page.getByTestId("workspace-selected-canonical-id")).toHaveText("wall:fixture");
   const actions = page.getByRole("group", {name: "Project actions"});
   await expect(actions.getByRole("group", {name: "Start IFC furniture transform"})).toHaveCount(0);
-  await expect(actions).toContainText("Wall, floor and opening creation or modification is not yet supported");
+  const tools = page.getByRole("toolbar", {name: "Transform tools"});
+  for (const name of ["Move", "Rotate", "Scale"]) await expect(tools.getByRole("button", {name, exact: true})).toBeDisabled();
+  await expect(page.getByTestId("transform-unavailable-reason")).toContainText("Wall, floor and opening creation or modification is not yet supported");
+  await expect(page.getByTestId("transform-unavailable-reason")).toContainText("Workaround");
 });

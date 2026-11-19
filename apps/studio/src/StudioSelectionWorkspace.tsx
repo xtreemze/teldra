@@ -13,6 +13,7 @@ import { readMobileFeedbackPreferences, writeMobileFeedbackPreferences } from ".
 import { MobileTransformPad } from "./MobileTransformPad";
 import { MobileSheetHandle, type MobileSheetDetent } from "./MobileSheetHandle";
 import { StudioIcon } from "./StudioIcon";
+import { TransformToolbar, type TransformUnavailable } from "./TransformToolbar";
 import type { StudioLiveStateController } from "./StudioLiveStateController";
 import type { StudioProjectController } from "./StudioProjectController";
 import {
@@ -20,6 +21,7 @@ import {
   type TwinViewportHandle,
 } from "./TwinViewport";
 import "./StudioSelectionWorkspace.css";
+import "./TransformToolbar.css";
 
 export interface StudioSelectionWorkspaceProps {
   readonly controller: StudioProjectController;
@@ -281,7 +283,8 @@ export function StudioSelectionWorkspace(
     setEditMode(mode);
     setMobileContextOpen(false);
     setMobileProjectOpen(false);
-    setSceneOpen(false);
+    // Only compact layouts trade the scene browser for the inspector; desktop shows both.
+    if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);
     setInspectorOpen(true);
     if (editingFurniture()) {
       editSession?.setMode(mode);
@@ -290,6 +293,26 @@ export function StudioSelectionWorkspace(
       setEditRequest((request) => request + 1);
     }
     tactile("edit");
+  };
+  /** Existing session: switch gizmo mode in place. Otherwise reuse the validated IFC edit start. */
+  const chooseTransformMode = (mode: "translate" | "rotate" | "scale") => {
+    if (editingFurniture()) {
+      setEditMode(mode);
+      editSession?.setMode(mode);
+      if (mode === "translate") editSession?.setAxisConstraint(null);
+    } else startMobileFurnitureEdit(mode);
+  };
+  const transformUnavailable = (): TransformUnavailable | undefined => {
+    const ref = selectedBuildingRef();
+    if (ref && ["furniture", "fixture", "other", "distribution-element"].includes(ref.kind)) return undefined;
+    if (selectedDevice()) return {
+      reason: "Devices are not IFC furniture, so the 3D transform gizmo does not apply to them.",
+      workaround: "Set the exact position and heading in Device placement in the Inspector, then Apply.",
+    };
+    return {
+      reason: `The selected scene element${ref?.kind ? ` (${ref.kind})` : ""} has no supported IFC furniture transform. Wall, floor and opening creation or modification is not yet supported; no mesh-only changes will be saved.`,
+      workaround: "Use Wall draft (2D) to draft and export a wall change, or edit the IFC in Bonsai and reopen the project.",
+    };
   };
   const handleCanvasGesture = (kind: "menu" | "undo" | "redo" | "frame", identity?: TwinRenderIdentity) => {
     if (kind === "menu") {
@@ -510,37 +533,15 @@ export function StudioSelectionWorkspace(
             <StudioIcon name="export" /> {rebaking() ? "Rebuilding 3D…" : "Rebuild 3D copy"}
           </button>
         </Show>
-        <Show when={["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
-          <Show when={!editingFurniture()} fallback={
-            <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Furniture manipulation mode">
-              <button type="button" aria-keyshortcuts="G" title="Move (G)" aria-pressed={editMode() === "translate"} onClick={() => { setEditMode("translate"); editSession?.setMode("translate"); editSession?.setAxisConstraint(null); }}><StudioIcon name="move" /> Move</button>
-              <button type="button" aria-keyshortcuts="R" title="Rotate about IFC world Z (R)" aria-pressed={editMode() === "rotate"} onClick={() => { setEditMode("rotate"); editSession?.setMode("rotate"); }}><StudioIcon name="rotate" /> Rotate</button>
-              <button type="button" aria-keyshortcuts="S" aria-pressed={editMode() === "scale"}
-                disabled={!props.controller.furnitureScaleStatus(selectedCanonicalId()!).supported}
-                title={(() => { const support = props.controller.furnitureScaleStatus(selectedCanonicalId()!);
-                  return support.supported ? "Local IFC geometry scale (S)" : support.reason; })()}
-                onClick={() => { setEditMode("scale"); editSession?.setMode("scale"); }}><StudioIcon name="scale" /> Scale</button>
-            </div>
-          }>
-            <div class="teldra-studio-selection-workspace__gizmo" role="group" aria-label="Start IFC furniture transform">
-              <button type="button" aria-keyshortcuts="G" disabled={!viewport()}
-                title={viewport() ? "Move selected furniture with a 3D gizmo or precise numeric coordinates (G)" : "3D scene is still loading"}
-                onClick={() => startMobileFurnitureEdit("translate")}><StudioIcon name="move" /> Move</button>
-              <button type="button" aria-keyshortcuts="R" disabled={!viewport()}
-                title={viewport() ? "Rotate selected furniture around its vertical axis (R)" : "3D scene is still loading"}
-                onClick={() => startMobileFurnitureEdit("rotate")}><StudioIcon name="rotate" /> Rotate</button>
-              <button type="button" aria-keyshortcuts="S" disabled={!viewport()}
-                title="Check IFC-backed scale eligibility and edit dimensions (S)"
-                onClick={() => startMobileFurnitureEdit("scale")}><StudioIcon name="scale" /> Scale</button>
-            </div>
-          </Show>
-        </Show>
-        <Show when={selectedCanonicalId() && !selectedDevice() && !["furniture", "fixture", "other", "distribution-element"].includes(selectedBuildingRef()?.kind ?? "")}>
-          <span class="teldra-studio-selection-workspace__hint" role="status">The selected scene element {selectedBuildingRef()?.kind ? `(${selectedBuildingRef()?.kind})` : ""} has no supported IFC furniture transform. Wall, floor and opening creation or modification is not yet supported; no mesh-only changes will be saved.</span>
-        </Show>
         <Show when={editingFurniture()}><span class="teldra-studio-selection-workspace__hint">Apply or cancel the placement before saving or changing history.</span></Show>
         <Show when={actionError()}><p role="alert">{actionError()}</p></Show>
       </div>
+      <Show when={selectedCanonicalId()}>
+        <div class="teldra-studio-selection-workspace__transform"><TransformToolbar selectionLabel={selectedDevice()?.name ?? selectedBuildingRef()?.name ?? selectedBuildingRef()?.kind ?? "Selected object"}
+          unavailable={transformUnavailable()} activeMode={editingFurniture() ? editMode() : null} ready={Boolean(viewport())}
+          scale={editingFurniture() ? props.controller.furnitureScaleStatus(selectedCanonicalId()!) : undefined}
+          onSelectMode={chooseTransformMode} /></div>
+      </Show>
       <Show when={transformModal() || transformMessage()}>
         <div class="teldra-studio-selection-workspace__transform-hint" role="status" aria-live="polite" data-testid="transform-shortcut-status">
           <Show when={transformModal()}>{modal => <span>{modal().mode === "translate" ? "Move (G)" : modal().mode === "rotate" ? "Rotate (R)" : "Scale (S)"} {modal().axis?.toUpperCase() ?? ""} {modal().numeric} · X/Y/Z constrain · Enter apply · Esc cancel</span>}</Show>
