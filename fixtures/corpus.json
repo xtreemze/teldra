@@ -97,6 +97,19 @@
         "Walls hosting openings, T-junction connections and non-rectangular bodies are rejected explicitly.",
         "Standalone walls can be created and removed; failed edits leave source bytes unchanged."
       ]
+    },
+    {
+      "id": "osm-overpass-buildings-bbox",
+      "paths": [
+        "fixtures/osm/overpass-buildings-bbox.json"
+      ],
+      "provenance": "Captured once from the public Overpass API with a bounding-box-only building query (ways and relations, out geom) over a roughly 80 m by 240 m street-level box in Malmo Vastra Hamnen. Tags reduced to building, building:levels, height, roof:levels, type; names, addresses and other tags removed. Coordinates rounded to 1e-7 degrees.",
+      "license": "ODbL-1.0; (c) OpenStreetMap contributors, https://www.openstreetmap.org/copyright",
+      "invariants": [
+        "Overpass elements parse to provider-independent footprint candidates with stable OSM ids.",
+        "Multipolygon relation outers made of several member ways assemble into one ring.",
+        "Fixture carries no address or name data; it is evidence for provisional placement only, never a verified site."
+      ]
     }
   ]
 }
