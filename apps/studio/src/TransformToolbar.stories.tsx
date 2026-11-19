@@ -30,3 +30,10 @@ export const UnsupportedWall: Story = {
     },
   },
 };
+export const WithLifecycleActions: Story = { args: { onDuplicate: () => {}, onDelete: () => {} } };
+export const LifecycleActionsBlocked: Story = {
+  args: {
+    selectionLabel: "Wall", onDuplicate: () => {}, onDelete: () => {},
+    unavailable: { reason: "Walls cannot be duplicated or deleted yet.", workaround: "Edit the IFC in Bonsai and reopen the project." },
+  },
+};

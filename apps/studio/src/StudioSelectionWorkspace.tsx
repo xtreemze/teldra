@@ -33,6 +33,10 @@ export interface StudioSelectionWorkspaceProps {
   readonly liveState?: StudioLiveStateController;
 }
 
+/** Column-major canonical-frame delta: 1/1000 scale, 1 km below the building. Presentation only; never persisted or written to IFC. */
+const HIDDEN_SCENE_MATRIX: readonly number[] = [0.001,0,0,0, 0,0.001,0,0, 0,0,0.001,0, 0,0,-1000,1];
+const FURNITURE_KINDS = ["furniture", "fixture", "other", "distribution-element"];
+
 export function StudioSelectionWorkspace(
   props: StudioSelectionWorkspaceProps,
 ) {
@@ -88,6 +92,8 @@ export function StudioSelectionWorkspace(
   const [transformModal, setTransformModal] = createSignal<TransformModal | null>(null);
   const [transformMessage, setTransformMessage] = createSignal("");
   const [transformPreviewError, setTransformPreviewError] = createSignal("");
+  const [deleteConfirm, setDeleteConfirm] = createSignal<{ id: string; label: string } | null>(null);
+  const [lifecycleBusy, setLifecycleBusy] = createSignal(false);
   let workspaceRoot!: HTMLDivElement;
   let editSession: FurnitureEditSession | undefined;
   let furnitureControls: FurnitureEditControls | null = null;
@@ -140,7 +146,7 @@ export function StudioSelectionWorkspace(
     return query === "" || parts.some((part) => part?.toLocaleLowerCase().includes(query));
   };
   const devices = () => { selectionVersion(); return props.controller.twin.devices.filter((device) => matches(device.name, device.id)); };
-  const buildingRefs = () => props.controller.twin.building.refs.filter((ref) => matches(ref.name, ref.kind, ref.id, ref.ifcGlobalId));
+  const buildingRefs = () => { selectionVersion(); return props.controller.twin.building.refs.filter((ref) => matches(ref.name, ref.kind, ref.id, ref.ifcGlobalId)); };
   const history = () => { selectionVersion(); return props.controller.history; };
   const dirty = () => { selectionVersion(); return props.controller.dirty; };
   const changeHistory = (direction: "undo" | "redo") => {
@@ -173,7 +179,11 @@ export function StudioSelectionWorkspace(
     } finally { setRebaking(false); }
   };
   const projectPlacements = () => {
-    try { viewport()?.applyScenePlacements(props.controller.placementOverrides); }
+    try {
+      // Stopgap until incremental scene regeneration: a removed element's baked mesh stays in the GLB, so park it far below the model.
+      const hidden = props.controller.removedSceneNodeIds.map(canonicalId => ({ canonicalId, matrix: HIDDEN_SCENE_MATRIX }));
+      viewport()?.applyScenePlacements([...props.controller.placementOverrides, ...hidden]);
+    }
     catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
   };
   const stopFurnitureEdit = () => {
@@ -252,6 +262,14 @@ export function StudioSelectionWorkspace(
     if (!id || !viewport()) { setActionError("The 3D viewport is not ready for furniture editing."); return; }
     try {
       const placement = props.controller.furniturePlacement(id);
+      if (!props.controller.isSceneBacked(id)) {
+        // A copy has no baked mesh yet: numeric IFC placement only.
+        setMeasuredGeometry(undefined); setMeasuredGeometryError("");
+        setEditingFurniture(true);
+        setTransformMessage("This copy has no 3D mesh until the scene is rebuilt (Rebuild 3D copy). Set its position numerically; the IFC and twin already contain it.");
+        setActionError("");
+        return;
+      }
       try {
         const measured = viewport()!.measureFurnitureGeometry(id, placement.original);
         setMeasuredGeometry(measured);
@@ -354,6 +372,46 @@ export function StudioSelectionWorkspace(
       : null);
     onCleanup(() => props.controller.setAffineProjectionValidator(null));
   });
+  const lifecycleTarget = () => {
+    const ref = selectedBuildingRef();
+    return ref && FURNITURE_KINDS.includes(ref.kind) ? ref : null;
+  };
+  const duplicateSelected = async () => {
+    const ref = lifecycleTarget();
+    if (!ref || lifecycleBusy() || editingFurniture() || saving()) return;
+    if (!viewport()) { setTransformMessage("The 3D viewport must finish loading before editing."); return; }
+    setLifecycleBusy(true); setDeleteConfirm(null);
+    try {
+      const copyId = await props.controller.duplicateFurniture(ref.id);
+      setActionError("");
+      selectCanonicalId(copyId);
+      setTransformMessage(`Duplicated ${ref.name ?? ref.kind}. Move the copy, then Apply. Undo removes it.`);
+      startMobileFurnitureEdit("translate");
+      tactile("applied");
+    } catch (error) {  setActionError(error instanceof Error ? error.message : String(error)); tactile("error"); }
+    finally { setLifecycleBusy(false); }
+  };
+  const requestDelete = () => {
+    const ref = lifecycleTarget();
+    if (!ref || editingFurniture()) return;
+    setMobileContextOpen(false);
+    setDeleteConfirm({ id: ref.id, label: ref.name ?? ref.kind });
+  };
+  const confirmDelete = async () => {
+    const pending = deleteConfirm();
+    if (!pending || lifecycleBusy()) return;
+    setLifecycleBusy(true);
+    try {
+      await props.controller.removeFurniture(pending.id);
+      setDeleteConfirm(null); setActionError("");
+      setEditRequest(0); refreshSelection(); setInspectorOpen(false);
+      setTransformMessage(`Deleted ${pending.label} from the IFC. Undo restores it. Save the project to retain it.`);
+      tactile("applied");
+    } catch (error) {
+      setDeleteConfirm(null);
+      setActionError(error instanceof Error ? error.message : String(error)); tactile("error");
+    } finally { setLifecycleBusy(false); }
+  };
   const keydown = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.isComposing || !workspaceRoot) return;
     const canvas = workspaceRoot.querySelector<HTMLCanvasElement>(".teldra-twin-viewport__canvas");
@@ -368,6 +426,19 @@ export function StudioSelectionWorkspace(
       } else if (key === "s") void save();
       else changeHistory(event.shiftKey ? "redo" : "undo");
       return;
+    }
+    if (deleteConfirm() && key === "escape") {
+      event.preventDefault(); event.stopPropagation(); setDeleteConfirm(null); setTransformMessage("Delete cancelled."); return;
+    }
+    if (!editingFurniture() && transformModal() === null && !event.altKey && !event.ctrlKey && !event.metaKey && !event.repeat) {
+      const lifecycleKey = key === "d" && event.shiftKey ? "duplicate" : (key === "x" || key === "delete") && !event.shiftKey ? "delete" : null;
+      if (lifecycleKey) {
+        event.preventDefault(); event.stopPropagation();
+        if (!lifecycleTarget()) setTransformMessage("Select an IFC furniture object before duplicating or deleting.");
+        else if (lifecycleKey === "duplicate") void duplicateSelected();
+        else requestDelete();
+        return;
+      }
     }
     const selectedId = selectedBuildingRef()?.id;
     const scaleSupport = selectedId ? props.controller.furnitureScaleStatus(selectedId) : null;
@@ -540,7 +611,9 @@ export function StudioSelectionWorkspace(
         <div class="teldra-studio-selection-workspace__transform"><TransformToolbar selectionLabel={selectedDevice()?.name ?? selectedBuildingRef()?.name ?? selectedBuildingRef()?.kind ?? "Selected object"}
           unavailable={transformUnavailable()} activeMode={editingFurniture() ? editMode() : null} ready={Boolean(viewport())}
           scale={editingFurniture() ? props.controller.furnitureScaleStatus(selectedCanonicalId()!) : undefined}
-          onSelectMode={chooseTransformMode} /></div>
+          onSelectMode={chooseTransformMode}
+          onDuplicate={lifecycleTarget() && !editingFurniture() && !lifecycleBusy() ? () => void duplicateSelected() : undefined}
+          onDelete={lifecycleTarget() && !editingFurniture() && !lifecycleBusy() ? requestDelete : undefined} /></div>
       </Show>
       <Show when={transformModal() || transformMessage()}>
         <div class="teldra-studio-selection-workspace__transform-hint" role="status" aria-live="polite" data-testid="transform-shortcut-status">
@@ -548,6 +621,12 @@ export function StudioSelectionWorkspace(
           <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
         </div>
       </Show>
+      <Show when={deleteConfirm()}>{pending =>
+        <div class="teldra-studio-selection-workspace__transform-hint" role="alertdialog" aria-label="Confirm delete" aria-describedby="teldra-delete-confirm-text" data-testid="delete-confirmation">
+          <span id="teldra-delete-confirm-text">Delete {pending().label} from the IFC? Its placement, geometry instance and memberships are removed. You can undo this.</span>
+          <button type="button" disabled={lifecycleBusy()} onClick={() => void confirmDelete()}>Delete {pending().label}</button>
+          <button type="button" onClick={() => { setDeleteConfirm(null); setTransformMessage("Delete cancelled."); }}>Cancel</button>
+        </div>}</Show>
       <Show when={selectedCanonicalId() && !sceneOpen() && !inspectorOpen() && !editingFurniture()}>
         <div class="teldra-studio-selection-workspace__mobile-selection" role="group" aria-label="Mobile selection actions">
           <div class="teldra-studio-selection-workspace__mobile-selection-label">
@@ -572,6 +651,8 @@ export function StudioSelectionWorkspace(
             <button type="button" aria-describedby="teldra-mobile-scale-explanation"
               title="Validate mapped IFC geometry for scaling"
               onClick={() => startMobileFurnitureEdit("scale")}><StudioIcon name="scale" /> Scale</button>
+            <button type="button" disabled={!viewport() || lifecycleBusy()} onClick={() => void duplicateSelected()}>Duplicate</button>
+            <button type="button" disabled={lifecycleBusy()} onClick={requestDelete}>Delete</button>
             <p id="teldra-mobile-scale-explanation" class="teldra-studio-selection-workspace__mobile-scale-unavailable">
               Scale is validated against IFC geometry before editing.
             </p>

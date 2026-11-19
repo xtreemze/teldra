@@ -1,4 +1,4 @@
-import { IfcAPI, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION } from "web-ifc";
+import { IfcAPI, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION } from "web-ifc";
 
 /** Shared IFC4 metre-model session helpers (internal to this package). */
 /** IFC world coordinates in metres, Z up; rotation is about world Z. */
@@ -6,19 +6,7 @@ export interface FurniturePose { readonly position: readonly [number, number, nu
 export type Line = { expressID: number; type: number; [key: string]: any };
 export const epsilon = 1e-8;
 
-export function model<T>(api: IfcAPI, bytes: Uint8Array, run: (id: number) => T): T {
-  const id = api.OpenModel(bytes);
-  try {
-    if (api.GetModelSchema(id) !== "IFC4") throw new Error("Only IFC4 furniture placement is supported.");
-    const projects = api.GetLineIDsWithType(id, IFCPROJECT);
-    if (projects.size() !== 1) throw new Error("Expected exactly one IFC project.");
-    const project = api.GetLine(id, projects.get(0), true) as Line;
-    const units = project.UnitsInContext?.Units;
-    const lengths = Array.isArray(units) ? units.filter((unit: Line) => unit.UnitType?.value === "LENGTHUNIT") : [];
-    if (lengths.length !== 1 || lengths[0].Name?.value !== "METRE" || lengths[0].Prefix !== null || lengths[0].type !== IFCSIUNIT) throw new Error("Only unprefixed metre IFC length units are supported.");
-    return run(id);
-  } finally { api.CloseModel(id); }
-}
+export { model } from "./session-core.js";
 export function numeric(values: any, label: string): [number, number, number] {
   if (!Array.isArray(values) || values.length !== 3) throw new Error(`${label} must have three coordinates.`);
   const result = values.map((value: any) => value.value);

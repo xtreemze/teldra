@@ -428,3 +428,115 @@ it("roundtrips a real IFC4 mapped-instance scale through the canonical .teldra a
   expect(controller.furnitureScaleStatus("chair")).toEqual({supported:true,scale:[1.25,1.5,0.8]});
   await opened.session.close();
 });
+
+
+describe("StudioProjectController furniture lifecycle", () => {
+  interface Doc { elements: Record<string, { pose: { position: [number, number, number]; yawRadians: number }; name: string }> }
+  const enc = new TextEncoder(), dec = new TextDecoder();
+  const put = (d: Doc) => enc.encode(JSON.stringify(d)), get = (b: Uint8Array) => JSON.parse(dec.decode(b)) as Doc;
+  const chairGuid = "16W6mYG0DO8hR8U$bz6FSv", lampGuid = "0ufYQjmwP0Ah$QRRxVbqR3";
+  const adapter = {
+    read: (b: Uint8Array, id: string) => { const e = get(b).elements[id]; if (!e) throw new Error("missing " + id); return e.pose; },
+    write: (b: Uint8Array, id: string, pose: any) => { const d = get(b); d.elements[id]!.pose = pose; return put(d); },
+    duplicate: (b: Uint8Array, id: string, newId: string, o?: { offset?: readonly number[]; name?: string }) => {
+      const d = get(b); const s = d.elements[id]!; const off = o?.offset ?? [0, 0, 0];
+      d.elements[newId] = { name: o?.name ?? s.name, pose: { position: [s.pose.position[0] + off[0]!, s.pose.position[1] + off[1]!, s.pose.position[2] + off[2]!], yawRadians: s.pose.yawRadians } };
+      return put(d);
+    },
+    remove: (b: Uint8Array, id: string) => { const d = get(b); delete d.elements[id]; return put(d); },
+  };
+  async function setup(ifc: any = adapter) {
+    const twin = structuredClone(fixture); twin.building.refs.push({ id: "chair", ifcGlobalId: chairGuid, kind: "furniture", name: "Chair" });
+    const storage = new MemoryStorage({ revision: 0, fingerprint: canonicalTwinFingerprint(twin), canonical: twin });
+    const opened = await openProjectPersistence(storage, assertTwinIntegrity, "life", "test:life");
+    const doc: Doc = { elements: { [chairGuid]: { name: "Chair", pose: { position: [1, -1, 0], yawRadians: 0 } }, [lampGuid]: { name: "Lamp", pose: { position: [2, 2, 0], yawRadians: 0 } } } };
+    const controller = new StudioProjectController(twin, opened.session, {
+      bytes: put(doc), sourceBytes: put(doc), placements: [],
+      scene: { source: { buildingPath: "building.ifc", buildingSha256: "a".repeat(64) }, scene: { assetPath: "scene.glb", assetSha256: "b".repeat(64) },
+        nodes: [{ canonicalId: "chair", ifcGlobalId: chairGuid }, { canonicalId: "fixture:living-room-floor-lamp", ifcGlobalId: lampGuid }] },
+      createAdapter: async () => ifc,
+    });
+    return { controller, storage };
+  }
+
+  it("duplicates with a new canonical identity and GlobalId, copy name and offset, as one undoable step", async () => {
+    const { controller } = await setup();
+    const before = structuredClone(controller.twin); const depth = controller.history.undoDepth;
+    const copyId = await controller.duplicateFurniture("chair");
+    expect(copyId).toBe("chair-copy");
+    const ref = controller.twin.building.refs.find(r => r.id === copyId)!;
+    expect(ref.ifcGlobalId).not.toBe(chairGuid); expect(ref.ifcGlobalId).toMatch(/^[0-3][0-9A-Za-z_$]{21}$/);
+    expect(ref.kind).toBe("furniture"); expect(ref.name).toBe("Chair (copy)");
+    expect(controller.history.undoDepth).toBe(depth + 1);
+    expect(controller.furniturePose(copyId).position[0]).toBeCloseTo(1.5);
+    expect(controller.furniturePose("chair").position).toEqual([1, -1, 0]);
+    controller.undo();
+    expect(controller.twin).toEqual(before); expect(controller.dirty).toBe(false);
+    controller.redo();
+    expect(controller.twin.building.refs.some(r => r.id === copyId)).toBe(true);
+  });
+
+  it("drops a selection that undo of the duplicate made stale", async () => {
+    const { controller } = await setup();
+    const copyId = await controller.duplicateFurniture("chair");
+    controller.selectCanonicalId(copyId);
+    controller.undo();
+    expect(controller.selectedCanonicalId).toBeNull();
+  });
+
+  it("does not inherit device bindings: copying a bound lamp adds no device, capability or binding", async () => {
+    const { controller } = await setup();
+    const devices = structuredClone(controller.twin.devices), bindings = structuredClone(controller.twin.bindings);
+    const copyId = await controller.duplicateFurniture("fixture:living-room-floor-lamp");
+    expect(copyId).not.toBe("fixture:living-room-floor-lamp");
+    expect(controller.twin.devices).toEqual(devices);
+    expect(controller.twin.bindings).toEqual(bindings);
+    expect(controller.twin.devices.some(d => d.buildingRefId === copyId)).toBe(false);
+    const ids = [...controller.twin.building.refs.map(r => r.id), ...controller.twin.devices.map(d => d.id), ...controller.twin.bindings.map(b => b.id)];
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(JSON.stringify(controller.twin.bindings)).not.toContain(copyId);
+  });
+
+  it("removes furniture, clears selection, and undo/redo restores IFC bytes and twin together", async () => {
+    const { controller } = await setup();
+    await controller.prepareFurnitureEditing("chair"); controller.selectCanonicalId("chair");
+    await controller.removeFurniture("chair");
+    expect(controller.twin.building.refs.some(r => r.id === "chair")).toBe(false);
+    expect(controller.selectedCanonicalId).toBeNull();
+    expect(controller.removedSceneNodeIds).toEqual(["chair"]);
+    controller.undo();
+    expect(controller.twin.building.refs.some(r => r.id === "chair")).toBe(true);
+    expect(controller.furniturePose("chair").position).toEqual([1, -1, 0]);
+    expect(controller.removedSceneNodeIds).toEqual([]);
+    controller.redo();
+    expect(controller.twin.building.refs.some(r => r.id === "chair")).toBe(false);
+  });
+
+  it("vetoes removing a device-bound fixture before any IFC change", async () => {
+    const { controller } = await setup();
+    await controller.prepareFurnitureEditing("fixture:living-room-floor-lamp");
+    const depth = controller.history.undoDepth;
+    await expect(controller.removeFurniture("fixture:living-room-floor-lamp")).rejects.toThrow(/device:living-room-floor-lamp/);
+    expect(controller.history.undoDepth).toBe(depth); expect(controller.dirty).toBe(false);
+  });
+
+  it("leaves twin and history unchanged if IFC removal is refused", async () => {
+    const { controller } = await setup({ ...adapter, remove: () => { throw new Error("unsupported-relation: IfcRelAssignsToGroup"); } });
+    await controller.prepareFurnitureEditing("chair");
+    const before = structuredClone(controller.twin);
+    await expect(controller.removeFurniture("chair")).rejects.toThrow(/IfcRelAssignsToGroup/);
+    expect(controller.twin).toEqual(before); expect(controller.dirty).toBe(false);
+  });
+
+  it("saves a copy that has no scene geometry: IFC and twin carry it, but no placement override is invented", async () => {
+    const { controller, storage } = await setup();
+    const copyId = await controller.duplicateFurniture("chair");
+    await controller.prepareFurnitureEditing(copyId);
+    controller.placeFurniture(copyId, { position: [3, 3, 0], yawRadians: 0 });
+    expect(controller.isSceneBacked(copyId)).toBe(false);
+    expect(controller.placementOverrides.map(p => p.canonicalId)).not.toContain(copyId);
+    await controller.save();
+    const saved = storage.primary!; const copyGuid = saved.canonical.building.refs.find(r => r.id === copyId)!.ifcGlobalId;
+    expect(get((saved.derived as { bytes: Uint8Array }).bytes).elements[copyGuid]!.pose.position).toEqual([3, 3, 0]);
+  });
+});

@@ -1,5 +1,5 @@
 import { AffectedElementLog } from "./affected-elements.js";
-import { CommandProcessor, type CanonicalCommand, type CommandHistoryStatus, type CommandResolver } from "./commands.js";
+import { CommandTransactionError, CommandProcessor, type CanonicalCommand, type CommandHistoryStatus, type CommandResolver } from "./commands.js";
 import type { FurnitureSourceDimensions } from "./furniture-dimensions.js";
 
 export interface FurnitureWorldPose { readonly position: readonly [number, number, number]; readonly yawRadians: number }
@@ -12,12 +12,23 @@ export interface IfcFurnitureAdapter {
   writeScale?(bytes: Uint8Array, ifcGlobalId: string, scale: FurnitureGeometryScale): Uint8Array;
   /** Immutable source-provenance nominal dimensions when a SH3D import supplies them. */
   readSourceDimensions?(bytes: Uint8Array, ifcGlobalId: string): FurnitureSourceDimensions | null;
+  /** Optional lifecycle: copy an element under a caller-supplied IFC GlobalId. Must not mutate `bytes`. */
+  duplicate?(bytes: Uint8Array, ifcGlobalId: string, newIfcGlobalId: string, options?: FurnitureDuplicateOptions): Uint8Array;
+  /** Optional lifecycle: remove an element and what it owns, or throw explaining why that is unsafe. Must not mutate `bytes`. */
+  remove?(bytes: Uint8Array, ifcGlobalId: string): Uint8Array;
+}
+export interface FurnitureDuplicateOptions {
+  /** World-frame displacement in IFC metres. */
+  readonly offset?: readonly [number, number, number];
+  readonly name?: string;
 }
 type PoseCommand = CanonicalCommand<"ifc.furniture.pose", { readonly ifcGlobalId: string; readonly position: readonly [number, number, number]; readonly yawRadians: number }>;
 type ScaleCommand = CanonicalCommand<"ifc.furniture.geometry-scale", { readonly ifcGlobalId: string; readonly scale: FurnitureGeometryScale }>;
 type TransformCommand = CanonicalCommand<"ifc.furniture.transform", { readonly ifcGlobalId: string; readonly position: readonly [number,number,number]; readonly yawRadians: number; readonly scale: FurnitureGeometryScale }>;
 type RestoreCommand = CanonicalCommand<"ifc.restore", { readonly snapshot: string }>;
-type IfcCommand = PoseCommand | ScaleCommand | TransformCommand | RestoreCommand;
+type DuplicateCommand = CanonicalCommand<"ifc.furniture.duplicate", { readonly ifcGlobalId: string; readonly newIfcGlobalId: string; readonly offset: readonly [number, number, number]; readonly name: string | null }>;
+type RemoveCommand = CanonicalCommand<"ifc.furniture.remove", { readonly ifcGlobalId: string }>;
+type IfcCommand = DuplicateCommand | RemoveCommand | PoseCommand | ScaleCommand | TransformCommand | RestoreCommand;
 interface IfcState { readonly bytes: Uint8Array }
 
 /** Canonical IFC mutations pass through an injected IFC-aware adapter and command history. */
@@ -33,7 +44,12 @@ export class IfcFurnitureEditor {
     const resolve: CommandResolver<IfcState, IfcCommand> = () => (state, command) => {
       const key = `snapshot:${command.id}`;
       snapshots.set(key, state.bytes.slice());
-      const next = command.kind === "ifc.furniture.pose"
+      const next = command.kind === "ifc.furniture.duplicate"
+        ? adapter.duplicate?.(state.bytes.slice(), command.payload.ifcGlobalId, command.payload.newIfcGlobalId,
+            { offset: command.payload.offset, ...(command.payload.name === null ? {} : { name: command.payload.name }) })
+        : command.kind === "ifc.furniture.remove"
+        ? adapter.remove?.(state.bytes.slice(), command.payload.ifcGlobalId)
+        : command.kind === "ifc.furniture.pose"
         ? adapter.write(state.bytes.slice(), command.payload.ifcGlobalId, { position: command.payload.position, yawRadians: command.payload.yawRadians })
         : command.kind === "ifc.furniture.geometry-scale"
           ? adapter.writeScale?.(state.bytes.slice(), command.payload.ifcGlobalId, command.payload.scale)
@@ -78,6 +94,32 @@ export class IfcFurnitureEditor {
       authority: "canonical-ifc", payload: { ifcGlobalId, scale },
     }] });
     this.#affected.recordApply([ifcGlobalId]);
+  }
+  /** Atomic: either one new IFC element exists afterwards or nothing changed. */
+  duplicate(ifcGlobalId: string, newIfcGlobalId: string, options: FurnitureDuplicateOptions = {}): void {
+    if (!this.#adapter.duplicate) throw new Error("This IFC editor cannot duplicate furniture.");
+    const offset = options.offset ?? [0, 0, 0] as const;
+    if (offset.length !== 3 || !offset.every(Number.isFinite)) throw new Error("Duplicate offset must be three finite metres.");
+    this.#sequence++;
+    this.#explicit(() => this.#processor.execute({ id: "ifc-duplicate:" + this.#sequence, commands: [{
+      id: "ifc-duplicate-command:" + this.#sequence, kind: "ifc.furniture.duplicate", authority: "canonical-ifc",
+      payload: { ifcGlobalId, newIfcGlobalId, offset, name: options.name ?? null },
+    }] }));
+    this.#affected.recordApply([newIfcGlobalId]); // the copy; undo/redo replay this entry so regeneration removes/re-adds it
+  }
+  /** Atomic: the adapter refuses explicitly when the element has relations it cannot safely clean. */
+  remove(ifcGlobalId: string): void {
+    if (!this.#adapter.remove) throw new Error("This IFC editor cannot remove furniture.");
+    this.#sequence++;
+    this.#explicit(() => this.#processor.execute({ id: "ifc-remove:" + this.#sequence, commands: [{
+      id: "ifc-remove-command:" + this.#sequence, kind: "ifc.furniture.remove", authority: "canonical-ifc", payload: { ifcGlobalId },
+    }] }));
+    this.#affected.recordApply([ifcGlobalId]);
+  }
+  /** Surface the adapter's explicit refusal instead of the generic transaction wrapper. */
+  #explicit(run: () => unknown): void {
+    try { run(); }
+    catch (error) { throw error instanceof CommandTransactionError && error.cause instanceof Error ? error.cause : error; }
   }
   place(ifcGlobalId: string, pose: FurnitureWorldPose): void {
     this.#sequence++;

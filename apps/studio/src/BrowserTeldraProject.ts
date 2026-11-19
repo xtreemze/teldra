@@ -384,12 +384,11 @@ export class BrowserTeldraFileStorage
     project: StoredProject<TwinProject>,
   ): Promise<string> {
     this.#assertWriteOwner(projectKey, ownerId);
-    const replacement = await replaceTeldraTwin(
-      this.#archive,
-      project.canonical,
-    );
     const building = project.derived as StudioBuildingData | undefined;
-    const combined = building === undefined ? replacement : await replaceTeldraBuilding(replacement.archive, building.bytes, building.scene, building.placements);
+    // Building first: the stored placement record is validated against the twin it was saved with. Replacing the twin first
+    // would reject a record that still names furniture removed in this very save.
+    const withBuilding = building === undefined ? { archive: this.#archive } : await replaceTeldraBuilding(this.#archive, building.bytes, building.scene, building.placements);
+    const combined = await replaceTeldraTwin(withBuilding.archive, project.canonical);
     const stageId = `browser-stage:${++this.#stageSequence}`;
     this.#staged.set(stageId, {
       stored: structuredClone(project),
@@ -578,7 +577,7 @@ export async function openBrowserTeldraProject(
     };
     let adapterPromise: Promise<RebakeIfcAdapter> | undefined;
     const createAdapter = () => adapterPromise ??= (async () => {
-      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature }, wasm] = await Promise.all([
+      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature, duplicateFurniture, removeFurniture }, wasm] = await Promise.all([
         import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url"),
       ]);
       const api = new IfcAPI(); await api.Init(() => wasm.default, true);
@@ -592,6 +591,9 @@ export async function openBrowserTeldraProject(
           readFurnitureSourceDimensions(api, bytes, id),
         readTessellationSignature: (bytes: Uint8Array, id: string) =>
           readFurnitureTessellationSignature(api, bytes, id),
+        duplicate: (bytes: Uint8Array, id: string, newId: string, options?: import("@teldra/application").FurnitureDuplicateOptions) =>
+          duplicateFurniture(api, bytes, id, newId, options),
+        remove: (bytes: Uint8Array, id: string) => removeFurniture(api, bytes, id),
       };
     })();
     if (sceneResource?.scene.placements.length && sourceEntry && buildingEntry) {
