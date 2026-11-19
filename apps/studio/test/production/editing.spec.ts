@@ -303,3 +303,38 @@ test("BIM wall centreline translates the whole draft with mouse, keyboard and Es
   await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
   await expect(panel.getByRole("button",{name:"Apply to IFC (not yet supported)"})).toBeDisabled();
 });
+
+test("translating an angle-constrained wall preserves the visible direction and restores raw coordinates on cancel", async ({page}) => {
+  await page.goto("./?demo=sample");
+  await page.getByRole("button",{name:"Try demo",exact:true}).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+  await page.getByRole("button",{name:"Wall draft (2D)"}).click();
+  const panel = page.getByRole("region",{name:"Wall plan draft"});
+  await panel.getByLabel("Angle constraint").selectOption("90");
+  await panel.getByLabel("Start X (m)").fill("0");
+  await panel.getByLabel("Start Y (m)").fill("0");
+  await panel.getByLabel("End X (m)").fill("4");
+  await panel.getByLabel("End Y (m)").fill("1");
+  await expect(panel.getByTestId("wall-ifc-centreline")).toContainText("(0.000, 0.000) to (4.123, 0.000)");
+  const line = panel.getByTestId("wall-translate-handle");
+  const svg = panel.getByRole("img",{name:/Interactive metre-based wall plan/});
+  const bounds = (await line.boundingBox())!;
+  const svgBounds = (await svg.boundingBox())!;
+  const x = bounds.x + bounds.width/2, y = bounds.y + bounds.height/2;
+  await page.mouse.move(x,y);
+  await page.mouse.down();
+  await page.mouse.move(x+32*svgBounds.width/640,y,{steps:4});
+  await expect(panel.getByTestId("wall-ifc-centreline")).toContainText("(1.000, 0.000) to (5.123, 0.000)");
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(panel.getByLabel("End X (m)")).toHaveValue("4");
+  await expect(panel.getByLabel("End Y (m)")).toHaveValue("1");
+  await expect(panel.getByLabel("Angle constraint")).toHaveValue("90");
+  await page.mouse.move(x,y);
+  await page.mouse.down();
+  await page.mouse.move(x+32*svgBounds.width/640,y,{steps:4});
+  await page.mouse.up();
+  await expect(panel.getByTestId("wall-ifc-centreline")).toContainText("(1.000, 0.000) to (5.123, 0.000)");
+  await expect(panel.getByText("Length: 4.123 m")).toBeVisible();
+  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+});
