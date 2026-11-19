@@ -140,3 +140,42 @@ These operations do not constitute full browser IFC Apply, connected-junction
 or hosted-opening editing, source SH3D roundtrip or 21D visual parity. Such
 operations must remain unavailable in Studio until the complete transaction
 and material-preserving reconciliation tests in this ADR pass.
+
+
+## Amendment: TypeScript IFC wall write path (November 2026, #119/#121)
+
+A browser-capable wall writer now exists beside the Python archive CLI. It does
+not replace it: the CLI remains the only path that rebuilds derived GLB/scene
+artifacts and verifies archives. The TypeScript path edits canonical IFC bytes only.
+
+- `@teldra/ifc-edit` (`src/wall.ts`): `readWall`, `planWallUpdate`/`updateWall`,
+  `planWallCreate`/`createWall`, `planWallRemove`/`removeWall`, and
+  `createIfcWallAdapter`. Coordinates are IFC world metres, Z up; the wall axis is
+  the placement local X axis and the Body is the rectangle `(0,0)-(L,t)` extruded by
+  height, the same layout the importer and IfcOpenShell `create_2pt_wall` produce.
+  Anything else fails closed with a `WallEditError` code.
+- `@teldra/application` (`IfcWallEditor`): validate, `preview` (non-mutating), and
+  atomic `apply` of one or more operations as one undo unit. The inverse is an
+  `ifc.restore` snapshot command, identical in shape to `IfcFurnitureEditor`, so
+  undo restores byte-identical IFC and `StudioProjectController` can merge both
+  editors into one history. A failing operation publishes nothing.
+- Identity: updates rewrite geometry in place and never touch GlobalIds. Created
+  walls take a caller-supplied compressed GlobalId (the application layer owns ID
+  generation; the writer is deterministic) and duplicates are rejected.
+- Connectivity: `IfcRelConnectsPathElements` with `ATSTART`/`ATEND` on both sides
+  couples endpoints. Moving an endpoint moves every coupled endpoint (transitively)
+  so joints stay coincident; connected walls keep their thickness and height. Each
+  affected wall is validated, and a neighbour that would collapse rejects the whole
+  edit, naming it. `ATPATH`/`NOTDEFINED` (T-junction) walls reject axis moves.
+- Preconditions (explicit error codes): IFC4 metre model; no `IfcRelVoidsElement`
+  (`hosted-opening`); only containment, property-set, material and path-connection
+  relationships (`unsupported-relationship`); placement and representation entities
+  owned solely by the wall (`shared-geometry`). Removal additionally requires that
+  nothing but spatial containment references the wall (`wall-referenced`).
+
+Not yet supported, and therefore not offered by Studio: re-hosting openings and
+doors, junction mitring/trimming and T-junction recomputation, `IfcRelSpaceBoundary`
+and room recomputation, curved/profiled walls, twin-device reference checks
+(application commands on `twin.json` must veto removal), derived GLB/scene rebake,
+and cross-checking the output with IfcOpenShell (covered today by web-ifc re-open
+tests on the hand-authored fixture `fixtures/ifc/connected-walls/`).

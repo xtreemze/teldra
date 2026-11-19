@@ -7,6 +7,6 @@
   "types": "./src/index.ts",
   "scripts": { "typecheck": "tsc -p tsconfig.json", "test": "vitest run" },
   "dependencies": { "web-ifc": "0.0.78" },
-  "devDependencies": { "vitest": "5.0.3" },
+  "devDependencies": { "@teldra/application": "workspace:*", "vitest": "5.0.3" },
   "nx": { "tags": ["layer:integration"] }
 }

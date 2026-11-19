@@ -57,7 +57,9 @@
     },
     {
       "id": "sh3d-visual-transport",
-      "paths": ["fixtures/sh3d/visual-transport/fixture.json"],
+      "paths": [
+        "fixtures/sh3d/visual-transport/fixture.json"
+      ],
       "generator": "tools/fixtures/generate_sh3d_visual_fixture.py",
       "provenance": "Teldra-authored synthetic triangles and 2x2 RGBA pattern; no user assets or vendor implementation code.",
       "license": "repository-owned-test-fixture; distribution follows repository license policy",
@@ -81,6 +83,19 @@
         "Observed physical state remains separate from persistent twin configuration.",
         "Desired state remains separate from observed state and carries command identity.",
         "Home Assistant identifiers remain adapter bindings rather than canonical capability values."
+      ]
+    },
+    {
+      "id": "connected-walls-ifc",
+      "paths": [
+        "fixtures/ifc/connected-walls/building.ifc"
+      ],
+      "provenance": "Hand-authored minimal IFC4 for Teldra wall-edit tests: walls A and B joined by IfcRelConnectsPathElements (A end to B start), standalone wall C, wall D hosting an opening.",
+      "license": "repository-owned-test-fixture; distribution follows repository license policy",
+      "invariants": [
+        "Wall endpoint edits keep connected path-element endpoints coincident and preserve all GlobalIds.",
+        "Walls hosting openings, T-junction connections and non-rectangular bodies are rejected explicitly.",
+        "Standalone walls can be created and removed; failed edits leave source bytes unchanged."
       ]
     }
   ]

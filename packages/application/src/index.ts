@@ -9,3 +9,4 @@ export * from "./wall-proposal-review.js";
 export * from "./building-georeference.js";
 export * from "./architectural-dependencies.js";
 export * from "./wall-reference-baseline.js";
+export * from "./ifc-wall-editor.js";
