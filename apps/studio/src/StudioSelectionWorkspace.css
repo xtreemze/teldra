@@ -371,7 +371,12 @@
     font-size: .81rem;
     font-weight: 600;
   }
-  .teldra-studio-selection-workspace__mobile-header > button { flex: 0 0 auto; white-space: nowrap; }
+  .teldra-studio-selection-workspace .teldra-studio-selection-workspace__mobile-header > button {
+    flex: 0 0 auto;
+    min-width: 44px;
+    min-height: 44px;
+    white-space: nowrap;
+  }
   .teldra-studio-selection-workspace__mobile-header > button:last-child { margin-left: 0; }
   .teldra-studio-selection-workspace__mobile-header output {
     display: inline-flex;
