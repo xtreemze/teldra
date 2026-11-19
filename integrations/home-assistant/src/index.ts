@@ -1084,3 +1084,13 @@ function validTimestamp(value: string): boolean {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
+
+export * from "./adaptive-lighting.js";
+export * from "./light-capabilities.js";
+export * from "./inventory.js";
+export * from "./simulation-fixture.js";
+export * from "./client.js";
+export * from "./gateway.js";
+export * from "./simulation.js";
+export * from "./sync-primitives.js";
+export * from "./session.js";
