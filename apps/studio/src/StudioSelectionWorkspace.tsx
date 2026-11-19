@@ -577,7 +577,7 @@ export function StudioSelectionWorkspace(
           <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
         </div>
       </Show>
-      <Show when={selectedCanonicalId() && !sceneOpen() && !inspectorOpen() && !editingFurniture()}>
+      <Show when={selectedCanonicalId() && !sceneOpen() && !inspectorOpen() && !editingFurniture() && !mobileViewOpen() && !mobileProjectOpen()}>
         <div class="teldra-studio-selection-workspace__mobile-selection" role="group" aria-label="Mobile selection actions">
           <div class="teldra-studio-selection-workspace__mobile-selection-label">
             <strong>{selectedDevice()?.name ?? selectedBuildingRef()?.name ?? selectedBuildingRef()?.kind ?? "Selected object"}</strong>
