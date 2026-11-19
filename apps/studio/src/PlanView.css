@@ -1,0 +1,37 @@
+.teldra-plan-view { display: grid; gap: .5rem; color: var(--studio-text, #e7edf4); font-size: .85rem; }
+.teldra-plan-view__toolbar, .teldra-plan-view__draw-defaults { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem .6rem; }
+.teldra-plan-view__toolbar label, .teldra-plan-view__draw-defaults label, .teldra-plan-view__numeric label { display: inline-flex; align-items: center; gap: .3rem; }
+.teldra-plan-view button { min-height: 2rem; padding: .25rem .6rem; border: 1px solid #546d7d; border-radius: .4rem; background: #1b2c38; color: inherit; font: inherit; cursor: pointer; }
+.teldra-plan-view button[aria-pressed="true"] { background: #24413f; border-color: #79d8cb; }
+.teldra-plan-view button:disabled { opacity: .55; cursor: default; }
+.teldra-plan-view input, .teldra-plan-view select { min-height: 1.9rem; padding: .15rem .35rem; border: 1px solid #546d7d; border-radius: .35rem; background: #0f1a22; color: inherit; font: inherit; }
+.teldra-plan-view input[type="number"] { inline-size: 5.5rem; }
+.teldra-plan-view :focus-visible { outline: 2px solid #ffd479; outline-offset: 2px; }
+.teldra-plan-view__canvas { inline-size: 100%; max-inline-size: 640px; block-size: auto; touch-action: none; border: 1px solid #36505f; border-radius: .4rem; user-select: none; }
+.teldra-plan-view__canvas[data-tool="draw"] { cursor: crosshair; }
+.teldra-plan-view__background { fill: #0f1a22; }
+.teldra-plan-view__grid { fill: none; stroke: #8fb0c4; stroke-opacity: .16; stroke-width: 1; }
+.teldra-plan-view__space polygon { fill: #2e5a58; fill-opacity: .32; stroke: #4f8f8a; stroke-width: 1; }
+.teldra-plan-view__space text { fill: #bfe7e2; font-size: 12px; }
+.teldra-plan-view__wall { cursor: grab; }
+.teldra-plan-view__wall polygon { fill: #9fb4c3; stroke: #e7edf4; stroke-width: 1; }
+.teldra-plan-view__wall line { stroke: #35505f; stroke-width: 1; stroke-dasharray: 4 3; pointer-events: none; }
+.teldra-plan-view__wall[data-hosted="true"] polygon { fill: #b9aa8a; }
+.teldra-plan-view__wall[data-selected="true"] polygon { fill: #79d8cb; stroke: #ffd479; stroke-width: 2; }
+.teldra-plan-view__wall[data-preview="true"] polygon { fill: #ffd479; fill-opacity: .75; stroke: #ffffff; stroke-dasharray: 5 3; }
+.teldra-plan-view__opening { fill: #f2a65a; fill-opacity: .45; stroke: #f2a65a; stroke-width: 1.5; stroke-dasharray: 3 2; }
+.teldra-plan-view__handle { fill: #ffb454; stroke: #1b1b1b; stroke-width: 2; cursor: move; }
+.teldra-plan-view__snap { fill: none; stroke: #ffd479; stroke-width: 2; }
+.teldra-plan-view__snap text { fill: #ffd479; stroke: #0f1a22; stroke-width: 3px; paint-order: stroke; font-size: 11px; }
+.teldra-plan-view__joint { fill: #0f1a22; stroke: #79d8cb; stroke-width: 2; }
+.teldra-plan-view__hud { display: flex; flex-wrap: wrap; gap: .3rem .9rem; align-items: baseline; margin: 0; padding: .35rem .6rem; border: 1px solid #ffd479; border-radius: .4rem; background: #2a2616; color: #ffe9b3; font-variant-numeric: tabular-nums; }
+.teldra-plan-view__hud span[data-active="true"] { font-weight: 700; text-decoration: underline; }
+.teldra-plan-view__hud small { color: #d8c892; }
+.teldra-plan-view__dimension { fill: #ffffff; font-size: 12px; paint-order: stroke; stroke: #0f1a22; stroke-width: 3px; pointer-events: none; }
+.teldra-plan-view__message, .teldra-plan-view__hint { margin: 0; color: #c3cfda; }
+.teldra-plan-view__refusal { margin: 0; padding: .4rem .6rem; border: 1px solid #ff8a7a; border-radius: .4rem; background: #3a1e1c; color: #ffd2c9; }
+.teldra-plan-view__hosted { margin: 0; color: #ffd8a6; }
+.teldra-plan-view__numeric { display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: center; padding: .5rem; border: 1px solid #36505f; border-radius: .4rem; }
+.teldra-plan-view__numeric h4 { flex-basis: 100%; margin: 0; }
+.teldra-plan-view__numeric h4 small { color: #a8b5c4; font-weight: 400; }
+.teldra-plan-view__numeric p { flex-basis: 100%; }
