@@ -99,6 +99,34 @@ for (const width of [320, 390]) {
     await expect(settings).toBeHidden();
     await expect(view).toBeFocused();
     await expect(view).toHaveAttribute("aria-expanded", "false");
+
+    await scene.click();
+    await page.getByRole("list", {name: "Building objects", exact: true})
+      .getByRole("button", {name: /^Chair/}).click();
+    await page.getByRole("group", {name: "Mobile selection actions"})
+      .getByRole("button", {name: "Move", exact: true}).click();
+    const numbers = page.getByRole("button", {name: "Numbers", exact: true});
+    const touchMode = page.getByRole("group", {name: "Touch editing mode"});
+    await expect(touchMode).toBeVisible();
+    await expect(numbers).toBeVisible();
+    const numericBox = (await numbers.boundingBox())!;
+    const activeView = (await view.boundingBox())!;
+    const activeProject = (await project.boundingBox())!;
+    expect(numericBox.x + numericBox.width).toBeLessThan(activeView.x);
+    expect(activeView.x + activeView.width).toBeLessThan(activeProject.x);
+    expect(activeProject.x + activeProject.width).toBeLessThanOrEqual(canvas.x + canvas.width + 1);
+
+    await view.click();
+    await settings.getByRole("button", {name: "Top", exact: true}).focus();
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
+    await expect(view).toBeFocused();
+    await expect(touchMode).toBeVisible();
+    await numbers.click();
+    await expect(page.getByLabel("Position X (m)", {exact: true})).toBeVisible();
+    await page.getByRole("button", {name: "Gestures", exact: true}).click();
+    await page.getByRole("group", {name: "Touch transform actions"})
+      .getByRole("button", {name: "Cancel", exact: true}).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   });
 }
