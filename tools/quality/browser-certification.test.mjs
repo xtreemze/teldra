@@ -13,6 +13,8 @@ function evidence(platform) {
     browserVersion: "1.2.3", osVersion: "1.2", hardware: "Reference device",
     gpu: "Reference GPU", rendererVersion: "1.0", viewport: {width: 390, height: 844, dpr: 2},
     projectSha256: fixtureSha, evidenceRef: "release-evidence/run.json",
+    metrics: {frameMedianMs: 12, frameP95Ms: 18, selectionP95Ms: 25, cameraInputP95Ms: 25,
+      cachedStartupMs: 1500, coldStartupMs: 3500, interactiveFps: 60},
     checks: {navigation: "pass", canonicalEditing: "pass", accessibility: "pass", performance: "pass",
       ...(mobile ? {touch: "pass", feedback: "pass", pwa: "pass"} : {})},
   };
@@ -57,4 +59,17 @@ test("mobile evidence requires actual touch, feedback and PWA checks", () => {
   mobile.webgl2 = {status:"pass",evidence:evidence("android")};
   delete mobile.webgl2.evidence.checks.feedback;
   assert.ok(evaluateBrowserCertification(policy, report, sha).errors.some(e => e.includes("feedback")));
+});
+
+test("measured budget violations block an otherwise certified release", () => {
+  const report = createBrowserCertification(policy, sha);
+  for (const row of report.rows) {
+    row.webgl2 = {status:"pass", evidence:evidence(row.platform)};
+    row.webgpu = {status:"unavailable", evidence:{...evidence(row.platform),reason:"Capability probe unavailable"}};
+  }
+  report.rows[0].webgl2.evidence.metrics.selectionP95Ms = 51;
+  const result = evaluateBrowserCertification(policy, report, sha);
+  assert.equal(result.errors.length, 0);
+  assert.equal(result.ready, false);
+  assert.ok(result.blockers.some(e => e.includes("selectionP95Ms exceeds budget")));
 });
