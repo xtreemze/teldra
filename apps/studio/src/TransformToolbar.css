@@ -1,0 +1,12 @@
+.teldra-transform-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.teldra-transform-toolbar > [role="toolbar"] { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
+.teldra-transform-toolbar__target { max-inline-size: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--studio-muted, #a8b5c4); font-size: .8rem; }
+.teldra-transform-toolbar button[aria-pressed="true"] { background: #24413f; border-color: #79d8cb; }
+.teldra-transform-toolbar__reason { flex-basis: 100%; margin: .2rem 0 0; color: var(--studio-muted, #a8b5c4); font-size: .8rem; }
+.teldra-transform-toolbar__reason strong { color: #e7edf4; }
+/* Desktop: a floating bar over the canvas, clear of view controls and panels. Compact layouts use the mobile selection actions and gesture pad. */
+.teldra-studio-selection-workspace__transform { position: absolute; z-index: 14; bottom: 2.2rem; left: 50%; transform: translateX(-50%); inline-size: max-content; max-inline-size: max(18rem, min(34rem, calc(100% - 40rem))); padding: .25rem; border: 1px solid #546d7d; border-radius: .55rem; background: #15232deb; box-shadow: 0 4px 16px #0003; }
+.teldra-studio-selection-workspace__transform .teldra-transform-toolbar { flex-direction: column-reverse; align-items: stretch; }
+.teldra-studio-selection-workspace__transform button { min-height: 2rem; padding: .3rem .55rem; font-size: .75rem; }
+.teldra-studio-selection-workspace__transform .teldra-transform-toolbar__reason { color: #ffd2c9; }
+@media (max-width: 48rem) { .teldra-studio-selection-workspace__transform { display: none; } }
