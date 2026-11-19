@@ -9,26 +9,26 @@ const code = new TextEncoder();
 
 function mappedFixture(sharedDefinition = false) {
   const source = raw.replace(
-    "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,$,$,$);",
-    "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,#304,$,$);",
+    "#203=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#208,$,$,$);",
+    "#203=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#208,#304,$,$);",
   );
   if (source === raw) throw new Error("Original furniture fixture changed.");
   const lines = [
-    "#300=IFCREPRESENTATIONMAP(#10,#64);",
+    "#300=IFCREPRESENTATIONMAP(#10,#57);",
     "#301=IFCCARTESIANTRANSFORMATIONOPERATOR3D($,$,#7,1.,$);",
     "#302=IFCMAPPEDITEM(#300,#301);",
     "#303=IFCSHAPEREPRESENTATION(#12,'Body','MappedRepresentation',(#302));",
     "#304=IFCPRODUCTDEFINITIONSHAPE($,$,(#303));",
   ];
   if (sharedDefinition) lines.push(
-    "#305=IFCFURNITURE('" + otherGuid + "',$,'Other chair',$,$,#154,#304,$,$);",
+    "#305=IFCFURNITURE('" + otherGuid + "',$,'Other chair',$,$,#208,#304,$,$);",
   );
   else lines.push(
     "#305=IFCCARTESIANTRANSFORMATIONOPERATOR3D($,$,#7,1.,$);",
     "#306=IFCMAPPEDITEM(#300,#305);",
     "#307=IFCSHAPEREPRESENTATION(#12,'Body','MappedRepresentation',(#306));",
     "#308=IFCPRODUCTDEFINITIONSHAPE($,$,(#307));",
-    "#309=IFCFURNITURE('" + otherGuid + "',$,'Other chair',$,$,#154,#308,$,$);",
+    "#309=IFCFURNITURE('" + otherGuid + "',$,'Other chair',$,$,#208,#308,$,$);",
   );
   return code.encode(source.replace("\nENDSEC;\nEND-ISO-10303-21;", "\n" + lines.join("\n") + "\nENDSEC;\nEND-ISO-10303-21;"));
 }
@@ -81,8 +81,8 @@ describe("immutable source-authored SH3D dimensions", () => {
   it("does not invent nominal dimensions for non-SH3D provenance", async () => {
     const api = new IfcAPI(); await api.Init();
     const modified = raw.replace(
-      "#157=IFCPROPERTYSINGLEVALUE('SourceSystem',$,IFCLABEL('Sweet Home 3D'),$);",
-      "#157=IFCPROPERTYSINGLEVALUE('SourceSystem',$,IFCLABEL('Other importer'),$);",
+      "#211=IFCPROPERTYSINGLEVALUE('SourceSystem',$,IFCLABEL('Sweet Home 3D'),$);",
+      "#211=IFCPROPERTYSINGLEVALUE('SourceSystem',$,IFCLABEL('Other importer'),$);",
     );
     expect(modified).not.toEqual(raw);
     expect(readFurnitureSourceDimensions(api, code.encode(modified), guid)).toBeNull();
@@ -91,22 +91,22 @@ describe("immutable source-authored SH3D dimensions", () => {
   it("rejects invalid and duplicated source sizes rather than presenting fabricated dimensions", async () => {
     const api = new IfcAPI(); await api.Init();
     const altered = raw.replace(
-      "#164=IFCPROPERTYSINGLEVALUE('SourceWidthMetres',$,IFCREAL(0.5),$);",
-      "#164=IFCPROPERTYSINGLEVALUE('SourceWidthMetres',$,IFCREAL(-0.5),$);",
+      "#218=IFCPROPERTYSINGLEVALUE('SourceWidthMetres',$,IFCREAL(0.5),$);",
+      "#218=IFCPROPERTYSINGLEVALUE('SourceWidthMetres',$,IFCREAL(-0.5),$);",
     );
     expect(altered).not.toBe(raw);
     expect(() => readFurnitureSourceDimensions(api, code.encode(altered), guid))
       .toThrow(/SourceWidthMetres/);
     const duplicated = raw.replace(
-      "(#157,#158,#159,#160,#161,#162,#163,#164,#165,#166)",
-      "(#157,#158,#159,#160,#161,#162,#163,#164,#164,#165,#166)",
+      "(#211,#212,#213,#214,#215,#216,#217,#218,#219,#220)",
+      "(#211,#212,#213,#214,#215,#216,#217,#218,#218,#219,#220)",
     );
     expect(duplicated).not.toBe(raw);
     expect(() => readFurnitureSourceDimensions(api, code.encode(duplicated), guid))
       .toThrow(/Duplicate source provenance property/);
     const shared = raw.replace(
-      "(#149),#155);",
-      "(#149,#167),#155);",
+      "(#203),#209);",
+      "(#203,#221),#209);",
     );
     expect(shared).not.toBe(raw);
     expect(() => readFurnitureSourceDimensions(api, code.encode(shared), guid))
@@ -119,7 +119,7 @@ describe("source IFC triangulation integrity for browser GLB rebake", () => {
   function tessellationFixture() {
     const sample = new TextDecoder().decode(mappedFixture());
     const mapped = sample.replace(
-      "#300=IFCREPRESENTATIONMAP(#10,#64);",
+      "#300=IFCREPRESENTATIONMAP(#10,#57);",
       "#300=IFCREPRESENTATIONMAP(#10,#312);",
     );
     if (mapped === sample) throw new Error("IFC mapping fixture changed.");

@@ -23,6 +23,10 @@ class IfcProjectSpine:
 class IfcModelContexts:
     model: ifcopenshell.entity_instance
     body: ifcopenshell.entity_instance
+    # Plan-view contexts for wall Axis and space FootPrint representations.
+    plan: ifcopenshell.entity_instance | None = None
+    axis: ifcopenshell.entity_instance | None = None
+    footprint: ifcopenshell.entity_instance | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +64,25 @@ def create_ifc4_project(
         parent=model_context,
     )
 
+    plan_context = ifcopenshell.api.context.add_context(
+        model,
+        context_type="Plan",
+    )
+    axis_context = ifcopenshell.api.context.add_context(
+        model,
+        context_type="Plan",
+        context_identifier="Axis",
+        target_view="GRAPH_VIEW",
+        parent=plan_context,
+    )
+    footprint_context = ifcopenshell.api.context.add_context(
+        model,
+        context_type="Plan",
+        context_identifier="FootPrint",
+        target_view="PLAN_VIEW",
+        parent=plan_context,
+    )
+
     site = ifcopenshell.api.root.create_entity(
         model,
         ifc_class="IfcSite",
@@ -92,6 +115,9 @@ def create_ifc4_project(
         IfcModelContexts(
             model=model_context,
             body=body_context,
+            plan=plan_context,
+            axis=axis_context,
+            footprint=footprint_context,
         ),
     )
 

@@ -1,3 +1,16 @@
+from .bim import (
+    BimAuthoringError,
+    WallLayerLibrary,
+    add_wall_axis_and_layers,
+    connect_wall_ends,
+    create_hosted_opening,
+    create_local_placement,
+    create_space_with_footprint,
+    place_filling_in_opening,
+    wall_body_interval,
+    world_matrix,
+    yaw_matrix,
+)
 from .identity import IfcIdentityError, resolve_global_id
 from .model import (
     HomeModelIds,
@@ -19,6 +32,17 @@ from .wall_authoring import (
 )
 
 __all__ = [
+    "BimAuthoringError",
+    "WallLayerLibrary",
+    "add_wall_axis_and_layers",
+    "connect_wall_ends",
+    "create_hosted_opening",
+    "create_local_placement",
+    "create_space_with_footprint",
+    "place_filling_in_opening",
+    "wall_body_interval",
+    "world_matrix",
+    "yaw_matrix",
     "HomeModelIds",
     "IfcIdentityError",
     "IfcModelContexts",

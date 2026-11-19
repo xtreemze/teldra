@@ -53,7 +53,7 @@ def test_golden_home_maps_to_semantic_ifc4_with_provenance() -> None:
     assert len(result.model.by_type("IfcWall")) == 4
     assert len(result.model.by_type("IfcFurniture")) == 1
     assert len(result.model.by_type("IfcLightFixture")) == 1
-    assert len(result.model.by_type("IfcBuildingElementProxy")) == 1
+    assert len(result.model.by_type("IfcDoor")) == 1
     assert len(result.model.by_type("IfcOpeningElement")) == 1
     assert len(result.cameras) == 1
     assert result.warnings == ()
@@ -84,7 +84,7 @@ def test_golden_home_maps_to_semantic_ifc4_with_provenance() -> None:
 
     assert wall0.Representation is not None
     assert wall1.Representation is not None
-    assert door_proxy.is_a("IfcBuildingElementProxy")
+    assert door_proxy.is_a("IfcDoor")
     assert door_proxy.ObjectType == "Sweet Home 3D DoorOrWindow"
 
     assert len(door_proxy.FillsVoids) == 1
@@ -139,7 +139,7 @@ def test_reimport_preserves_source_global_ids_after_ifc_round_trip(tmp_path) -> 
         second.model,
         second.source_to_global_id["doorOrWindow:door0"],
     )
-    assert door.is_a("IfcBuildingElementProxy")
+    assert door.is_a("IfcDoor")
 
 
 def test_unknown_level_reference_is_rejected_instead_of_relocated() -> None:
@@ -176,7 +176,7 @@ def test_ambiguous_bound_door_window_is_not_attached_by_guessing() -> None:
         result.source_to_global_id["doorOrWindow:opening0"],
     )
 
-    assert proxy.is_a("IfcBuildingElementProxy")
+    assert proxy.is_a("IfcDoor")
     assert len(result.model.by_type("IfcOpeningElement")) == 0
     assert proxy.FillsVoids == ()
     assert result.warnings == (
@@ -187,8 +187,13 @@ def test_ambiguous_bound_door_window_is_not_attached_by_guessing() -> None:
 
 def test_imported_unhosted_sh3d_wall_remains_editable_with_source_provenance(tmp_path) -> None:
     """An eligible imported wall can be edited without rewriting original SH3D metadata."""
-    imported = import_home_to_ifc(parse_home_xml(FIXTURE.read_bytes()))
-    guid = imported.source_to_global_id["wall:wall1"]
+    xml = FIXTURE.read_text().replace(
+        "</home>",
+        "<wall id='free' level='level0' xStart='900' yStart='0' xEnd='900' yEnd='400' "
+        "height='250' thickness='7.5'/></home>",
+    )
+    imported = import_home_to_ifc(parse_home_xml(xml))
+    guid = imported.source_to_global_id["wall:free"]
     original_model = imported.model
     original_ifc = original_model.to_string()
     before_pset = ifcopenshell.util.element.get_psets(original_model.by_guid(guid))["Teldra_Source"]
@@ -197,8 +202,8 @@ def test_imported_unhosted_sh3d_wall_remains_editable_with_source_provenance(tmp
         original_model,
         guid,
         StraightWall(
-            start=(5.0, 0.0),
-            end=(5.0, -4.5),
+            start=(9.0, 0.0),
+            end=(9.0, -4.5),
             thickness_m=0.16,
             height_m=2.8,
         ),
@@ -211,3 +216,11 @@ def test_imported_unhosted_sh3d_wall_remains_editable_with_source_provenance(tmp
     reopened = open_model(write_model(updated, tmp_path / "changed-imported-wall.ifc"))
     assert reopened.by_guid(guid).Representation is not None
     assert reopened.by_guid(guid).GlobalId == guid
+    # The Axis reference line and layer thickness follow the edited Body.
+    wall = reopened.by_guid(guid)
+    axis = next(
+        r for r in wall.Representation.Representations if r.RepresentationIdentifier == "Axis"
+    )
+    assert axis.Items[0].Points.CoordList[-1][0] == pytest.approx(4.5)
+    usage = ifcopenshell.util.element.get_material(wall)
+    assert usage.ForLayerSet.MaterialLayers[0].LayerThickness == pytest.approx(0.16)

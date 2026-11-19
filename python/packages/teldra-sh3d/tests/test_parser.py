@@ -128,7 +128,7 @@ def test_group_children_keep_absolute_source_placement_and_shelf_identity() -> N
     ]
     assert home.furniture[0].x_m == 1
     assert home.furniture[0].y_m == 2
-    assert home.unsupported_elements == ()
+    assert home.unsupported_elements == ("furnitureGroup",)
 
 
 def test_environment_colors_preserve_preview_lighting() -> None:

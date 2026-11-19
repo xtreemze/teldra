@@ -128,7 +128,8 @@ def _serialize_glb(model: ifcopenshell.file, destination: Path) -> None:
     settings = ifcopenshell.geom.settings()
     settings.set(
         "dimensionality",
-        ifcopenshell.ifcopenshell_wrapper.CURVES_SURFACES_AND_SOLIDS,
+        # Wall Axis and space FootPrint curves are plan annotations, not visible geometry.
+        ifcopenshell.ifcopenshell_wrapper.SURFACES_AND_SOLIDS,
     )
     settings.set("apply-default-materials", True)
     settings.set("use-element-guids", True)
@@ -142,6 +143,8 @@ def _serialize_glb(model: ifcopenshell.file, destination: Path) -> None:
         settings,
         model,
         multiprocessing.cpu_count(),
+        # Void cutters and semantic space volumes are not visible surfaces.
+        exclude=model.by_type("IfcOpeningElement") + model.by_type("IfcSpace"),
     )
 
     if iterator.initialize():

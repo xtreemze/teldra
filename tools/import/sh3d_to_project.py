@@ -17,13 +17,28 @@ from teldra_web_export.canonical_visuals import attach_furniture_geometry
 from teldra_web_export.wavefront import export_wavefront_scene
 
 
+def _existing_ifc(path: Path):
+    """Open the building IFC of a prior import (a .teldra archive or a bare .ifc)."""
+    import ifcopenshell
+
+    if path.suffix == ".teldra":
+        with ZipFile(path) as archive:
+            return ifcopenshell.file.from_string(archive.read("building.ifc").decode("utf-8"))
+    return ifcopenshell.open(str(path))
+
+
 def convert(
-    source: Path, destination: Path, *, visual_export: Path | None = None
+    source: Path,
+    destination: Path,
+    *,
+    visual_export: Path | None = None,
+    preserve_ids_from: Path | None = None,
 ) -> dict:
     if destination.exists():
         raise FileExistsError(f"Refusing to overwrite {destination}.")
     home = load_sh3d(source)
-    imported = import_home_to_ifc(home)
+    existing = _existing_ifc(preserve_ids_from) if preserve_ids_from else None
+    imported = import_home_to_ifc(home, existing_model=existing)
     canonical = {
         global_id: f"sh3d:{source_key}"
         for source_key, global_id in imported.source_to_global_id.items()
@@ -47,6 +62,9 @@ def convert(
                 "name": entity.Name or canonical_id,
             }
         )
+        # IfcSpace bodies are semantic volumes, not visible surfaces.
+        if entity.is_a("IfcSpace"):
+            continue
         if getattr(entity, "Representation", None) is not None:
             renderable[global_id] = canonical_id
     if not renderable:
@@ -66,6 +84,8 @@ def convert(
         },
         "mappedSourceIdentities": len(canonical),
         "renderableSourceIdentities": len(renderable),
+        "lossReport": [dict(entry) for entry in imported.loss_report],
+        "bim": dict(imported.bim_summary),
         "warnings": list(imported.warnings)
         + [
             "Furniture models/textures and SH3D appearance are not converted to PBR assets.",
@@ -223,10 +243,20 @@ def main() -> None:
         action="store_true",
         help="Explicitly create the limited wall-only architectural scene",
     )
+    parser.add_argument(
+        "--preserve-ids-from",
+        type=Path,
+        help="Prior .teldra or .ifc whose IFC GlobalIds are kept for the same SH3D elements",
+    )
     args = parser.parse_args()
     print(
         json.dumps(
-            convert(args.source, args.destination, visual_export=args.visual_export),
+            convert(
+                args.source,
+                args.destination,
+                visual_export=args.visual_export,
+                preserve_ids_from=args.preserve_ids_from,
+            ),
             indent=2,
         )
     )

@@ -55,7 +55,7 @@ def test_golden_ifc_covers_required_semantics_and_source_identity() -> None:
         "wall:wall2": "IfcWall",
         "wall:wall3": "IfcWall",
         "pieceOfFurniture:chair0": "IfcFurniture",
-        "doorOrWindow:door0": "IfcBuildingElementProxy",
+        "doorOrWindow:door0": "IfcDoor",
         "light:light0": "IfcLightFixture",
     }
 
