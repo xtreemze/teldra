@@ -18,3 +18,4 @@ export type { ViewDirection, ViewProjection, ViewState, ViewLayer } from "./view
 export type { SurfaceProbe } from "./surface-probe.js";
 export type { FurnitureWorldPose, FurniturePlacement, FurnitureEditSession, ScenePlacement } from "./furniture-gizmo.js";
 export type { FurnitureMeasuredBounds } from "./furniture-bounds.js";
+export { applySceneMeshUpdate, SceneMeshUpdateUnsupportedError, type SceneMeshUpdateContext } from "./scene-mesh-update.js";

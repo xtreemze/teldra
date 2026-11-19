@@ -214,6 +214,9 @@ importers:
       '@teldra/project-format':
         specifier: workspace:*
         version: link:../../packages/project-format
+      '@teldra/projection':
+        specifier: workspace:*
+        version: link:../../packages/projection
       '@teldra/runtime-babylon':
         specifier: workspace:*
         version: link:../../packages/runtime-babylon
@@ -357,6 +360,9 @@ importers:
 
   packages/ifc-edit:
     dependencies:
+      '@teldra/projection':
+        specifier: workspace:*
+        version: link:../projection
       web-ifc:
         specifier: 0.0.78
         version: 0.0.78
@@ -405,6 +411,9 @@ importers:
       '@teldra/domain':
         specifier: workspace:*
         version: link:../domain
+      '@teldra/scene-manifest':
+        specifier: workspace:*
+        version: link:../scene-manifest
 
   packages/runtime-babylon:
     dependencies:
@@ -414,6 +423,9 @@ importers:
       '@babylonjs/loaders':
         specifier: 9.29.0
         version: 9.29.0(@babylonjs/core@9.29.0)(babylonjs-gltf2interface@9.32.0)
+      '@teldra/projection':
+        specifier: workspace:*
+        version: link:../projection
       '@teldra/scene-manifest':
         specifier: workspace:*
         version: link:../scene-manifest

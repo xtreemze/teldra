@@ -1,3 +1,4 @@
+import { AffectedElementLog } from "./affected-elements.js";
 import { CommandProcessor, type CanonicalCommand, type CommandHistoryStatus, type CommandResolver } from "./commands.js";
 
 /**
@@ -93,6 +94,7 @@ export class IfcWallEditor {
   readonly #processor: CommandProcessor<IfcState, IfcCommand>;
   readonly #adapter: IfcWallAdapter;
   #sequence = 0;
+  readonly #affected = new AffectedElementLog();
   constructor(bytes: Uint8Array, adapter: IfcWallAdapter) {
     this.#adapter = adapter;
     const snapshots = new Map<string, Uint8Array>();
@@ -109,6 +111,8 @@ export class IfcWallEditor {
   }
   get bytes(): Uint8Array { return this.#processor.state.bytes.slice(); }
   get history(): CommandHistoryStatus { return this.#processor.history; }
+  /** GlobalIds touched by the latest apply/undo/redo; input for derived-scene regeneration. */
+  get lastAffectedGlobalIds(): readonly string[] { return this.#affected.last; }
   read(globalId: string): IfcWallRecord { return this.#adapter.read(this.bytes, globalId); }
 
   /** Validates and dry-runs one operation; never mutates bytes or history. */
@@ -137,8 +141,9 @@ export class IfcWallEditor {
         id: `ifc-wall-command:${n}:${index}`, kind: "ifc.wall.operation" as const, authority: "canonical-ifc" as const, payload: { operation },
       })),
     });
+    this.#affected.recordApply(changes.map((change) => change.globalId));
     return { operations: list, changes };
   }
-  undo(): boolean { return this.#processor.undo() !== null; }
-  redo(): boolean { return this.#processor.redo() !== null; }
+  undo(): boolean { const done = this.#processor.undo() !== null; if (done) this.#affected.recordUndo(); return done; }
+  redo(): boolean { const done = this.#processor.redo() !== null; if (done) this.#affected.recordRedo(); return done; }
 }
