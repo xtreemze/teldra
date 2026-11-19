@@ -1,0 +1,14 @@
+.teldra-agent-proposals { color: var(--studio-text, #e8eef5); font-size: .9rem; display: grid; gap: .5rem; max-inline-size: 36rem; }
+.teldra-agent-proposals h2 { font-size: 1rem; margin: 0; }
+.teldra-agent-proposals__hint, .teldra-agent-proposals__empty { margin: 0; color: var(--studio-muted, #a8b5c4); }
+.teldra-agent-proposals__error { margin: 0; color: #ffb4a8; }
+.teldra-agent-proposals__stale { margin: 0; color: #ffd98a; }
+.teldra-agent-proposals__list { list-style: none; margin: 0; padding: 0; display: grid; gap: .6rem; }
+.teldra-agent-proposals__item { border: 1px solid var(--studio-border, #3b4a5c); border-radius: .5rem; padding: .6rem; display: grid; gap: .4rem; }
+.teldra-agent-proposals__item > header { display: flex; justify-content: space-between; gap: .5rem; }
+.teldra-agent-proposals__status { text-transform: uppercase; font-size: .7rem; letter-spacing: .05em; color: var(--studio-muted, #a8b5c4); }
+.teldra-agent-proposals__diff { border-collapse: collapse; inline-size: 100%; font-size: .8rem; }
+.teldra-agent-proposals__diff caption { text-align: start; color: var(--studio-muted, #a8b5c4); padding-block-end: .2rem; }
+.teldra-agent-proposals__diff th, .teldra-agent-proposals__diff td { text-align: start; padding: .15rem .4rem; border-block-end: 1px solid var(--studio-border, #3b4a5c); overflow-wrap: anywhere; }
+.teldra-agent-proposals__actions { display: flex; gap: .4rem; }
+.teldra-agent-proposals__actions button { min-block-size: 2rem; padding-inline: .8rem; }

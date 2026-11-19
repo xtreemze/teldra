@@ -11,3 +11,5 @@ export * from "./architectural-dependencies.js";
 export * from "./wall-reference-baseline.js";
 export * from "./ifc-wall-editor.js";
 export * from "./affected-elements.js";
+export * from "./agent-schema.js";
+export * from "./agent-operations.js";
