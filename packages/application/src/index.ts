@@ -13,3 +13,4 @@ export * from "./ifc-wall-editor.js";
 export * from "./affected-elements.js";
 export * from "./agent-schema.js";
 export * from "./agent-operations.js";
+export * from "./furniture-lifecycle.js";
