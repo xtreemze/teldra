@@ -8,6 +8,7 @@ import {
   IFCRELVOIDSELEMENT, IFCSHAPEREPRESENTATION, IFCWALL, IFCWALLSTANDARDCASE,
 } from "web-ifc";
 import { chain, model, type Line } from "./ifc-session.js";
+import { indexOf, type InverseSnapshot } from "./session-core.js";
 
 /**
  * Straight, rectangular IfcWall editing on IFC4 metre models.
@@ -117,24 +118,10 @@ function graph(api: IfcAPI, id: number): Graph {
     if (!found) { found = api.GetLine(id, e) as Line; cache.set(e, found); }
     return found;
   };
-  let incoming: Map<number, number[]> | null = null;
-  const build = () => {
-    const map = new Map<number, number[]>();
-    const all = api.GetAllLines(id);
-    for (let i = 0; i < all.size(); i++) {
-      const e = all.get(i);
-      let l: Line;
-      try { l = api.GetLine(id, e) as Line; } catch { continue; }
-      for (const [field, value] of Object.entries(l)) {
-        if (field === "expressID" || field === "type") continue;
-        forEachRef(value, (target) => { const list = map.get(target); if (list) list.push(e); else map.set(target, [e]); }, field);
-      }
-    }
-    return map;
-  };
+  let incoming: InverseSnapshot | null = null;
   return {
     api, id, line,
-    referrers: (target) => { incoming ??= build(); return [...new Set(incoming.get(target) ?? [])]; },
+    referrers: (target) => { incoming ??= indexOf(api).snapshot(); return [...(incoming.get(target) ?? [])]; },
     type: (e) => api.GetLineType(id, e) as number,
     wallsByGuid: () => {
       const out = new Map<string, number>();
@@ -323,7 +310,7 @@ const guidOf = (g: Graph, id: number): string => g.line(id).GlobalId?.value;
 // ---------------------------------------------------------------- read
 
 export function readWall(api: IfcAPI, bytes: Uint8Array, globalId: string): WallRecord {
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     const g = graph(api, id);
     const parts = parseWall(g, globalId);
     const edges = topology(g).get(parts.wall.expressID) ?? [];
@@ -532,12 +519,12 @@ function writeGeometry(g: Graph, parts: WallParts, geometry: WallGeometry, mater
 }
 
 export function planWallUpdate(api: IfcAPI, bytes: Uint8Array, globalId: string, target: WallGeometry): WallChange[] {
-  return model(api, bytes, (id) => planUpdate(graph(api, id), globalId, target).changes);
+  return model(api, bytes, (id, api) => planUpdate(graph(api, id), globalId, target).changes);
 }
 
 /** Updates endpoints/thickness/height/elevation; connected path-element ends move with it. */
 export function updateWall(api: IfcAPI, bytes: Uint8Array, globalId: string, target: WallGeometry): Uint8Array {
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     const g = graph(api, id);
     const { writes } = planUpdate(g, globalId, target);
     if (!writes.length) return bytes.slice();
@@ -577,14 +564,14 @@ function planCreate(g: Graph, input: CreateWallInput) {
 }
 
 export function planWallCreate(api: IfcAPI, bytes: Uint8Array, input: CreateWallInput): WallChange[] {
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     planCreate(graph(api, id), input);
     return [{ globalId: input.globalId, kind: "created", cause: "requested", before: null, after: input.geometry }];
   });
 }
 
 export function createWall(api: IfcAPI, bytes: Uint8Array, input: CreateWallInput): Uint8Array {
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     const g = graph(api, id);
     const { storeyPlacementId, containmentId, contextId, axisContextId } = planCreate(g, input);
     let parent = { position: [0, 0, 0] as readonly [number, number, number], yawRadians: 0 };
@@ -655,7 +642,7 @@ function planRemove(g: Graph, guid: string) {
 }
 
 export function planWallRemove(api: IfcAPI, bytes: Uint8Array, globalId: string): WallChange[] {
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     const { parts } = planRemove(graph(api, id), globalId);
     return [{ globalId, kind: "removed", cause: "requested", before: parts.geometry, after: null }];
   });
@@ -663,7 +650,7 @@ export function planWallRemove(api: IfcAPI, bytes: Uint8Array, globalId: string)
 
 /** Removes a standalone wall (contained in a storey, nothing else referencing it) and its owned geometry. */
 export function removeWall(api: IfcAPI, bytes: Uint8Array, globalId: string): Uint8Array {
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     const g = graph(api, id);
     const { parts, containmentId } = planRemove(g, globalId);
     if (containmentId !== null) {

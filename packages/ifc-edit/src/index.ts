@@ -2,6 +2,8 @@ import { IfcAPI, IFCRELFILLSELEMENT, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, I
 import { IFCRELCONTAINEDINSPATIALSTRUCTURE, IFCRELDEFINESBYTYPE, IFCRELASSOCIATES, IFCRELATIONSHIP, IFCROOT, IFCSTYLEDITEM, IFCPRESENTATIONLAYERASSIGNMENT, IFCGEOMETRICREPRESENTATIONCONTEXT, IFCGEOMETRICREPRESENTATIONSUBCONTEXT, IFCOWNERHISTORY, IFCGLOBALLYUNIQUEID, IFCLABEL, Handle } from "web-ifc";
 import * as ifcTypes from "web-ifc";
 import { chain, epsilon, model, numeric, type FurniturePose, type Line } from "./ifc-session.js";
+import { indexOf, type InverseSnapshot } from "./session-core.js";
+export * from "./edit-session.js";
 export type { FurniturePose } from "./ifc-session.js";
 export * from "./wall.js";
 export * from "./tessellation.js";
@@ -28,7 +30,7 @@ function find(api: IfcAPI, modelID: number, guid: string): Line {
   return furniture;
 }
 export function readFurniturePose(api: IfcAPI, bytes: Uint8Array, guid: string): FurniturePose {
-  return model(api, bytes, (id) => chain(api, id, find(api, id, guid).ObjectPlacement).pose);
+  return model(api, bytes, (id, api) => chain(api, id, find(api, id, guid).ObjectPlacement).pose);
 }
 function applyPose(api: IfcAPI, id: number, furniture: Line, pose: FurniturePose): void {
   const { parent, relativeParent } = chain(api, id, furniture.ObjectPlacement);
@@ -45,7 +47,7 @@ function applyPose(api: IfcAPI, id: number, furniture: Line, pose: FurniturePose
 }
 export function writeFurniturePose(api: IfcAPI, bytes: Uint8Array, guid: string, pose: FurniturePose): Uint8Array {
   if (pose.position.length !== 3 || ![...pose.position, pose.yawRadians].every(Number.isFinite)) throw new Error("Furniture pose must be finite.");
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     applyPose(api, id, find(api, id, guid), pose);
     return api.SaveModel(id);
   });
@@ -142,7 +144,7 @@ function mappedFurniture(api: IfcAPI, id: number, guid: string): { item: Line; s
 export function readFurnitureTessellationSignature(
   api: IfcAPI, bytes: Uint8Array, guid: string,
 ): string {
-  return model(api, bytes, id => {
+  return model(api, bytes, (id, api) => {
     const { item } = mappedFurniture(api, id, guid);
     const map = api.GetLine(id, handle(item.MappingSource, "IFC representation map")) as Line;
     const shape = api.GetLine(id, handle(map.MappedRepresentation, "mapped source representation")) as Line;
@@ -171,13 +173,13 @@ export function readFurnitureTessellationSignature(
 }
 
 export function readFurnitureGeometryScale(api: IfcAPI, bytes: Uint8Array, guid: string): FurnitureGeometryScale {
-  return model(api, bytes, id => mappedFurniture(api, id, guid).scale);
+  return model(api, bytes, (id, api) => mappedFurniture(api, id, guid).scale);
 }
 /** Updates only a fresh per-instance MappingTarget, never shared map geometry or stable identity. */
 export function writeFurnitureGeometryScale(api: IfcAPI, bytes: Uint8Array, guid: string,
   scale: FurnitureGeometryScale): Uint8Array {
   validGeometryScale(scale);
-  return model(api, bytes, id => {
+  return model(api, bytes, (id, api) => {
     const { item } = mappedFurniture(api, id, guid);
     const real = (v: number) => api.CreateIfcType(id, IFCREAL, v);
     const origin = api.CreateIfcEntity(id, IFCCARTESIANPOINT,
@@ -206,7 +208,7 @@ export type FurnitureSourceDimensions = readonly [number, number, number];
 export function readFurnitureSourceDimensions(
   api: IfcAPI, bytes: Uint8Array, guid: string,
 ): FurnitureSourceDimensions | null {
-  return model(api, bytes, (id) => {
+  return model(api, bytes, (id, api) => {
     const furniture = find(api, id, guid);
     const relations = api.GetLineIDsWithType(id, IFCRELDEFINESBYPROPERTIES);
     const sourceSets: Line[] = [];
@@ -292,7 +294,7 @@ function lifecycleFind(api: IfcAPI, id: number, guid: string): Line {
     throw new FurnitureLifecycleError(code, message);
   }
 }
-function lifecycleModel<T>(api: IfcAPI, bytes: Uint8Array, run: (id: number) => T): T {
+function lifecycleModel<T>(api: IfcAPI, bytes: Uint8Array, run: (id: number, api: IfcAPI) => T): T {
   try { return model(api, bytes, run); }
   catch (error) {
     if (error instanceof FurnitureLifecycleError) throw error;
@@ -306,19 +308,8 @@ function childRefs(value: any, out: number[] = []): number[] {
 }
 const lineRefs = (line: Line): number[] =>
   childRefs(Object.entries(line).filter(([key]) => !bookkeeping.has(key)).map(([, value]) => value));
-/** inverse[target] = ids of lines that hold a reference to target. */
-function inverseReferences(api: IfcAPI, id: number): Map<number, Set<number>> {
-  const inverse = new Map<number, Set<number>>();
-  const all = api.GetAllLines(id);
-  for (let i = 0; i < all.size(); i++) {
-    const lineId = all.get(i);
-    for (const target of lineRefs(api.GetLine(id, lineId) as Line)) {
-      let set = inverse.get(target); if (!set) inverse.set(target, set = new Set());
-      set.add(lineId);
-    }
-  }
-  return inverse;
-}
+/** inverse.get(target) = ascending ids of lines that hold a reference to target (session-indexed snapshot). */
+function inverseReferences(api: IfcAPI, _id: number): InverseSnapshot { return indexOf(api).snapshot(); }
 function typeSet(api: IfcAPI, id: number, type: number): Set<number> {
   const ids = api.GetLineIDsWithType(id, type, true); const set = new Set<number>();
   for (let i = 0; i < ids.size(); i++) set.add(ids.get(i)); return set;
@@ -348,7 +339,7 @@ export function duplicateFurniture(api: IfcAPI, bytes: Uint8Array, sourceGuid: s
   if (!GLOBAL_ID_PATTERN.test(newGuid)) throw new FurnitureLifecycleError("invalid-global-id", "A compressed 22-character IFC GlobalId is required for the copy.");
   const offset = options.offset ?? [0, 0, 0];
   if (offset.length !== 3 || !offset.every(Number.isFinite)) throw new FurnitureLifecycleError("unsupported-model", "Duplicate offset must be three finite metres.");
-  return lifecycleModel(api, bytes, id => {
+  return lifecycleModel(api, bytes, (id, api) => {
     const source = lifecycleFind(api, id, sourceGuid);
     const taken = takenGlobalIds(api, id);
     if (taken.has(newGuid)) throw new FurnitureLifecycleError("duplicate-global-id", "The IFC GlobalId is already used by another entity.");
@@ -426,7 +417,7 @@ export function duplicateFurniture(api: IfcAPI, bytes: Uint8Array, sourceGuid: s
  * Refuses with `unsupported-relation` when any other relation or entity references the element.
  */
 export function removeFurniture(api: IfcAPI, bytes: Uint8Array, guid: string): Uint8Array {
-  return lifecycleModel(api, bytes, id => {
+  return lifecycleModel(api, bytes, (id, api) => {
     const source = lifecycleFind(api, id, guid);
     const inverse = inverseReferences(api, id);
     const relationships = typeSet(api, id, IFCRELATIONSHIP);
