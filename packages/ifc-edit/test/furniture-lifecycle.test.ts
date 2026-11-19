@@ -12,23 +12,34 @@ const guid = "16W6mYG0DO8hR8U$bz6FSv";
 const copyGuid = "2gEfmKcdn6c9fX3LLRJBkX";
 
 /** Chair with owned mapped geometry (shared IfcRepresentationMap), type, material and classification-free associations. */
-function richFixture(extra: string[] = []): Uint8Array {
-  const source = raw.replace(
-    "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,$,$,$);",
-    "#149=IFCFURNITURE('16W6mYG0DO8hR8U$bz6FSv',$,'Chair',$,$,#154,#304,$,$);",
-  );
-  if (source === raw) throw new Error("Fixture changed.");
+interface Ids { chair: number; place: number; axis: number; contain: number; storey: number; type: number; typeRel: number; material: number; materialRel: number; next: number }
+let fx!: Ids;
+function richFixture(extra: (f: Ids) => string[] = () => []): Uint8Array {
+  // Derive express ids from the fixture so regenerating golden-home does not break the test.
+  const chair = raw.match(/^#(\d+)=IFCFURNITURE\('16W6mYG0DO8hR8U\$bz6FSv',\$,'Chair',\$,\$,(#\d+),\$,\$,\$\);$/m);
+  const body = raw.match(/^#(\d+)=IFCSHAPEREPRESENTATION\((#\d+),'Body','SweptSolid'/m);
+  const origin = raw.match(/^#(\d+)=IFCAXIS2PLACEMENT3D\(/m);
+  const point = raw.match(/^#(\d+)=IFCCARTESIANPOINT\(\(0\.,0\.,0\.\)\);$/m);
+  if (!chair || !body || !origin || !point) throw new Error("Fixture changed.");
+  const base = Math.max(...[...raw.matchAll(/^#(\d+)=/gm)].map((m) => Number(m[1]))) + 10;
+  const id = (offset: number) => `#${base + offset}`;
+  const placement = raw.match(new RegExp(`^#${chair[2]!.slice(1)}=IFCLOCALPLACEMENT\\(#\\d+,#(\\d+)\\);$`, "m"));
+  const containment = raw.match(new RegExp(`^#(\\d+)=IFCRELCONTAINEDINSPATIALSTRUCTURE\\([^\\n]*\\(([^)]*)\\),#(\\d+)\\);$`, "m"));
+  if (!placement || !containment || !containment[2]!.split(",").includes(`#${chair[1]}`)) throw new Error("Fixture changed.");
+  fx = { chair: Number(chair[1]), place: Number(chair[2]!.slice(1)), axis: Number(placement[1]), contain: Number(containment[1]), storey: Number(containment[3]),
+    type: base + 10, typeRel: base + 11, material: base + 12, materialRel: base + 13, next: base + 20 };
+  const source = raw.replace(chair[0], chair[0].replace(`,${chair[2]},$,$,$);`, `,${chair[2]},${id(4)},$,$);`));
   const lines = [
-    "#300=IFCREPRESENTATIONMAP(#10,#64);",
-    "#301=IFCCARTESIANTRANSFORMATIONOPERATOR3D($,$,#7,1.,$);",
-    "#302=IFCMAPPEDITEM(#300,#301);",
-    "#303=IFCSHAPEREPRESENTATION(#12,'Body','MappedRepresentation',(#302));",
-    "#304=IFCPRODUCTDEFINITIONSHAPE($,$,(#303));",
-    "#310=IFCFURNITURETYPE('3pEfmKcdn6c9fX3LLRJBkA',$,'Chair type',$,$,$,$,$,$,.CHAIR.);",
-    "#311=IFCRELDEFINESBYTYPE('3pEfmKcdn6c9fX3LLRJBkB',$,$,$,(#149),#310);",
-    "#312=IFCMATERIAL('Oak',$,$);",
-    "#313=IFCRELASSOCIATESMATERIAL('3pEfmKcdn6c9fX3LLRJBkC',$,$,$,(#149),#312);",
-    ...extra,
+    `${id(0)}=IFCREPRESENTATIONMAP(#${origin[1]},#${body[1]});`,
+    `${id(1)}=IFCCARTESIANTRANSFORMATIONOPERATOR3D($,$,#${point[1]},1.,$);`,
+    `${id(2)}=IFCMAPPEDITEM(${id(0)},${id(1)});`,
+    `${id(3)}=IFCSHAPEREPRESENTATION(${body[2]},'Body','MappedRepresentation',(${id(2)}));`,
+    `${id(4)}=IFCPRODUCTDEFINITIONSHAPE($,$,(${id(3)}));`,
+    `${id(10)}=IFCFURNITURETYPE('3pEfmKcdn6c9fX3LLRJBkA',$,'Chair type',$,$,$,$,$,$,.CHAIR.);`,
+    `${id(11)}=IFCRELDEFINESBYTYPE('3pEfmKcdn6c9fX3LLRJBkB',$,$,$,(#${chair[1]}),${id(10)});`,
+    `${id(12)}=IFCMATERIAL('Oak',$,$);`,
+    `${id(13)}=IFCRELASSOCIATESMATERIAL('3pEfmKcdn6c9fX3LLRJBkC',$,$,$,(#${chair[1]}),${id(12)});`,
+    ...extra(fx),
   ];
   return code.encode(source.replace("\nENDSEC;\nEND-ISO-10303-21;", "\n" + lines.join("\n") + "\nENDSEC;\nEND-ISO-10303-21;"));
 }
@@ -64,9 +75,9 @@ describe("duplicateFurniture", () => {
       const contained = relationsOf(a, id, IFCRELCONTAINEDINSPATIALSTRUCTURE, copy);
       expect(contained).toHaveLength(1);
       expect(refs(contained[0].RelatedElements)).toContain(src);
-      expect(contained[0].RelatingStructure.value).toBe(17);
-      const type = a.GetLine(id, 311) as any; expect(refs(type.RelatedObjects)).toEqual([src, copy]);
-      const mat = a.GetLine(id, 313) as any; expect(refs(mat.RelatedObjects)).toEqual([src, copy]);
+      expect(contained[0].RelatingStructure.value).toBe(fx.storey);
+      const type = a.GetLine(id, fx.typeRel) as any; expect(refs(type.RelatedObjects)).toEqual([src, copy]);
+      const mat = a.GetLine(id, fx.materialRel) as any; expect(refs(mat.RelatedObjects)).toEqual([src, copy]);
     });
     // Original is unchanged in meaning.
     expect(readFurniturePose(a, out, guid)).toEqual(readFurniturePose(a, input, guid));
@@ -133,13 +144,13 @@ describe("removeFurniture", () => {
     expect(text).not.toContain(guid);
     expect(() => readFurniturePose(a, out, guid)).toThrow();
     inspect(a, out, id => {
-      expect(refs((a.GetLine(id, 45) as any).RelatedElements)).not.toContain(149);
+      expect(refs((a.GetLine(id, fx.contain) as any).RelatedElements)).not.toContain(fx.chair);
       // Type and material objects survive; the now-empty relations are gone.
-      expect((a.GetLine(id, 310) as any).Name.value).toBe("Chair type");
-      expect((a.GetLine(id, 312) as any).Name.value).toBe("Oak");
+      expect((a.GetLine(id, fx.type) as any).Name.value).toBe("Chair type");
+      expect((a.GetLine(id, fx.material) as any).Name.value).toBe("Oak");
     });
-    expect(text).not.toContain("IFCRELDEFINESBYTYPE(");
-    expect(text).not.toContain("IFCRELASSOCIATESMATERIAL(");
+    expect(text).not.toContain("3pEfmKcdn6c9fX3LLRJBkB"); // emptied type relation deleted
+    expect(text).not.toContain("3pEfmKcdn6c9fX3LLRJBkC"); // emptied material relation deleted
     expect(text).not.toContain("chair0"); // owned single-object source property set removed
     expect(text).toContain("IFCREPRESENTATIONMAP("); // shared source geometry remains
   });
@@ -150,8 +161,8 @@ describe("removeFurniture", () => {
     const out = removeFurniture(a, twice, guid);
     inspect(a, out, id => {
       const copy = elementId(a, id, copyGuid);
-      expect(refs((a.GetLine(id, 311) as any).RelatedObjects)).toEqual([copy]);
-      expect(refs((a.GetLine(id, 313) as any).RelatedObjects)).toEqual([copy]);
+      expect(refs((a.GetLine(id, fx.typeRel) as any).RelatedObjects)).toEqual([copy]);
+      expect(refs((a.GetLine(id, fx.materialRel) as any).RelatedObjects)).toEqual([copy]);
     });
     expect(readFurnitureSourceDimensions(a, out, copyGuid)).not.toBeNull();
   });
@@ -162,27 +173,27 @@ describe("removeFurniture", () => {
     const normalized = (b: Uint8Array) => inspect(a, b, id => {
       const furniture = a.GetLineIDsWithType(id, IFCFURNITURE); const names: string[] = [];
       for (let i = 0; i < furniture.size(); i++) names.push((a.GetLine(id, furniture.get(i)) as any).GlobalId.value);
-      return names.sort().join(",") + "|" + refs((a.GetLine(id, 45) as any).RelatedElements).sort().join(",") + "|" +
-        refs((a.GetLine(id, 311) as any).RelatedObjects).join(",") + "|" + refs((a.GetLine(id, 313) as any).RelatedObjects).join(",");
+      return names.sort().join(",") + "|" + refs((a.GetLine(id, fx.contain) as any).RelatedElements).sort().join(",") + "|" +
+        refs((a.GetLine(id, fx.typeRel) as any).RelatedObjects).join(",") + "|" + refs((a.GetLine(id, fx.materialRel) as any).RelatedObjects).join(",");
     });
     expect(normalized(roundTrip)).toBe(normalized(original));
   });
 
   it("refuses with an explicit code when the element is referenced by a relation it cannot safely clean", async () => {
     const a = await api();
-    const withAssign = richFixture(["#320=IFCGROUP('3pEfmKcdn6c9fX3LLRJBkD',$,'Seating',$,$);",
-      "#321=IFCRELASSIGNSTOGROUP('3pEfmKcdn6c9fX3LLRJBkE',$,$,$,(#149),$,#320);"]);
+    const withAssign = richFixture(f => [`#${f.next}=IFCGROUP('3pEfmKcdn6c9fX3LLRJBkD',$,'Seating',$,$);`,
+      `#${f.next + 1}=IFCRELASSIGNSTOGROUP('3pEfmKcdn6c9fX3LLRJBkE',$,$,$,(#${f.chair}),$,#${f.next});`]);
     try { removeFurniture(a, withAssign, guid); expect.unreachable(); }
     catch (e) { expect((e as FurnitureLifecycleError).code).toBe("unsupported-relation"); expect((e as Error).message).toMatch(/IfcRelAssignsToGroup/i); }
   });
 
   it("refuses to remove an element that fills an opening and one with dependent placements", async () => {
     const a = await api();
-    const hosted = richFixture(["#99990=IFCOPENINGELEMENT('1Ku0EdV$X7qxV8_lKszoFq',$,'Opening',$,$,#154,$,$,.OPENING.);",
-      "#99991=IFCRELFILLSELEMENT('31lGOMRir8fONp6JFdxBYF',$,$,$,#99990,#149);"]);
+    const hosted = richFixture(f => [`#${f.next}=IFCOPENINGELEMENT('1Ku0EdV$X7qxV8_lKszoFq',$,'Opening',$,$,#${f.place},$,$,.OPENING.);`,
+      `#${f.next + 1}=IFCRELFILLSELEMENT('31lGOMRir8fONp6JFdxBYF',$,$,$,#${f.next},#${f.chair});`]);
     try { removeFurniture(a, hosted, guid); expect.unreachable(); }
     catch (e) { expect((e as FurnitureLifecycleError).code).toBe("hosted-element"); }
-    const dependent = richFixture(["#330=IFCLOCALPLACEMENT(#154,#153);"]);
+    const dependent = richFixture(f => [`#${f.next}=IFCLOCALPLACEMENT(#${f.place},#${f.axis});`]);
     try { removeFurniture(a, dependent, guid); expect.unreachable(); }
     catch (e) { expect((e as FurnitureLifecycleError).code).toBe("dependent-placement"); }
   });
