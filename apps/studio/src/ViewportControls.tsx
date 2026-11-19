@@ -10,6 +10,8 @@ export function ViewportControls(props: {
   hasHiddenSourceContent?: boolean;
   hiddenSourceVisible?: boolean;
   onHiddenSourceVisibilityChange?: (visible: boolean) => void;
+  mobileViewOpen?: boolean | undefined;
+  onMobileViewOpenChange?: ((open: boolean) => void) | undefined;
 }) {
   const [view, setView] = createSignal<ViewState | null>(props.runtime.viewState());
   const layerDefinitions = props.runtime.layers();
@@ -17,7 +19,12 @@ export function ViewportControls(props: {
   const directions = ["+x", "-x", "+y", "-y", "+z", "-z"] as const;
   const [appearance, setAppearance] = createSignal(props.runtime.appearance());
   const [message, setMessage] = createSignal("");
-  const [mobileViewOpen, setMobileViewOpen] = createSignal(false);
+  const [standaloneMobileViewOpen, setStandaloneMobileViewOpen] = createSignal(false);
+  const mobileViewOpen = () => props.mobileViewOpen ?? standaloneMobileViewOpen();
+  const setMobileViewOpen = (open: boolean) => {
+    if (props.onMobileViewOpenChange) props.onMobileViewOpenChange(open);
+    else setStandaloneMobileViewOpen(open);
+  };
   const [probeArmed, setProbeArmed] = createSignal(false);
   const [surfaceProbe, setSurfaceProbe] = createSignal<ReturnType<BabylonTwinRuntime["inspectSurfaceAt"]>>(null);
   const [gpuEvidence, setGpuEvidence] = createSignal<Awaited<ReturnType<BabylonTwinRuntime["inspectGpuAt"]>> | null>(null);
@@ -225,9 +232,11 @@ export function ViewportControls(props: {
       <small data-testid="studio-build-desktop">Studio build: {studioBuildLabel}</small>
       <p>{props.runtime.assetSummary().localLightSources} imported lamp/window emitters. Automatic uses source mipmapped sampling. Base image only remains a compatibility fallback. Compare at the same camera position: anisotropic sampling retains angled detail; base-image mode bypasses mipmaps and may shimmer or use more GPU bandwidth. Source restores the imported sampler. Floor inspection bypasses lighting. These controls do not modify source project data.</p>
     </div></details>
-    <div class="teldra-view-controls__mobile">
-      <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
-        onClick={() => setMobileViewOpen(!mobileViewOpen())}><StudioIcon name="appearance" /> View</button>
+    <div class="teldra-view-controls__mobile" classList={{"teldra-view-controls__mobile--embedded": Boolean(props.onMobileViewOpenChange)}}>
+      <Show when={!props.onMobileViewOpenChange}>
+        <button type="button" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
+          onClick={() => setMobileViewOpen(!mobileViewOpen())}><StudioIcon name="appearance" /> View</button>
+      </Show>
       <Show when={mobileViewOpen()}>
         <div id="teldra-mobile-view-settings" role="group" aria-label="Mobile view settings" class="teldra-view-controls__mobile-sheet">
           <strong>Camera</strong>
