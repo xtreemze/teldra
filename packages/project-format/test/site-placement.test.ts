@@ -11,8 +11,8 @@ import {
 const placement = {
   anchor: {
     crs: "EPSG:4326",
-    latitudeDegrees: 55.613,
-    longitudeDegrees: 12.976,
+    latitudeDegrees: 0.5003,
+    longitudeDegrees: 0.5025,
     height: { metres: 3.5, reference: "orthometric", verticalDatum: "RH2000", geoidSeparationMetres: 36.1 },
   },
   orientation: { northReference: "geographic-north", projectNorthBearingDegrees: 12.5 },

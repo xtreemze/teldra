@@ -13,14 +13,14 @@ import type { SitePlacement, TwinProject } from "@teldra/domain";
 import { parseOverpassBuildings } from "@teldra/osm-overpass";
 import { SitePlacementPanel } from "./SitePlacementPanel";
 
-// Small captured bounding-box response (ODbL, tags stripped to building/levels/height).
-const bbox: BoundingBox = { south: 55.6127, west: 12.9745, north: 55.6134, east: 12.9793 };
+// Synthetic Overpass-shaped response (no real-world data; ODbL not applicable).
+const bbox: BoundingBox = { south: 0.4999, west: 0.4999, north: 0.5008, east: 0.5031 };
 const parsed = parseOverpassBuildings(overpassFixture, { retrievedAt: "2026-11-19T14:26:00Z" });
 const loadCandidates = async () => ({ candidates: parsed.candidates, attribution: parsed.attribution });
 
 /** Synthetic IFC footprint: one candidate's outline expressed in a rotated local frame with an offset origin. */
 function syntheticFootprint(): LocalPoint[] {
-  const source = parsed.candidates.find((c) => c.id === "osm:way/809255533")!;
+  const source = parsed.candidates.find((c) => c.id === "osm:way/1000003")!;
   const frame = source.centroid;
   const yaw = (25 * Math.PI) / 180;
   return source.outer.map((p) => {
@@ -34,9 +34,9 @@ function syntheticFootprint(): LocalPoint[] {
 }
 
 const provisional: SitePlacement = {
-  anchor: { crs: "EPSG:4326", latitudeDegrees: 55.613, longitudeDegrees: 12.9787, height: { metres: 0, reference: "ellipsoidal" } },
+  anchor: { crs: "EPSG:4326", latitudeDegrees: 0.5003, longitudeDegrees: 0.5025, height: { metres: 0, reference: "ellipsoidal" } },
   orientation: { northReference: "geographic-north", projectNorthBearingDegrees: 25 },
-  provenance: { status: "provisional", source: "osm-overpass", dataset: "OpenStreetMap", sourceObjectId: "osm:way/809255533", retrievedAt: "2026-11-19T14:26:00Z" },
+  provenance: { status: "provisional", source: "osm-overpass", dataset: "OpenStreetMap", sourceObjectId: "osm:way/1000003", retrievedAt: "2026-11-19T14:26:00Z" },
 };
 
 function Harness(props: { initial: SitePlacement | null; withFootprint: boolean }) {

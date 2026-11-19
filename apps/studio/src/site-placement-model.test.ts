@@ -15,7 +15,7 @@ import {
 } from "./site-placement-model";
 
 const base: SitePlacement = {
-  anchor: { crs: "EPSG:4326", latitudeDegrees: 55.613, longitudeDegrees: 12.976, height: { metres: 40, reference: "ellipsoidal" } },
+  anchor: { crs: "EPSG:4326", latitudeDegrees: 0.5003, longitudeDegrees: 0.5025, height: { metres: 40, reference: "ellipsoidal" } },
   orientation: { northReference: "geographic-north", projectNorthBearingDegrees: 90 },
   provenance: { status: "provisional", source: "osm-overpass", dataset: "OpenStreetMap", sourceObjectId: "osm:way/1", retrievedAt: "2026-01-02T03:04:05Z", attribution: "© OpenStreetMap contributors" },
 };
@@ -23,16 +23,16 @@ const base: SitePlacement = {
 describe("web mercator helpers", () => {
   it("roundtrips lon/lat through world pixels at every zoom", () => {
     for (const z of [3, 12, 19]) {
-      const [x, y] = lonLatToWorldPixel(12.976, 55.613, z);
+      const [x, y] = lonLatToWorldPixel(0.5025, 0.5003, z);
       const back = worldPixelToLonLat(x, y, z);
-      expect(back.longitudeDegrees).toBeCloseTo(12.976, 9);
-      expect(back.latitudeDegrees).toBeCloseTo(55.613, 9);
+      expect(back.longitudeDegrees).toBeCloseTo(0.5025, 9);
+      expect(back.latitudeDegrees).toBeCloseTo(0.5003, 9);
     }
     expect(lonLatToWorldPixel(0, 0, 0)).toEqual([128, 128]);
   });
 
   it("fits all points inside the viewport at an integer zoom", () => {
-    const points = [{ latitudeDegrees: 55.6127, longitudeDegrees: 12.9745 }, { latitudeDegrees: 55.6134, longitudeDegrees: 12.9793 }];
+    const points = [{ latitudeDegrees: 0.4999, longitudeDegrees: 0.4999 }, { latitudeDegrees: 0.50034, longitudeDegrees: 0.5031 }];
     const size = { width: 600, height: 400 };
     const view = fitMapView(points, size, 24);
     expect(Number.isInteger(view.zoom)).toBe(true);
@@ -50,7 +50,7 @@ describe("web mercator helpers", () => {
 
   it("covers the viewport with tiles positioned at integer-pixel offsets", () => {
     const size = { width: 512, height: 300 };
-    const view = { centerLatitudeDegrees: 55.613, centerLongitudeDegrees: 12.976, zoom: 17 };
+    const view = { centerLatitudeDegrees: 0.5003, centerLongitudeDegrees: 0.5025, zoom: 17 };
     const tiles = visibleTiles(view, size, "https://tiles.example/{z}/{x}/{y}.png");
     expect(tiles.length).toBeGreaterThanOrEqual(4);
     expect(tiles.every((t) => t.url === `https://tiles.example/17/${t.x}/${t.y}.png`)).toBe(true);
@@ -77,7 +77,7 @@ describe("basemaps", () => {
 describe("placement drafts", () => {
   it("roundtrips a placement through the editable draft and keeps provenance until saved", () => {
     const draft = draftFromPlacement(base);
-    expect(draft).toMatchObject({ latitudeDegrees: 55.613, longitudeDegrees: 12.976, bearingDegrees: 90, heightMetres: 40, heightReference: "ellipsoidal" });
+    expect(draft).toMatchObject({ latitudeDegrees: 0.5003, longitudeDegrees: 0.5025, bearingDegrees: 90, heightMetres: 40, heightReference: "ellipsoidal" });
     expect(placementFromDraft(draft, base.provenance)).toEqual(base);
   });
 
@@ -94,9 +94,9 @@ describe("placement drafts", () => {
     const moved = nudgeDraft(draft, { eastMetres: 10, northMetres: 0, rotateDegrees: 0 });
     expect(moved.longitudeDegrees).toBeGreaterThan(draft.longitudeDegrees);
     expect(Math.abs(moved.latitudeDegrees - draft.latitudeDegrees)).toBeLessThan(1e-7);
-    // ~10 m east at 55.6 N is about 1.59e-4 degrees of longitude.
-    expect(moved.longitudeDegrees - draft.longitudeDegrees).toBeGreaterThan(1.5e-4);
-    expect(moved.longitudeDegrees - draft.longitudeDegrees).toBeLessThan(1.7e-4);
+    // ~10 m east at 0.5 N is about 8.98e-5 degrees of longitude.
+    expect(moved.longitudeDegrees - draft.longitudeDegrees).toBeGreaterThan(8.5e-5);
+    expect(moved.longitudeDegrees - draft.longitudeDegrees).toBeLessThan(9.5e-5);
     const turned = nudgeDraft(draft, { eastMetres: 0, northMetres: 0, rotateDegrees: 300 });
     expect(turned.bearingDegrees).toBe(30);
     expect(turned.heightMetres).toBe(40);
@@ -109,7 +109,7 @@ describe("placement drafts", () => {
     expect(footprint).toEqual(copy);
     expect(overlay).toHaveLength(4);
     // Bearing 90: local +Y points east, local +X points south.
-    expect(overlay[0]!.latitudeDegrees).toBeCloseTo(55.613, 7);
+    expect(overlay[0]!.latitudeDegrees).toBeCloseTo(0.5003, 7);
     expect(overlay[1]!.latitudeDegrees).toBeLessThan(overlay[0]!.latitudeDegrees);
     expect(overlay[3]!.longitudeDegrees).toBeGreaterThan(overlay[0]!.longitudeDegrees);
   });

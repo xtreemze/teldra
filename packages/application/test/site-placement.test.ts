@@ -18,8 +18,8 @@ function placement(): SitePlacement {
   return {
     anchor: {
       crs: "EPSG:4326",
-      latitudeDegrees: 55.613,
-      longitudeDegrees: 12.976,
+      latitudeDegrees: 0.5003,
+      longitudeDegrees: 0.5025,
       height: { metres: 40, reference: "ellipsoidal" },
     },
     orientation: { northReference: "geographic-north", projectNorthBearingDegrees: 90 },
@@ -29,7 +29,7 @@ function placement(): SitePlacement {
 
 describe("ecefToGeodetic", () => {
   it("inverts geodeticToEcef to sub-micro-degree precision, including poles, antimeridian and depth", () => {
-    for (const [lat, lon, h] of [[55.613, 12.976, 40], [0, 0, 0], [-78, 179.9, -20], [89.9, -179.99, 300], [-89.99, 10, 5]] as const) {
+    for (const [lat, lon, h] of [[0.5003, 0.5025, 40], [0, 0, 0], [-78, 179.9, -20], [89.9, -179.99, 300], [-89.99, 10, 5]] as const) {
       const out = ecefToGeodetic(geodeticToEcef(lat, lon, h));
       expect(Math.abs(out.latitudeDegrees - lat)).toBeLessThan(1e-9);
       expect(Math.abs(out.longitudeDegrees - lon)).toBeLessThan(1e-9);
@@ -41,11 +41,11 @@ describe("ecefToGeodetic", () => {
 describe("geodeticAnchorFromSitePlacement", () => {
   it("maps ellipsoidal placements and converts the bearing to the existing clockwise-yaw convention", () => {
     const anchor = geodeticAnchorFromSitePlacement(placement());
-    expect(anchor).toEqual({ latitudeDegrees: 55.613, longitudeDegrees: 12.976, ellipsoidalHeightMetres: 40, clockwiseYawRadians: Math.PI / 2 });
+    expect(anchor).toEqual({ latitudeDegrees: 0.5003, longitudeDegrees: 0.5025, ellipsoidalHeightMetres: 40, clockwiseYawRadians: Math.PI / 2 });
     // project north (+Y) of the building points east when the bearing is 90 degrees.
     const probe = ecefToGeodetic(buildingLocalToEcef(anchor, [0, 10, 0]));
-    expect(probe.longitudeDegrees).toBeGreaterThan(12.976 + 1e-5);
-    expect(Math.abs(probe.latitudeDegrees - 55.613)).toBeLessThan(1e-7);
+    expect(probe.longitudeDegrees).toBeGreaterThan(0.5025 + 1e-5);
+    expect(Math.abs(probe.latitudeDegrees - 0.5003)).toBeLessThan(1e-7);
   });
 
   it("never guesses an ellipsoidal height from an orthometric one", () => {
@@ -108,7 +108,7 @@ describe("TwinEditor site placement command", () => {
     const input = placement();
     editor.placeBuildingSite(input);
     (input.anchor as { latitudeDegrees: number }).latitudeDegrees = 1;
-    expect(editor.twin.building.sitePlacement?.anchor.latitudeDegrees).toBe(55.613);
+    expect(editor.twin.building.sitePlacement?.anchor.latitudeDegrees).toBe(0.5003);
   });
 
   it("rejects invalid placements without committing", () => {

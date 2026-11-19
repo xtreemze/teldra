@@ -12,8 +12,8 @@ import {
 } from "../src/index.js";
 
 const truth: GeodeticAnchor = {
-  latitudeDegrees: 55.6131,
-  longitudeDegrees: 12.9768,
+  latitudeDegrees: 0.5003,
+  longitudeDegrees: 0.5025,
   ellipsoidalHeightMetres: 0,
   clockwiseYawRadians: (37 * Math.PI) / 180,
 };

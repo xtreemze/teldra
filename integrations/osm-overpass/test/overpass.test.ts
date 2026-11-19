@@ -8,7 +8,7 @@ import {
   parseOverpassBuildings,
 } from "../src/index.js";
 
-const bbox = { south: 55.6127, west: 12.9745, north: 55.6134, east: 12.9793 };
+const bbox = { south: 0.4999, west: 0.4999, north: 0.5008, east: 0.5031 };
 const retrievedAt = "2026-11-19T14:26:00Z";
 
 function response(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}): Response {
@@ -22,8 +22,8 @@ describe("parseOverpassBuildings", () => {
     expect(result.candidates).toHaveLength(15);
     const ids = result.candidates.map((c) => c.id);
     expect(new Set(ids).size).toBe(15);
-    expect(ids).toContain("osm:way/30926877");
-    expect(ids).toContain("osm:relation/13883429");
+    expect(ids).toContain("osm:way/1000001");
+    expect(ids).toContain("osm:relation/2000001");
     for (const c of result.candidates) {
       expect(c.provider).toBe("osm-overpass");
       expect(c.dataset).toBe("OpenStreetMap");
@@ -46,15 +46,15 @@ describe("parseOverpassBuildings", () => {
   });
 
   it("extracts building levels and type tags", () => {
-    const tower = result.candidates.find((c) => c.id === "osm:way/30926877")!;
-    expect(tower.levels).toBe(54);
+    const tower = result.candidates.find((c) => c.id === "osm:way/1000001")!;
+    expect(tower.levels).toBe(24);
     expect(tower.buildingType).toBe("apartments");
-    expect(result.candidates.find((c) => c.id === "osm:way/89214388")!.levels).toBe(5);
-    expect(result.candidates.find((c) => c.id === "osm:way/147530607")!.levels).toBeUndefined();
+    expect(result.candidates.find((c) => c.id === "osm:way/1000002")!.levels).toBe(5);
+    expect(result.candidates.find((c) => c.id === "osm:way/1000006")!.levels).toBeUndefined();
   });
 
   it("assembles multipolygon relation outers made of several member ways into one ring", () => {
-    const relation = result.candidates.find((c) => c.id === "osm:relation/13883429")!;
+    const relation = result.candidates.find((c) => c.id === "osm:relation/2000001")!;
     expect(relation.outer.length).toBeGreaterThanOrEqual(4);
   });
 
@@ -86,7 +86,7 @@ describe("buildOverpassQuery", () => {
   it("is a bounding-box-only query for building ways and relations", () => {
     const q = buildOverpassQuery(bbox, 25);
     expect(q).toContain("[out:json][timeout:25]");
-    expect(q).toContain("(55.6127,12.9745,55.6134,12.9793)");
+    expect(q).toContain("(0.4999,0.4999,0.5008,0.5031)");
     expect(q).toContain('way["building"]');
     expect(q).toContain('relation["building"]');
     expect(q).toContain("out geom");
@@ -94,9 +94,9 @@ describe("buildOverpassQuery", () => {
   });
 
   it("rejects inverted, non-finite and oversized boxes", () => {
-    expect(() => buildOverpassQuery({ ...bbox, south: 56 }, 25)).toThrow(/bounding box/i);
+    expect(() => buildOverpassQuery({ ...bbox, south: 1 }, 25)).toThrow(/bounding box/i);
     expect(() => buildOverpassQuery({ ...bbox, west: Number.NaN }, 25)).toThrow(/bounding box/i);
-    expect(() => buildOverpassQuery({ south: 55.6, west: 12.9, north: 55.7, east: 13.1 }, 25)).toThrow(/too large/i);
+    expect(() => buildOverpassQuery({ south: 0.4, west: 0.4, north: 0.5, east: 0.6 }, 25)).toThrow(/too large/i);
   });
 });
 
@@ -122,7 +122,7 @@ describe("OverpassBuildingSource", () => {
     expect(headers.get("User-Agent")).toMatch(/^teldra-site-placement\/\d/);
     expect(headers.get("User-Agent")).not.toMatch(/@|\/Users|carlos/i);
     expect(String(init.body)).toContain("data=");
-    expect(decodeURIComponent(String(init.body))).toContain("(55.6127,12.9745,55.6134,12.9793)");
+    expect(decodeURIComponent(String(init.body))).toContain("(0.4999,0.4999,0.5008,0.5031)");
   });
 
   it("serves repeated identical requests from cache until the TTL expires", async () => {

@@ -11,7 +11,7 @@ test("suggests a placement from a picked candidate, confirms it through the comm
   await expect(page.getByRole("list").getByRole("button")).toHaveCount(15);
   await expect(page.getByText(/OpenStreetMap contributors, ODbL/)).toBeVisible();
 
-  await page.getByRole("list").getByRole("button", { name: /osm:way\/809255533/ }).click();
+  await page.getByRole("list").getByRole("button", { name: /osm:way\/1000003/ }).click();
   const suggestion = page.getByText(/Residual RMS/);
   await expect(suggestion).toBeVisible();
   await expect(page.getByText("Provisional")).toBeVisible();
@@ -31,6 +31,6 @@ test("suggests a placement from a picked candidate, confirms it through the comm
 test("reports the residual for a poorly matching candidate instead of hiding it", async ({ page }) => {
   await page.goto(story);
   await page.getByRole("button", { name: "Find buildings" }).click();
-  await page.getByRole("list").getByRole("button", { name: /osm:way\/30926877/ }).click();
+  await page.getByRole("list").getByRole("button", { name: /osm:way\/1000001/ }).click();
   await expect(page.getByText(/Residual RMS/)).toBeVisible();
 });
