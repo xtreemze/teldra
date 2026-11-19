@@ -9,6 +9,7 @@ import { openLaunchedProject } from "./PortableProject";
 import { PwaControls } from "./PwaControls";
 import { StudioIcon } from "./StudioIcon";
 import { StudioSelectionWorkspace } from "./StudioSelectionWorkspace";
+import { StudioSiteDialog } from "./StudioSiteDialog";
 import { registerBimWebMcpReadTools } from "./bim-webmcp";
 import type { TwinViewportHandle } from "./TwinViewport";
 import "./BrowserProjectStudio.css";
@@ -28,6 +29,8 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
   const [project, setProject] = createSignal<BrowserStudioProject | null>(null);
   const [opening, setOpening] = createSignal(false);
   const [error, setError] = createSignal("");
+  const [siteOpen, setSiteOpen] = createSignal(false);
+  const [siteVersion, setSiteVersion] = createSignal(0);
   const [agentReadEnabled, setAgentReadEnabled] = createSignal(false);
   const [agentReadError, setAgentReadError] = createSignal("");
   const supportsWebMcp = () => "modelContext" in document;
@@ -153,6 +156,12 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
         </div>
         <div class="teldra-browser-studio__masthead-actions">
         <PwaControls hasUnsavedChanges={() => project()?.controller.dirty ?? false} />
+        <Show when={project() !== null}>
+          <button type="button" class="teldra-browser-studio__site" aria-haspopup="dialog" aria-label="Site" title="Place the building on the map"
+            onClick={() => setSiteOpen(true)}>
+            <StudioIcon name="site" /><span>Site</span>
+          </button>
+        </Show>
         <button class="teldra-browser-studio__open"
           classList={{"teldra-browser-studio__open--project": project() !== null}}
           type="button"
@@ -200,6 +209,16 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
             const firstDevice = () => ready().controller.twin.devices[0];
             return (
               <section class="teldra-browser-studio__workspace">
+                <Show when={ready().controller} keyed>
+                  {(controller) => (
+                    <StudioSiteDialog
+                      controller={controller}
+                      open={siteOpen()}
+                      onClose={() => { setSiteOpen(false); setSiteVersion((n) => n + 1); }}
+                      {...(ready().readSiteFootprint ? { readFootprint: () => ready().readSiteFootprint!() } : {})}
+                    />
+                  )}
+                </Show>
                 <div class="teldra-browser-studio__file">
                   <span>Project</span>
                   <strong data-testid="browser-project-file">{ready().fileName}</strong>
@@ -233,6 +252,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
                     <StudioSelectionWorkspace
                       controller={ready().controller}
                       saveMode={ready().saveMode}
+                      externalVersion={siteVersion}
                       {...(ready().rebakeSavedSceneCopy ? {onExportRebakedScene: exportRebakedCopy} : {})}
                       manifest={scene().manifest}
                       glbUrl={scene().glbUrl}

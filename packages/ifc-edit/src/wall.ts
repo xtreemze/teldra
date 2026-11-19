@@ -700,3 +700,33 @@ export function createIfcWallAdapter(api: IfcAPI) {
           : removeWall(api, bytes, op.globalId),
   };
 }
+
+// ---------------------------------------------------------------- footprint evidence
+
+export interface WallFootprintSegment {
+  readonly globalId: string;
+  readonly start: readonly [number, number];
+  readonly end: readonly [number, number];
+  readonly thickness: number;
+}
+
+/**
+ * Read-only plan evidence: axis, thickness and GlobalId of every straight wall this package can
+ * parse, in IFC world metres. Walls with unsupported representations are skipped, never guessed.
+ * Used to derive a building footprint for site alignment; it never writes to the IFC.
+ */
+export function readWallFootprintSegments(api: IfcAPI, bytes: Uint8Array): WallFootprintSegment[] {
+  return model(api, bytes, (id) => {
+    const g = graph(api, id);
+    const out: WallFootprintSegment[] = [];
+    for (const guid of [...g.wallsByGuid().keys()].sort()) {
+      try {
+        const { start, end, thickness } = parseWall(g, guid).geometry;
+        out.push({ globalId: guid, start, end, thickness });
+      } catch (error) {
+        if (!(error instanceof WallEditError)) throw error;
+      }
+    }
+    return out;
+  });
+}

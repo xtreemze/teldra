@@ -35,13 +35,20 @@ export interface SitePlacementPanelProps {
   /** Canonical placement from the twin, if any. */
   readonly placement: SitePlacement | null;
   /** IFC footprint in building-local metres (read-only evidence from the canonical model). */
-  readonly ifcFootprint?: readonly LocalPoint[];
+  readonly ifcFootprint?: readonly LocalPoint[] | undefined;
   readonly initialBoundingBox?: BoundingBox;
   readonly loadCandidates: (bbox: BoundingBox) => Promise<SiteCandidateLoadResult>;
   /** Persist through the application command (twin.building.place-site). */
   readonly onSave: (placement: SitePlacement) => void;
   readonly onUndo: () => void;
   readonly canUndo: boolean;
+  /** Optional shared-history redo; shown only when provided. */
+  readonly onRedo?: () => void;
+  readonly canRedo?: boolean;
+  /** Optional project save (persists the twin, including the confirmed placement); shown only when provided. */
+  readonly onSaveProject?: () => void;
+  readonly projectDirty?: boolean;
+  readonly projectSaving?: boolean;
   readonly basemaps?: readonly BasemapConfig[];
   readonly now?: () => string;
 }
@@ -78,6 +85,12 @@ export function SitePlacementPanel(props: SitePlacementPanelProps) {
     setDraft(next ? draftFromPlacement(next) : undefined);
     setProvenance(next?.provenance);
   }, { defer: true }));
+
+  // Manual entry without any search still gets a map view centred on the draft, so the IFC overlay is visible.
+  createEffect(() => {
+    const d = draft();
+    if (d && !view()) setView({ centerLatitudeDegrees: d.latitudeDegrees, centerLongitudeDegrees: d.longitudeDegrees, zoom: 18 });
+  });
 
   const basemap = () => basemaps().find((b) => b.id === basemapId());
   const selected = () => candidates().find((c) => c.id === selectedId());
@@ -164,9 +177,9 @@ export function SitePlacementPanel(props: SitePlacementPanelProps) {
     const d = draft(), p = provenance();
     if (!d || !p) return;
     try {
-      const placement = placementFromDraft(d, { ...p, status: "provisional" });
-      const { confirmedAt: _drop, ...clean } = placement.provenance;
-      props.onSave(confirmSitePlacement({ ...placement, provenance: clean }, now()));
+      // Re-confirming an already confirmed placement: drop the old timestamp first, confirmSitePlacement stamps a new one.
+      const { confirmedAt: _drop, ...unconfirmed } = p;
+      props.onSave(confirmSitePlacement(placementFromDraft(d, { ...unconfirmed, status: "provisional" }), now()));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -269,7 +282,7 @@ export function SitePlacementPanel(props: SitePlacementPanelProps) {
                       )}
                     </For>
                     <Show when={overlay()}>
-                      {(o) => <polygon class="teldra-site-placement__ifc" points={toPath(o().map((p) => projectToView(v(), MAP, p)))} aria-label="IFC footprint under current placement" />}
+                      {(o) => <polygon class="teldra-site-placement__ifc" role="img" points={toPath(o().map((p) => projectToView(v(), MAP, p)))} aria-label="IFC footprint under current placement" />}
                     </Show>
                   </>
                 )}
@@ -369,6 +382,16 @@ export function SitePlacementPanel(props: SitePlacementPanelProps) {
           <div class="teldra-site-placement__actions">
             <button type="button" class="is-primary" disabled={!draft() || !dirty()} onClick={save}>Confirm and save</button>
             <button type="button" disabled={!props.canUndo} onClick={() => props.onUndo()}>Undo</button>
+            <Show when={props.onRedo}>
+              {(redo) => <button type="button" disabled={!props.canRedo} onClick={() => redo()()}>Redo</button>}
+            </Show>
+            <Show when={props.onSaveProject}>
+              {(saveProject) => (
+                <button type="button" disabled={!props.projectDirty || props.projectSaving} onClick={() => saveProject()()}>
+                  {props.projectSaving ? "Saving…" : "Save project"}
+                </button>
+              )}
+            </Show>
           </div>
           <Show when={provenance()}>
             {(p) => (

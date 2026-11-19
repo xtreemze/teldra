@@ -34,21 +34,26 @@ undoable. IFC geometry and Teldra canonical IDs are never touched.
 Environmental geography (candidates, basemap tiles) is rendered in a separate SVG map. The IFC footprint appears only
 as a derived, read-only overlay computed from the current draft; nothing on the map edits IFC geometry.
 
-## Studio integration point
+## Studio integration
 
-`StudioProjectController` needs one method, delegating to its private `TwinEditor`:
+Mounted: the Studio app bar has a **Site** button (icon-only in compact layouts) that opens `StudioSiteDialog`, a modal host
+for `<SitePlacementPanel>` (full screen on compact widths). The modal keeps the 3D viewport mounted and untouched.
 
-```ts
-placeBuildingSite(placement: SitePlacement | null, correlationId?: string): void {
-  this.#editor.placeBuildingSite(placement, correlationId);
-  this.#record("twin");
-}
-```
+- `StudioProjectController.placeBuildingSite(placement | null)` delegates to the `TwinEditor`, so the placement shares the twin
+  undo/redo history, dirty state, save and reopen with every other twin edit.
+- `StudioSitePanel` adapts controller state to the headless panel (confirm, undo, redo, save project). Latitude, longitude,
+  elevation and bearing are independently editable; manual entry needs no network.
+- Footprint overlay: `BrowserStudioProject.readSiteFootprint()` reads wall axes from the canonical IFC
+  (`readWallFootprintSegments` in `@teldra/ifc-edit`, read-only) and builds the convex outline with `convexFootprintFromWalls`.
+  Concave plans use the convex hull until a slab/space outline reader exists; the residual is reported, never hidden.
+- Overpass is opt-in: nothing is requested until the user presses "Find buildings". One shared `OverpassBuildingSource` per
+  panel provides caching, de-duplication, throttling and a generic User-Agent.
 
-Then mount `<SitePlacementPanel>` from `BrowserProjectStudio.tsx` with `placement={controller.twin.building.sitePlacement ?? null}`,
-`onSave={(p) => controller.placeBuildingSite(p)}`, `onUndo={() => controller.undo()}`, `canUndo={controller.history.canUndo}`,
-`loadCandidates` backed by one shared `OverpassBuildingSource`, and `ifcFootprint` from the canonical IFC (slab outline, or
-`convexFootprintFromWalls` from wall records as a fallback for convex plans).
+## Test data
+
+All site fixtures and tests are synthetic: `fixtures/osm/overpass-buildings-bbox.json` is hand-authored, Overpass-shaped data for a
+made-up block near 0.5 N 0.5 E with synthetic ids (way/1000001.., relation/2000001). It is not derived from real OSM data and
+ODbL does not apply to it. No committed fixture, test or story may use the coordinates or OSM ids of a real private site.
 
 ## Data source evaluation (findings, not integrations)
 

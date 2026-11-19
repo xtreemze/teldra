@@ -34,3 +34,15 @@ test("reports the residual for a poorly matching candidate instead of hiding it"
   await page.getByRole("list").getByRole("button", { name: /osm:way\/1000001/ }).click();
   await expect(page.getByText(/Residual RMS/)).toBeVisible();
 });
+
+test("re-confirming an already confirmed placement records a new confirmation", async ({ page }) => {
+  await page.goto(story);
+  await page.getByRole("button", { name: "Find buildings" }).click();
+  await page.getByRole("list").getByRole("button", { name: /osm:way\/1000003/ }).click();
+  await page.getByRole("button", { name: "Confirm and save" }).click();
+  await expect(page.getByText("Confirmed by you", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Rotate +1°" }).click();
+  await page.getByRole("button", { name: "Confirm and save" }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByText("Confirmed by you", { exact: true })).toBeVisible();
+});
