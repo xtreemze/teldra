@@ -2,7 +2,8 @@ import {
   Handle, IFC4, IfcAPI,
   IFCARBITRARYCLOSEDPROFILEDEF, IFCAXIS2PLACEMENT3D, IFCBUILDINGSTOREY, IFCCARTESIANPOINT, IFCCARTESIANPOINTLIST2D,
   IFCDIRECTION, IFCEXTRUDEDAREASOLID, IFCGEOMETRICREPRESENTATIONSUBCONTEXT, IFCGLOBALLYUNIQUEID, IFCINDEXEDPOLYCURVE,
-  IFCLABEL, IFCLENGTHMEASURE, IFCLOCALPLACEMENT, IFCPOSITIVELENGTHMEASURE, IFCPRODUCTDEFINITIONSHAPE, IFCREAL,
+  IFCLABEL, IFCLENGTHMEASURE, IFCLOCALPLACEMENT, IFCMATERIAL, IFCMATERIALLAYER, IFCMATERIALLAYERSET, IFCMATERIALLAYERSETUSAGE,
+  IFCNONNEGATIVELENGTHMEASURE, IFCPOLYLINE, IFCPOSITIVELENGTHMEASURE, IFCPRODUCTDEFINITIONSHAPE, IFCREAL,
   IFCRELASSOCIATESMATERIAL, IFCRELCONNECTSPATHELEMENTS, IFCRELCONTAINEDINSPATIALSTRUCTURE, IFCRELDEFINESBYPROPERTIES,
   IFCRELVOIDSELEMENT, IFCSHAPEREPRESENTATION, IFCWALL, IFCWALLSTANDARDCASE,
 } from "web-ifc";
@@ -16,6 +17,13 @@ import { chain, model, type Line } from "./ifc-session.js";
  * the Body is a rectangle spanning local X 0..length and local Y 0..thickness,
  * extruded along +Z by `height`. All public coordinates are world IFC metres, Z up.
  *
+ * Walls may additionally carry an `Axis` (Plan/Curve2D) reference line and a single-layer
+ * `IfcMaterialLayerSetUsage` (what Teldra's SH3D importer and `teldra_ifc.bim` emit). The Axis is
+ * always the local segment (0,0)->(length,0); on update it is rewritten with the Body, and a
+ * thickness change updates the single layer (in place when solely owned, otherwise a fresh
+ * single-layer set reusing the same material is assigned to this wall's usage). Shared usages and
+ * multi-layer sets are refused with `shared-material` / `unsupported-material`.
+ *
  * Every function is pure with respect to its input bytes: a staged copy is opened,
  * edited and serialised, so a thrown error never mutates the caller's model.
  * Existing IFC GlobalIds are never rewritten.
@@ -24,7 +32,8 @@ export type WallEditErrorCode =
   | "invalid-geometry" | "invalid-global-id" | "invalid-name" | "duplicate-global-id"
   | "wall-not-found" | "storey-not-found" | "storey-containment-unsupported" | "body-context-missing"
   | "hosted-opening" | "wall-referenced" | "unsupported-relationship" | "unsupported-connection"
-  | "unsupported-representation" | "unsupported-placement" | "shared-geometry";
+  | "unsupported-representation" | "unsupported-placement" | "shared-geometry"
+  | "shared-material" | "unsupported-material";
 
 export class WallEditError extends Error {
   readonly code: WallEditErrorCode;
@@ -148,6 +157,9 @@ function graph(api: IfcAPI, id: number): Graph {
 
 // ---------------------------------------------------------------- wall parsing
 
+type AxisParts =
+  | { readonly kind: "indexed"; readonly listId: number }
+  | { readonly kind: "polyline"; readonly pointIds: readonly [number, number] };
 interface WallParts {
   readonly guid: string;
   readonly wall: Line;
@@ -157,6 +169,7 @@ interface WallParts {
   readonly refDirectionId: number | null;
   readonly listId: number;
   readonly solidId: number;
+  readonly axis: AxisParts | null;
   readonly owned: readonly number[];
   readonly parent: { position: readonly [number, number, number]; yawRadians: number };
   readonly geometry: WallGeometry;
@@ -171,6 +184,23 @@ const ratios = (g: Graph, ref: any, label: string): number[] => {
   if (g.type(l.expressID) !== IFCDIRECTION) fail("unsupported-representation", `${label} must be an IfcDirection.`);
   return l.DirectionRatios.map((v: any) => v.value);
 };
+
+/** Axis = a 2-point 2D reference line: IfcIndexedPolyCurve over a 2D point list, or an IfcPolyline. */
+function parseAxis(g: Graph, guid: string, rep: Line): AxisParts {
+  if (rep.RepresentationType?.value !== "Curve2D" || rep.Items?.length !== 1)
+    return fail("unsupported-representation", `Wall ${guid} Axis must be a single Curve2D item.`);
+  const curveId = handleOf(rep.Items[0], "wall axis curve");
+  const curve = g.line(curveId);
+  const t = g.type(curveId);
+  if (t === IFCINDEXEDPOLYCURVE && !curve.Segments) {
+    const listId = handleOf(curve.Points, "wall axis points");
+    if (g.type(listId) === IFCCARTESIANPOINTLIST2D && g.line(listId).CoordList?.length === 2) return { kind: "indexed", listId };
+  } else if (t === IFCPOLYLINE && Array.isArray(curve.Points) && curve.Points.length === 2) {
+    const ids = curve.Points.map((p: any) => handleOf(p, "wall axis point"));
+    if (ids.every((i: number) => g.type(i) === IFCCARTESIANPOINT && g.line(i).Coordinates?.length === 2)) return { kind: "polyline", pointIds: [ids[0] as number, ids[1] as number] };
+  }
+  return fail("unsupported-representation", `Wall ${guid} Axis must be a straight two-point 2D line.`);
+}
 
 function parseWall(g: Graph, guid: string): WallParts {
   const wallId = g.wallsByGuid().get(guid);
@@ -188,13 +218,17 @@ function parseWall(g: Graph, guid: string): WallParts {
 
   const pdsId = handleOf(wall.Representation, "wall representation");
   const pds = g.line(pdsId);
-  if (g.type(pdsId) !== IFCPRODUCTDEFINITIONSHAPE || pds.Representations?.length !== 1)
-    fail("unsupported-representation", `Wall ${guid} needs exactly one Body representation.`);
-  const repId = handleOf(pds.Representations[0], "wall shape representation");
-  const rep = g.line(repId);
-  if (g.type(repId) !== IFCSHAPEREPRESENTATION || rep.RepresentationIdentifier?.value !== "Body" ||
-      rep.RepresentationType?.value !== "SweptSolid" || rep.Items?.length !== 1)
+  if (g.type(pdsId) !== IFCPRODUCTDEFINITIONSHAPE || !Array.isArray(pds.Representations))
+    return fail("unsupported-representation", `Wall ${guid} has no product definition shape.`);
+  const reps = (pds.Representations as any[]).map((r) => g.line(handleOf(r, "wall shape representation")));
+  const identifier = (r: Line) => (g.type(r.expressID) === IFCSHAPEREPRESENTATION ? r.RepresentationIdentifier?.value : undefined);
+  const bodies = reps.filter((r) => identifier(r) === "Body"), axes = reps.filter((r) => identifier(r) === "Axis");
+  if (bodies.length !== 1 || axes.length > 1 || bodies.length + axes.length !== reps.length)
+    fail("unsupported-representation", `Wall ${guid} needs exactly one Body representation (plus at most one Axis).`);
+  const rep = bodies[0]!;
+  if (rep.RepresentationType?.value !== "SweptSolid" || rep.Items?.length !== 1)
     fail("unsupported-representation", `Wall ${guid} needs one Body/SweptSolid extrusion.`);
+  const axis2d = axes[0] ? parseAxis(g, guid, axes[0]) : null;
   const solidId = handleOf(rep.Items[0], "wall extrusion");
   const solid = g.line(solidId);
   if (g.type(solidId) !== IFCEXTRUDEDAREASOLID) fail("unsupported-representation", `Wall ${guid} Body is not an IfcExtrudedAreaSolid.`);
@@ -227,7 +261,7 @@ function parseWall(g: Graph, guid: string): WallParts {
     start, end: [start[0] + length * c, start[1] + length * s], thickness, height, elevation: pose.position[2],
   };
   const owned = [...closure(g, wallId, new Set(["PlacementRelTo", "ContextOfItems", "OwnerHistory"]))];
-  return { guid, wall, placementId, pointId, axisId, refDirectionId, listId, solidId, owned, parent, geometry };
+  return { guid, wall, placementId, pointId, axisId, refDirectionId, listId, solidId, axis: axis2d, owned, parent, geometry };
 }
 
 /** Entities solely reachable from a root through forward references, excluding named fields. */
@@ -298,9 +332,106 @@ export function readWall(api: IfcAPI, bytes: Uint8Array, globalId: string): Wall
   });
 }
 
+// ---------------------------------------------------------------- material layers
+
+/** What a thickness change must do to the wall's single-layer material usage. */
+type MaterialPlan =
+  | { readonly kind: "none" }
+  | { readonly kind: "in-place"; readonly layerId: number; readonly layerSetId: number }
+  | { readonly kind: "clone"; readonly usageId: number; readonly layerId: number; readonly layerSetId: number };
+
+const THICKNESS_TOL = 1e-9;
+const AUTO_SET_NAME = /^Wall [0-9.]+ mm$/;
+const layerSetName = (thickness: number): string => `Wall ${+(thickness * 1000).toPrecision(9)} mm`;
+
+function planMaterial(g: Graph, parts: WallParts, thickness: number): MaterialPlan {
+  const wallId = parts.wall.expressID;
+  const rels = g.referrers(wallId).filter((r) => g.type(r) === IFCRELASSOCIATESMATERIAL);
+  if (rels.length === 0) return { kind: "none" };
+  if (rels.length > 1) return fail("unsupported-material", `Wall ${parts.guid} has several material associations.`);
+  const rel = g.line(rels[0]!);
+  const materialId = refId(rel.RelatingMaterial);
+  if (materialId === null) return { kind: "none" };
+  if (g.type(materialId) === IFCMATERIAL) return { kind: "none" };
+  if (g.type(materialId) !== IFCMATERIALLAYERSETUSAGE)
+    return fail("unsupported-material", `Wall ${parts.guid} material is not an IfcMaterialLayerSetUsage.`);
+  const usageId = materialId;
+  if ((rel.RelatedObjects as any[]).length !== 1 || g.referrers(usageId).some((r) => r !== rel.expressID))
+    return fail("shared-material", `Wall ${parts.guid} material layer set usage is shared with other elements.`);
+  const setId = handleOf(g.line(usageId).ForLayerSet, "layer set", "unsupported-material");
+  const set = g.line(setId);
+  if (g.type(setId) !== IFCMATERIALLAYERSET || (set.MaterialLayers as any[])?.length !== 1)
+    return fail("unsupported-material", `Wall ${parts.guid} thickness can only follow a single-layer material layer set.`);
+  const layerId = handleOf(set.MaterialLayers[0], "material layer", "unsupported-material");
+  if (Math.abs(g.line(layerId).LayerThickness?.value - thickness) <= THICKNESS_TOL) return { kind: "none" };
+  const soleSet = g.referrers(setId).every((r) => r === usageId) && g.referrers(layerId).every((r) => r === setId);
+  return soleSet ? { kind: "in-place", layerId, layerSetId: setId } : { kind: "clone", usageId, layerId, layerSetId: setId };
+}
+
+/** An existing single-layer set of `material` with this thickness, else a new one (name per Teldra convention). */
+function acquireLayerSet(g: Graph, thickness: number, materialId: number | null): number {
+  const { api, id } = g;
+  let material = materialId;
+  if (material === null) {
+    const mats = api.GetLineIDsWithType(id, IFCMATERIAL);
+    for (let i = 0; i < mats.size() && material === null; i++) if (g.line(mats.get(i)).Name?.value === "Wall") material = mats.get(i);
+    if (material === null) {
+      const created = api.CreateIfcEntity(id, IFCMATERIAL, api.CreateIfcType(id, IFCLABEL, "Wall"), null, null);
+      api.WriteLine(id, created);
+      material = created.expressID as number;
+    }
+  }
+  const sets = api.GetLineIDsWithType(id, IFCMATERIALLAYERSET);
+  for (let i = 0; i < sets.size(); i++) {
+    const layers = g.line(sets.get(i)).MaterialLayers as any[];
+    if (layers?.length !== 1) continue;
+    const layer = g.line(refId(layers[0])!);
+    if (refId(layer.Material) === material && Math.abs(layer.LayerThickness?.value - thickness) <= THICKNESS_TOL) return sets.get(i);
+  }
+  const layer = api.CreateIfcEntity(id, IFCMATERIALLAYER, new Handle(material), api.CreateIfcType(id, IFCNONNEGATIVELENGTHMEASURE, thickness), null, null, null, null, null);
+  api.WriteLine(id, layer);
+  const set = api.CreateIfcEntity(id, IFCMATERIALLAYERSET, [new Handle(layer.expressID)], api.CreateIfcType(id, IFCLABEL, layerSetName(thickness)), null);
+  api.WriteLine(id, set);
+  return set.expressID as number;
+}
+
+function applyMaterial(g: Graph, plan: MaterialPlan, thickness: number): void {
+  const { api, id } = g;
+  if (plan.kind === "in-place") {
+    const layer = g.line(plan.layerId);
+    layer.LayerThickness = api.CreateIfcType(id, IFCNONNEGATIVELENGTHMEASURE, thickness);
+    api.WriteLine(id, layer);
+    const set = g.line(plan.layerSetId);
+    if (typeof set.LayerSetName?.value === "string" && AUTO_SET_NAME.test(set.LayerSetName.value)) {
+      set.LayerSetName = api.CreateIfcType(id, IFCLABEL, layerSetName(thickness));
+      api.WriteLine(id, set);
+    }
+  } else if (plan.kind === "clone") {
+    const usage = g.line(plan.usageId);
+    usage.ForLayerSet = new Handle(acquireLayerSet(g, thickness, refId(g.line(plan.layerId).Material)));
+    api.WriteLine(id, usage);
+  }
+}
+
+/** Deterministic, unique compressed IFC GlobalId derived from a seed (relationship ids of created walls). */
+function derivedGuid(seed: string, taken: ReadonlySet<string>): string {
+  const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
+  for (let salt = 0; ; salt++) {
+    const bytes: number[] = [];
+    const h = [0x811c9dc5, 0x01000193, 0xdeadbeef, 0x9e3779b9];
+    for (const ch of `${seed}#${salt}`) for (let k = 0; k < 4; k++) { h[k] = Math.imul(h[k]! ^ ch.charCodeAt(0), 0x01000193 + 2 * k) >>> 0; h[(k + 1) % 4] = (h[(k + 1) % 4]! + (h[k]! >>> 13)) >>> 0; }
+    for (const w of h) bytes.push(w >>> 24, (w >>> 16) & 255, (w >>> 8) & 255, w & 255);
+    let big = 0n;
+    for (const b of bytes) big = (big << 8n) | BigInt(b);
+    let out = "";
+    for (let i = 0; i < 22; i++) { out = alphabet[Number(big & (i === 21 ? 3n : 63n))]! + out; big >>= i === 21 ? 2n : 6n; }
+    if (!taken.has(out)) return out;
+  }
+}
+
 // ---------------------------------------------------------------- update
 
-interface Write { readonly parts: WallParts; readonly after: WallGeometry }
+interface Write { readonly parts: WallParts; readonly after: WallGeometry; readonly material: MaterialPlan }
 function planUpdate(g: Graph, guid: string, target: WallGeometry): { changes: WallChange[]; writes: Write[] } {
   validateWallGeometry(target, `Wall ${guid}`);
   const parts = parseWall(g, guid);
@@ -339,7 +470,7 @@ function planUpdate(g: Graph, guid: string, target: WallGeometry): { changes: Wa
     }
   }
 
-  const writes: Write[] = [{ parts, after: target }];
+  const writes: Write[] = [{ parts, after: target, material: Math.abs(before.thickness - target.thickness) > THICKNESS_TOL ? planMaterial(g, parts, target.thickness) : { kind: "none" } }];
   const changes: WallChange[] = [{ globalId: guid, kind: "updated", cause: "requested", before, after: target }];
   for (const other of order) {
     const otherGuid = guidOf(g, other);
@@ -350,13 +481,13 @@ function planUpdate(g: Graph, guid: string, target: WallGeometry): { changes: Wa
     const o = overrides.get(other)!;
     const after: WallGeometry = { ...otherParts.geometry, start: o.start ?? otherParts.geometry.start, end: o.end ?? otherParts.geometry.end };
     validateWallGeometry(after, `Connected wall ${otherGuid}`);
-    writes.push({ parts: otherParts, after });
+    writes.push({ parts: otherParts, after, material: { kind: "none" } });
     changes.push({ globalId: otherGuid, kind: "updated", cause: "connected", before: otherParts.geometry, after });
   }
   return { changes, writes };
 }
 
-function writeGeometry(g: Graph, parts: WallParts, geometry: WallGeometry): void {
+function writeGeometry(g: Graph, parts: WallParts, geometry: WallGeometry, material: MaterialPlan): void {
   const { api, id } = g;
   const len = api.CreateIfcType.bind(api, id, IFCLENGTHMEASURE);
   const real = api.CreateIfcType.bind(api, id, IFCREAL);
@@ -385,6 +516,19 @@ function writeGeometry(g: Graph, parts: WallParts, geometry: WallGeometry): void
   const solid = g.line(parts.solidId);
   solid.Depth = api.CreateIfcType(id, IFCPOSITIVELENGTHMEASURE, geometry.height);
   api.WriteLine(id, solid);
+  // The Axis is the wall-local segment (0,0)->(length,0), the same line the Body spans.
+  if (parts.axis?.kind === "indexed") {
+    const axisList = g.line(parts.axis.listId);
+    axisList.CoordList = [[0, 0], [length, 0]].map((p) => p.map((v) => len(clean(v!))));
+    api.WriteLine(id, axisList);
+  } else if (parts.axis?.kind === "polyline") {
+    parts.axis.pointIds.forEach((pid, i) => {
+      const axisPoint = g.line(pid);
+      axisPoint.Coordinates = [len(i === 0 ? 0 : clean(length)), len(0)];
+      api.WriteLine(id, axisPoint);
+    });
+  }
+  applyMaterial(g, material, geometry.thickness);
 }
 
 export function planWallUpdate(api: IfcAPI, bytes: Uint8Array, globalId: string, target: WallGeometry): WallChange[] {
@@ -397,7 +541,7 @@ export function updateWall(api: IfcAPI, bytes: Uint8Array, globalId: string, tar
     const g = graph(api, id);
     const { writes } = planUpdate(g, globalId, target);
     if (!writes.length) return bytes.slice();
-    for (const w of writes) writeGeometry(g, w.parts, w.after);
+    for (const w of writes) writeGeometry(g, w.parts, w.after, w.material);
     return api.SaveModel(id);
   });
 }
@@ -422,8 +566,14 @@ function planCreate(g: Graph, input: CreateWallInput) {
     if (c.ContextIdentifier?.value === "Body" && c.ContextType?.value === "Model") contexts.push(ctxIds.get(i));
   }
   if (contexts.length !== 1) fail("body-context-missing", "A unique IFC Model/Body representation context is required.");
+  // Optional Plan/Axis context: when present (and unique) the wall also gets an Axis and a layer-set usage.
+  const axisContexts: number[] = [];
+  for (let i = 0; i < ctxIds.size(); i++) {
+    const c = g.line(ctxIds.get(i));
+    if (c.ContextIdentifier?.value === "Axis" && c.ContextType?.value === "Plan") axisContexts.push(ctxIds.get(i));
+  }
   const storeyPlacementId = refId(g.line(storeyId).ObjectPlacement);
-  return { storeyPlacementId, containmentId: containment[0]!, contextId: contexts[0]! };
+  return { storeyPlacementId, containmentId: containment[0]!, contextId: contexts[0]!, axisContextId: axisContexts.length === 1 ? axisContexts[0]! : null };
 }
 
 export function planWallCreate(api: IfcAPI, bytes: Uint8Array, input: CreateWallInput): WallChange[] {
@@ -436,7 +586,7 @@ export function planWallCreate(api: IfcAPI, bytes: Uint8Array, input: CreateWall
 export function createWall(api: IfcAPI, bytes: Uint8Array, input: CreateWallInput): Uint8Array {
   return model(api, bytes, (id) => {
     const g = graph(api, id);
-    const { storeyPlacementId, containmentId, contextId } = planCreate(g, input);
+    const { storeyPlacementId, containmentId, contextId, axisContextId } = planCreate(g, input);
     let parent = { position: [0, 0, 0] as readonly [number, number, number], yawRadians: 0 };
     if (storeyPlacementId !== null) {
       try { parent = chain(api, id, { value: storeyPlacementId }).pose; }
@@ -463,13 +613,27 @@ export function createWall(api: IfcAPI, bytes: Uint8Array, input: CreateWallInpu
     const position = api.CreateIfcEntity(id, IFCAXIS2PLACEMENT3D, origin, api.CreateIfcEntity(id, IFCDIRECTION, [real(0), real(0), real(1)]), api.CreateIfcEntity(id, IFCDIRECTION, [real(1), real(0), real(0)]));
     const solid = api.CreateIfcEntity(id, IFCEXTRUDEDAREASOLID, profile, position, api.CreateIfcEntity(id, IFCDIRECTION, [real(0), real(0), real(1)]), api.CreateIfcType(id, IFCPOSITIVELENGTHMEASURE, geometry.height));
     const rep = api.CreateIfcEntity(id, IFCSHAPEREPRESENTATION, new Handle(contextId), label("Body"), label("SweptSolid"), [solid]);
-    const shape = api.CreateIfcEntity(id, IFCPRODUCTDEFINITIONSHAPE, null, null, [rep]);
+    const reps: unknown[] = [rep];
+    if (axisContextId !== null) {
+      // Same convention as teldra_ifc.bim.add_wall_axis_and_layers: Axis (0,0)->(L,0) in wall-local XY.
+      const axisList = api.CreateIfcEntity(id, IFCCARTESIANPOINTLIST2D, [[0, 0], [length, 0]].map((p) => p.map((v) => len(clean(v!)))));
+      const axisCurve = api.CreateIfcEntity(id, IFCINDEXEDPOLYCURVE, axisList, null, null);
+      reps.push(api.CreateIfcEntity(id, IFCSHAPEREPRESENTATION, new Handle(axisContextId), label("Axis"), label("Curve2D"), [axisCurve]));
+    }
+    const shape = api.CreateIfcEntity(id, IFCPRODUCTDEFINITIONSHAPE, null, null, reps);
     const wall = api.CreateIfcEntity(id, IFCWALL, api.CreateIfcType(id, IFCGLOBALLYUNIQUEID, input.globalId), null, label(input.name), null, label("TeldraAuthoringStraightWall"), placement, shape, null, null);
     api.WriteLine(id, wall);
     if (!Number.isInteger(wall.expressID) || wall.expressID <= 0) fail("shared-geometry", "web-ifc did not assign an express ID to the new wall.");
     const rel = g.line(containmentId);
     rel.RelatedElements = [...rel.RelatedElements, new Handle(wall.expressID)];
     api.WriteLine(id, rel);
+    if (axisContextId !== null) {
+      const layerSetId = acquireLayerSet(g, geometry.thickness, null);
+      const usage = api.CreateIfcEntity(id, IFCMATERIALLAYERSETUSAGE, new Handle(layerSetId), IFC4.IfcLayerSetDirectionEnum.AXIS2, IFC4.IfcDirectionSenseEnum.POSITIVE, len(0), null);
+      api.WriteLine(id, usage);
+      const relGuid = derivedGuid(`${input.globalId}:material`, g.allGlobalIds());
+      api.WriteLine(id, api.CreateIfcEntity(id, IFCRELASSOCIATESMATERIAL, api.CreateIfcType(id, IFCGLOBALLYUNIQUEID, relGuid), null, null, null, [new Handle(wall.expressID)], new Handle(usage.expressID)));
+    }
     return api.SaveModel(id);
   });
 }
