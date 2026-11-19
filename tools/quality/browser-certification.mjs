@@ -91,8 +91,13 @@ export function evaluateBrowserCertification(policy, report, expectedCommit) {
         errors.push(label + ": missing measured viewport and DPR");
       }
       if (result.status === "unavailable") {
-        if (!nonempty(evidence.reason)) errors.push(label + ": WebGPU unavailability requires documented capability evidence");
+        if (evidence.capabilityProbe !== "unsupported" || !nonempty(evidence.reason)) {
+          errors.push(label + ": WebGPU unavailability requires a documented unsupported capability probe");
+        }
         continue;
+      }
+      if (result.status === "pass" && evidence.observedBackend !== backend) {
+        errors.push(label + ": passing evidence must identify the actual renderer backend");
       }
       for (const check of requiredChecks(row.platform)) {
         const status = evidence.checks?.[check];
