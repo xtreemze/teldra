@@ -39,6 +39,11 @@ const targets = [
     name: "SerializedLightingManifest",
   },
   {
+    source: "schemas/json/furniture-catalog.schema.json",
+    target: "schemas/generated/furniture-catalog.ts",
+    name: "SerializedFurnitureCatalog",
+  },
+  {
     source: "schemas/json/live.schema.json",
     target: "schemas/generated/live.ts",
     name: "SerializedLiveEnvelope",

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://teldra.dev/schema/furniture-catalog/0.1.0",
+  "title": "Teldra Furniture Catalog",
+  "description": "Renderer-independent catalog of insertable furniture. Items carry IFC semantics, nominal metric dimensions, an authored IFC representation, optional render-asset references, and mandatory licence provenance. Catalogs are authoring input; inserting an item creates canonical IFC entities and never makes the catalog or its assets canonical.",
+  "type": "object",
+  "required": ["schemaVersion", "id", "name", "version", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": "0.1.0" },
+    "id": { "$ref": "#/$defs/slug" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "provider": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "items": { "type": "array", "items": { "$ref": "#/$defs/item" } }
+  },
+  "$defs": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:[._-][a-z0-9]+)*$", "maxLength": 128 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "length": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+    "item": {
+      "type": "object",
+      "required": ["id", "name", "category", "ifc", "dimensions", "mount", "representation", "licence"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/slug" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "category": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "tags": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 64 }, "uniqueItems": true },
+        "ifc": { "$ref": "#/$defs/ifc" },
+        "dimensions": { "$ref": "#/$defs/dimensions" },
+        "mount": { "$ref": "#/$defs/mount" },
+        "representation": { "$ref": "#/$defs/representation" },
+        "asset": { "$ref": "#/$defs/asset" },
+        "materials": { "type": "array", "items": { "$ref": "#/$defs/material" } },
+        "licence": { "$ref": "#/$defs/licence" }
+      }
+    },
+    "ifc": {
+      "type": "object",
+      "required": ["class", "predefinedType"],
+      "additionalProperties": false,
+      "properties": {
+        "class": { "const": "IfcFurniture" },
+        "predefinedType": {
+          "description": "IfcFurnitureTypeEnum (IFC4). Occurrences are typed by an IfcFurnitureType carrying this value.",
+          "enum": ["BED", "CHAIR", "DESK", "FILECABINET", "SHELF", "SOFA", "TABLE", "USERDEFINED", "NOTDEFINED"]
+        },
+        "classifications": { "type": "array", "items": { "$ref": "#/$defs/classification" } }
+      }
+    },
+    "classification": {
+      "type": "object",
+      "required": ["system", "identification", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "system": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Classification system name, e.g. bSDD, Uniclass 2015, OmniClass." },
+        "identification": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "uri": { "type": "string", "pattern": "^https://", "maxLength": 512 }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "description": "Nominal overall size in metres along the item's local X (width), Y (depth) and Z (height). The local origin is the centre of the bottom face of the bounding box.",
+      "required": ["unit", "origin", "width", "depth", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "unit": { "const": "m" },
+        "origin": { "const": "bbox-bottom-center" },
+        "width": { "$ref": "#/$defs/length" },
+        "depth": { "$ref": "#/$defs/length" },
+        "height": { "$ref": "#/$defs/length" }
+      }
+    },
+    "mount": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["floor", "wall", "ceiling"] },
+        "elevation": { "type": "number", "minimum": 0, "maximum": 100, "description": "Default height of the item's origin above the storey floor in metres. Wall- and ceiling-mounted items must state it." }
+      },
+      "if": { "properties": { "type": { "enum": ["wall", "ceiling"] } } },
+      "then": { "properties": { "elevation": true }, "required": ["elevation"] }
+    },
+    "representation": {
+      "description": "Authored IFC body geometry written into the IfcRepresentationMap of the item's IfcFurnitureType. Parametrised from nominal dimensions so the IFC source never depends on a render asset.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": { "kind": { "const": "box" } }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "footprint"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "extrusion" },
+            "footprint": {
+              "type": "array",
+              "minItems": 3,
+              "maxItems": 256,
+              "items": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+              "description": "Polygon ring in local XY metres (no repeated closing vertex), extruded along local +Z by dimensions.height. Must lie inside the dimensions footprint."
+            }
+          }
+        }
+      ]
+    },
+    "asset": {
+      "type": "object",
+      "description": "Optional render/visual model. A derived artifact: its conventions are explicit so a converter never guesses, and it is hash-pinned so bytes are verifiable.",
+      "required": ["path", "mediaType", "sha256", "unit", "upAxis", "frontAxis", "dimensionsPolicy"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "mediaType": { "enum": ["model/gltf-binary", "model/gltf+json", "model/obj"] },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "unit": { "enum": ["m", "cm", "mm", "in"], "description": "Unit of the file's coordinates. glTF is metres by specification; OBJ declares none, so it must be stated." },
+        "upAxis": { "enum": ["+Y", "+Z"] },
+        "frontAxis": { "enum": ["-Z", "+Z", "-Y", "+Y", "+X", "-X"], "description": "Axis the item's front faces in the source file." },
+        "dimensionsPolicy": { "enum": ["preserve-source", "fit-nominal"], "description": "preserve-source: converted bounds must equal nominal dimensions within tolerance, else import fails. fit-nominal: the importer scales the model non-uniformly to the nominal dimensions and records the factors." }
+      }
+    },
+    "material": {
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "baseColor": { "type": "array", "items": { "type": "number", "minimum": 0, "maximum": 1 }, "minItems": 3, "maxItems": 3, "description": "Linear RGB." }
+      }
+    },
+    "licence": {
+      "type": "object",
+      "required": ["spdx", "author", "redistribution"],
+      "additionalProperties": false,
+      "properties": {
+        "spdx": { "type": "string", "minLength": 1, "maxLength": 128, "description": "SPDX expression, or LicenseRef-* for terms with no SPDX id." },
+        "author": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "attribution": { "type": "string", "minLength": 1, "maxLength": 1024, "description": "Notice that must accompany redistribution. Required whenever the licence needs attribution (CC-BY*, GPL*)." },
+        "sourceUrl": { "type": "string", "pattern": "^https://", "maxLength": 512 },
+        "redistribution": { "enum": ["bundle", "user-import-only"], "description": "bundle: may ship in Teldra releases. user-import-only: only entered by the user at runtime and kept out of the repository and releases." }
+      }
+    }
+  }
+}
