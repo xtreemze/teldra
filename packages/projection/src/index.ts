@@ -78,3 +78,4 @@ export function createTwinProjection(project: TwinProject): TwinProjection {
     objects: [...buildingObjects, ...devices],
   };
 }
+export * from "./plan.js";

@@ -3,6 +3,7 @@ import { chain, epsilon, model, numeric, type FurniturePose, type Line } from ".
 export type { FurniturePose } from "./ifc-session.js";
 export * from "./wall.js";
 export * from "./tessellation.js";
+export * from "./plan.js";
 
 function find(api: IfcAPI, modelID: number, guid: string): Line {
   const found: Line[] = [];

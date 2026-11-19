@@ -700,3 +700,7 @@ export function createIfcWallAdapter(api: IfcAPI) {
           : removeWall(api, bytes, op.globalId),
   };
 }
+
+/** @internal Shared with ./plan.ts (read-only plan projection input); not part of the package API. */
+export const wallInternals = { graph, parseWall, topology, guidOf };
+export type { Graph as WallGraph };
