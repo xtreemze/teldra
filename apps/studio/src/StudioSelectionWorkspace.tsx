@@ -48,6 +48,7 @@ export function StudioSelectionWorkspace(
   const [rebaking, setRebaking] = createSignal(false);
   const [actionError, setActionError] = createSignal("");
   const [mobileProjectOpen, setMobileProjectOpen] = createSignal(false);
+  const [mobileViewOpen, setMobileViewOpen] = createSignal(false);
   const [mobileContextOpen, setMobileContextOpen] = createSignal(false);
   const [sceneDetent, setSceneDetent] = createSignal<MobileSheetDetent>("half");
   const [inspectorDetent, setInspectorDetent] = createSignal<MobileSheetDetent>("half");
@@ -283,6 +284,7 @@ export function StudioSelectionWorkspace(
     setEditMode(mode);
     setMobileContextOpen(false);
     setMobileProjectOpen(false);
+    setMobileViewOpen(false);
     // Only compact layouts trade the scene browser for the inspector; desktop shows both.
     if (window.matchMedia("(max-width: 48rem)").matches) setSceneOpen(false);
     setInspectorOpen(true);
@@ -343,8 +345,19 @@ export function StudioSelectionWorkspace(
   const openMobileContext = () => {
     if (!selectedCanonicalId() || editingFurniture()) return;
     setMobileProjectOpen(false);
+    setMobileViewOpen(false);
     setMobileContextOpen(true);
     tactile("menu");
+  };
+  const toggleMobileView = () => {
+    const open = !mobileViewOpen();
+    if (open) {
+      setMobileProjectOpen(false);
+      setMobileContextOpen(false);
+      setSceneOpen(false);
+      setInspectorOpen(false);
+    }
+    setMobileViewOpen(open);
   };
   createEffect(() => { selectionVersion(); viewport(); projectPlacements(); });
   createEffect(() => {
@@ -438,31 +451,39 @@ export function StudioSelectionWorkspace(
     const compact = () => window.matchMedia("(max-width: 48rem)").matches;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (!compact() || event.key !== "Escape" || event.defaultPrevented) return;
-      // Project/context menus close before the underlying IFC Escape handler can cancel a draft.
-      if (mobileProjectOpen()) setMobileProjectOpen(false);
-      else if (mobileContextOpen()) setMobileContextOpen(false);
-      else {
-        if (editingFurniture()) return; // Editor Escape retains its existing Cancel contract.
+      // Close a navigation surface before the IFC Escape handler can cancel a draft.
+      let trigger = '[data-testid="mobile-scene-trigger"]';
+      if (mobileViewOpen()) {
+        setMobileViewOpen(false);
+        trigger = '[data-testid="mobile-view-trigger"]';
+      } else if (mobileProjectOpen()) {
+        setMobileProjectOpen(false);
+        trigger = '[data-testid="mobile-project-trigger"]';
+      } else if (mobileContextOpen()) {
+        setMobileContextOpen(false);
+        trigger = 'button[aria-label="More object actions"]';
+      } else {
+        if (editingFurniture()) return; // Escape retains the editor's existing Cancel contract.
         if (sceneOpen()) closeMobileSheet("scene");
         else if (inspectorOpen()) closeMobileSheet("inspector");
         else return;
       }
       event.preventDefault();
       event.stopPropagation();
-      workspaceRoot.querySelector<HTMLButtonElement>(editingFurniture()
-        ? '[data-testid="mobile-project-trigger"]'
-        : '[data-testid="mobile-scene-trigger"]')?.focus();
+      workspaceRoot.querySelector<HTMLButtonElement>(trigger)?.focus();
     };
     const closeOnCanvas = (event: PointerEvent) => {
-      if (!compact() || editingFurniture() || !(event.target instanceof HTMLCanvasElement) ||
+      if (!compact() || !(event.target instanceof HTMLCanvasElement) ||
           !event.target.classList.contains("teldra-twin-viewport__canvas")) return;
+      setMobileViewOpen(false);
+      setMobileProjectOpen(false);
+      if (editingFurniture()) return;
       if (sceneOpen()) closeMobileSheet("scene");
       if (inspectorOpen()) closeMobileSheet("inspector");
-      if (mobileProjectOpen()) setMobileProjectOpen(false);
       if (mobileContextOpen()) setMobileContextOpen(false);
     };
-    window.addEventListener("keydown", keydown, true);
     window.addEventListener("keydown", closeOnEscape, true);
+    window.addEventListener("keydown", keydown, true);
     workspaceRoot.addEventListener("pointerdown", closeOnCanvas, true);
     onCleanup(() => {
       window.removeEventListener("keydown", keydown, true);
@@ -477,15 +498,23 @@ export function StudioSelectionWorkspace(
       <div class="teldra-studio-selection-workspace__mobile-header" role="group" aria-label="Mobile Studio navigation">
         <button type="button" data-testid="mobile-scene-trigger" aria-expanded={sceneOpen()} aria-controls="teldra-scene-panel"
           disabled={editingFurniture()} title={editingFurniture() ? "Apply or cancel the active transform first" : "Browse the scene"}
-          onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileContextOpen(false);}}><StudioIcon name="scene" /> Scene</button>
+          onClick={() => {setSceneOpen(!sceneOpen()); setInspectorOpen(false); setMobileProjectOpen(false); setMobileViewOpen(false); setMobileContextOpen(false);}}><StudioIcon name="scene" /> Scene</button>
         <output class="teldra-studio-selection-workspace__mobile-save-state" aria-live="polite">
           <span class="teldra-studio-selection-workspace__save-dot" data-state={dirty() ? "dirty" : "saved"} aria-hidden="true" />
           <span class="teldra-studio-selection-workspace__mobile-save-label">{dirty() ? "Unsaved" : "Saved"}</span>
         </output>
         <Show when={editingFurniture()}><button type="button" aria-expanded={inspectorOpen()} aria-controls="teldra-object-panel"
-          onClick={() => setInspectorOpen(!inspectorOpen())}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
+          onClick={() => {setInspectorOpen(!inspectorOpen()); setMobileViewOpen(false); setMobileProjectOpen(false);}}>{inspectorOpen() ? "Gestures" : "Numbers"}</button></Show>
+        <button type="button" data-testid="mobile-view-trigger" aria-expanded={mobileViewOpen()} aria-controls="teldra-mobile-view-settings"
+          disabled={!viewport()} onClick={toggleMobileView}><StudioIcon name="appearance" /> View</button>
         <button type="button" data-testid="mobile-project-trigger" aria-expanded={mobileProjectOpen()} aria-controls="teldra-mobile-project-menu"
-          onClick={() => {setMobileProjectOpen(!mobileProjectOpen()); setMobileContextOpen(false);}}><StudioIcon name="project" /> Project</button>
+          onClick={() => {
+            const open = !mobileProjectOpen();
+            if (open) {
+              setMobileViewOpen(false); setMobileContextOpen(false); setSceneOpen(false); setInspectorOpen(false);
+            }
+            setMobileProjectOpen(open);
+          }}><StudioIcon name="project" /> Project</button>
       </div>
       <Show when={mobileProjectOpen()}>
         <div id="teldra-mobile-project-menu" class="teldra-studio-selection-workspace__mobile-project-menu" role="group" aria-label="Mobile project menu">
@@ -615,6 +644,8 @@ export function StudioSelectionWorkspace(
           onSelect={selectRenderIdentity}
           gesturesDisabled={editingFurniture() || Boolean(transformModal()) || saving() || mobileContextOpen()}
           onTouchGesture={handleCanvasGesture}
+          mobileViewOpen={mobileViewOpen()}
+          onMobileViewOpenChange={setMobileViewOpen}
         />
       </section>
 
