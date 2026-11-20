@@ -24,7 +24,7 @@ Release certification covers:
 
 A browser may use Babylon WebGL2 fallback when WebGPU is unavailable or fails capability checks. A project must not serialize different canonical meaning based on graphics backend.
 
-Playwright Chromium is the minimum PR browser gate. Firefox and WebKit are planned CI signals, but WebKit automation is not treated as equivalent to real Safari release certification.
+Playwright Chromium remains the primary PR browser gate. A separate Firefox/WebKit CI lane checks the deployed Pages shell, accessibility and manifest in both engines. When the CI runner exposes WebGL2, it also attempts the synthetic Studio project's 3D initialization and mobile navigation controls; without WebGL2 that test is explicitly skipped rather than misreported as a pass. These tests are cross-engine regression signals, not evidence of native Firefox or Safari functionality on a physical release device. Playwright WebKit is not equivalent to actual Safari or iOS/iPadOS certification.
 
 ## Accessibility
 

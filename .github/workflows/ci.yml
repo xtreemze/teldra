@@ -136,3 +136,49 @@ jobs:
 
       - name: Test
         run: uv run --locked pytest
+
+
+  browser-compatibility:
+    # Cross-engine CI signals: neither Playwright WebKit nor headless Firefox is
+    # a substitute for real-device/real-browser release certification (#72).
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [firefox, webkit]
+    env:
+      TELDRA_COMPAT_BROWSER: ${{ matrix.browser }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: true
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.8.1
+          run_install: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Pages application
+        run: pnpm pages:build
+
+      - name: Install selected browser
+        run: pnpm --filter @teldra/studio exec playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run compatibility signals
+        run: pnpm --filter @teldra/studio compatibility:test
+
+      - name: Retain execution evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: compat-${{ matrix.browser }}-${{ github.run_id }}
+          path: apps/studio/test-results
+          if-no-files-found: warn
