@@ -24,7 +24,7 @@ Release certification covers:
 
 A browser may use Babylon WebGL2 fallback when WebGPU is unavailable or fails capability checks. A project must not serialize different canonical meaning based on graphics backend.
 
-Playwright Chromium is the minimum PR browser gate. Firefox and WebKit are planned CI signals, but WebKit automation is not treated as equivalent to real Safari release certification.
+Playwright Chromium remains the primary PR browser gate. A separate Firefox/WebKit CI lane checks the deployed Pages shell, accessibility and manifest in both engines. When the CI runner exposes WebGL2, it also attempts the synthetic Studio project's 3D initialization and mobile navigation controls; without WebGL2 that test is explicitly skipped rather than misreported as a pass. These tests are cross-engine regression signals, not evidence of native Firefox or Safari functionality on a physical release device. Playwright WebKit is not equivalent to actual Safari or iOS/iPadOS certification.
 
 ## Accessibility
 
@@ -72,3 +72,64 @@ A release report should record at minimum:
 - renderer versions;
 - median and p95 frame/input/startup results;
 - peak measured memory where the platform exposes a reliable metric.
+
+
+## Executable browser/device certification
+
+`quality/browser-certification.json` is the versioned, deliberately untested matrix template.
+Its rows derive from the rolling release tiers in `quality/budgets.json`; a change to
+those tiers requires regenerating the baseline. The two result columns are the
+Babylon.js WebGL2 and WebGPU paths, not deck.gl WebGPU support.
+
+Run the following from the immutable release checkout:
+
+```sh
+node tools/quality/check-browser-certification.mjs --template > /tmp/teldra-browser-report.json
+pnpm browser:certification
+TELDRA_BROWSER_CERTIFICATION_REPORT=/tmp/teldra-browser-report.json pnpm browser:certification --release
+TELDRA_BROWSER_CERTIFICATION_REPORT=/tmp/teldra-browser-report.json pnpm release:check --release
+```
+
+Keep completed reports and their referenced traces/screenshots with the release
+evidence outside the source checkout; committing evidence back to the tested
+release commit would change its identity. The gate checks the report against the
+checkout's exact Git SHA. Normal quality CI validates the report shape and
+reports blockers without pretending that untested devices passed. Release mode
+rejects stale, incomplete, failed or malformed certification.
+
+For every browser/channel/platform row, exercise WebGL2 and WebGPU on reference
+hardware. Record the real browser and OS versions, device class/model and GPU,
+renderer version, viewport and DPR, test timestamp, reference project SHA-256,
+and a reference to the retained evidence. A result may be `not-tested`,
+`pass`, `fail` or (WebGPU only) `unavailable` with a documented capability
+probe (`capabilityProbe: "unsupported"` plus `reason`). A passing report must
+record `observedBackend` matching the result column. Do not report WebGPU
+initialization regressions as unavailability.
+A WebGPU waiver does not waive the WebGL2 fallback result.
+
+The evidence checks are reviewer attestations, not inferred from the user agent.
+Use `kind: "real-browser"` only for testing in the actual release browser on
+appropriate reference hardware; Playwright Chromium, WebKit, device emulation
+and synthesized input are useful regression signals, but are not device
+certification. Record navigation, canonical editing (including save/reopen),
+accessibility and performance check outcomes. Android, iOS and iPadOS additionally
+require physical touch, visual/haptic/audio feedback and PWA scenarios. In
+particular verify long press, multi-contact cancellation, orientation and
+safe areas, software keyboard and sheet behavior, reduced motion, screen
+reader operation, and optional feedback disabled/unavailable paths. An
+unsupported vibration API is not a failure if the visual alternative works.
+
+For passing results, record metrics in milliseconds except interactive FPS:
+`frameMedianMs`, `frameP95Ms`, `selectionP95Ms`, `cameraInputP95Ms`,
+`liveStateToVisualP95Ms`, `cachedStartupMs`, `interactiveFps`, and
+`coldStartupMs` on desktop. Frame median is compared with the frame-time
+target; p95 is retained for tail-latency review. The gate compares measured
+values to the existing budgets, including the minimum interactive FPS.
+Retain the workload and measurement method (including cache conditions and
+sample counts) in the referenced evidence so results can be independently reviewed.
+
+This contract validates submitted evidence metadata and budget results; it
+does not collect physical-device measurements, authenticate the underlying
+traces, or replace human accessibility review. Cross-engine automated CI,
+the reference workload measurement harness and actual device execution remain
+separate certification work.

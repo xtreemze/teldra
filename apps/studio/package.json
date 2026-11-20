@@ -13,7 +13,8 @@
     "storybook:test": "playwright test",
     "renderer:webgpu:certify": "node ../../tools/quality/run-webgpu-certification.mjs",
     "pages:test": "playwright test --config playwright.production.config.ts",
-    "pages:test:21d": "playwright test --config playwright.21d.config.ts"
+    "pages:test:21d": "playwright test --config playwright.21d.config.ts",
+    "compatibility:test": "playwright test --config playwright.compatibility.config.ts"
   },
   "dependencies": {
     "@teldra/application": "workspace:*",
