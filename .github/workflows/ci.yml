@@ -78,6 +78,9 @@ jobs:
       - name: Test deployed application paths and IFC editing
         run: pnpm --filter @teldra/studio pages:test
 
+      - name: Test real 21D furniture lifecycle (serial, large project)
+        run: pnpm --filter @teldra/studio pages:test:21d
+
       - name: Validate JSON syntax
         run: |
           python -m json.tool schemas/json/twin.schema.json >/dev/null

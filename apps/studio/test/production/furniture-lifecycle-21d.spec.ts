@@ -2,7 +2,8 @@ import {expect,test} from "@playwright/test";
 
 // Integrated check on the real 21D Sweet Home 3D project (git lfs pull examples/21d-sweethome3d), not a fixture.
 test("21D: duplicate, move, delete, undo/redo, save and reopen real furniture without touching its siblings",async({page},testInfo)=>{
- test.setTimeout(420000);
+ // Runs alone in playwright.21d.config.ts (see there): on a 2-vCPU runner web-ifc edits of the 64 MB IFC dominate.
+ test.setTimeout(900000);
  const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
  // Phase timings go to the CI log so a slow phase is visible without a trace.
  const phase=async<T>(name:string,body:()=>Promise<T>):Promise<T>=>test.step(name,async()=>{
@@ -11,8 +12,7 @@ test("21D: duplicate, move, delete, undo/redo, save and reopen real furniture wi
   finally{const line=`21D phase ${name}: ${Date.now()-start} ms`;console.log(line)}
  });
  await phase("open",async()=>{
-  page.on("console",m=>{if(m.text().startsWith("[tt]"))console.log(m.text())});
- await page.goto("./");
+  await page.goto("./");
   await expect(page.getByTestId("viewport-status")).toHaveText("ready",{timeout:150000});
  });
  const objects=page.getByRole("list",{name:"Building objects",exact:true});

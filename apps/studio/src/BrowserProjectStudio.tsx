@@ -61,7 +61,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     (props.openProject !== undefined || supportsBrowserTeldraFileAccess());
 
   const open = async (demo = false, launchedFile?: FileSystemFileHandle) => {
-    setOpening(true);const TT=performance.now();console.log("[tt] open start");
+    setOpening(true);
     setError("");
 
     try {
@@ -75,7 +75,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
             )
           : await props.openProject();
 
-      console.log("[tt] project opened",performance.now()-TT);const firstDevice = next.controller.twin.devices[0];
+      const firstDevice = next.controller.twin.devices[0];
       next.controller.selectCanonicalId(firstDevice?.id ?? null);
       const current = project();
       if (current?.controller.dirty && !window.confirm("This project has unsaved changes. Open another project and discard them?")) {

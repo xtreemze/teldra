@@ -251,10 +251,10 @@ export class BrowserTeldraFileStorage
     handle: BrowserTeldraFileHandle,
     recoveryStore: BrowserRecoveryStore = defaultRecoveryStore(),
   ): Promise<BrowserTeldraFileStorage> {
-    const T0=performance.now();
     const file = await handle.getFile();
-    const buf=new Uint8Array(await file.arrayBuffer());console.log("[tt] read",performance.now()-T0);
-    const archive = await openTeldraArchive(buf);console.log("[tt] decode",performance.now()-T0);
+    const archive = await openTeldraArchive(
+      new Uint8Array(await file.arrayBuffer()),
+    );
     return new BrowserTeldraFileStorage(handle, archive, recoveryStore);
   }
 
