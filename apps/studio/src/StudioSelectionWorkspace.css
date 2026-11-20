@@ -371,7 +371,13 @@
     font-size: .81rem;
     font-weight: 600;
   }
-  .teldra-studio-selection-workspace__mobile-header > button:last-child { margin-left: auto; }
+  .teldra-studio-selection-workspace .teldra-studio-selection-workspace__mobile-header > button {
+    flex: 0 0 auto;
+    min-width: 44px;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .teldra-studio-selection-workspace__mobile-header > button:last-child { margin-left: 0; }
   .teldra-studio-selection-workspace__mobile-header output {
     display: inline-flex;
     align-items: center;
@@ -414,6 +420,7 @@
     white-space: nowrap;
   }
   .teldra-studio-selection-workspace__mobile-header output { margin-left: .05rem; }
+  .teldra-studio-selection-workspace__mobile-header > button { padding-inline: .5rem; font-size: .78rem; }
 }
 
 /* CAD wall drafting belongs inside the Scene inspector, never the floating toolbar. */

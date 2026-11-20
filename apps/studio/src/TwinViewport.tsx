@@ -44,6 +44,9 @@ export interface TwinViewportProps {
   /** Optional mobile-only, non-IFC canvas gesture intents; handlers own undo/redo gating. */
   readonly onTouchGesture?: (kind: "menu" | "undo" | "redo" | "frame", identity?: TwinRenderIdentity) => void;
   readonly gesturesDisabled?: boolean;
+  /** When embedded, the workspace owns the mobile View trigger and menu visibility. */
+  readonly mobileViewOpen?: boolean | undefined;
+  readonly onMobileViewOpenChange?: ((open: boolean) => void) | undefined;
 }
 
 export function TwinViewport(props: TwinViewportProps) {
@@ -277,7 +280,9 @@ export function TwinViewport(props: TwinViewportProps) {
         selectedId={props.selectedCanonicalId === undefined ? selected()?.canonicalId : props.selectedCanonicalId ?? undefined}
         hasHiddenSourceContent={hasHiddenSourceContent()}
         hiddenSourceVisible={hiddenSourceVisible()}
-        onHiddenSourceVisibilityChange={changeHiddenSourceVisibility} />}</Show>
+        onHiddenSourceVisibilityChange={changeHiddenSourceVisibility}
+        mobileViewOpen={props.mobileViewOpen}
+        onMobileViewOpenChange={props.onMobileViewOpenChange} />}</Show>
       <div class="teldra-twin-viewport__status" aria-live="polite">
         <span data-testid="viewport-status">{status()}</span>
         <span data-testid="viewport-backend">{backend() ?? "pending"}</span>
