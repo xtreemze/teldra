@@ -1,5 +1,8 @@
 import { access, readFile } from "node:fs/promises";
 import process from "node:process";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { evaluateBrowserCertification } from "../quality/browser-certification.mjs";
 
 const policyUrl = new URL("../../release/policy.json", import.meta.url);
 const policy = JSON.parse(await readFile(policyUrl, "utf8"));
@@ -120,6 +123,18 @@ if (policy.licensing?.copiedSweetHome3DImplementationInPortableCore !== false) {
 }
 
 if (releaseMode) {
+  const quality = JSON.parse(await readFile(new URL("../../quality/budgets.json", import.meta.url), "utf8"));
+  const reportPath = process.env.TELDRA_BROWSER_CERTIFICATION_REPORT ??
+    new URL("../../quality/browser-certification.json", import.meta.url);
+  const report = JSON.parse(await readFile(reportPath, "utf8"));
+  const sourceCommit = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: fileURLToPath(repositoryRoot), encoding: "utf8",
+  }).trim();
+  const certification = evaluateBrowserCertification(quality, report, sourceCommit);
+  if (!certification.ready) {
+    throw new Error("Release readiness failed: browser certification is incomplete.\n" +
+      [...certification.errors, ...certification.blockers].join("\n"));
+  }
   try {
     await access(new URL(policy.reproducibility.toolchainManifest, repositoryRoot));
   } catch {
