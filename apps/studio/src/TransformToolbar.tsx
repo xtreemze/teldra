@@ -22,6 +22,9 @@ export interface TransformToolbarProps {
   /** Scale eligibility is only known once an IFC session is open. */
   readonly scale?: { readonly supported: boolean; readonly reason?: string } | undefined;
   readonly onSelectMode: (mode: TransformToolbarMode) => void;
+  /** Object lifecycle actions; omitted when the host cannot duplicate/delete the selection. */
+  readonly onDuplicate?: (() => void) | undefined;
+  readonly onDelete?: (() => void) | undefined;
 }
 
 const TOOLS: ReadonlyArray<{ mode: TransformToolbarMode; label: string; icon: "move" | "rotate" | "scale"; key: string; hint: string }> = [
@@ -51,6 +54,14 @@ export function TransformToolbar(props: TransformToolbarProps) {
             <StudioIcon name={tool.icon} /> {tool.label}
           </button>}
         </For>
+        <Show when={props.onDuplicate}>{run =>
+          <button type="button" aria-keyshortcuts="Shift+D" disabled={blocked() || props.ready === false}
+            title={props.unavailable?.reason ?? "Copy this object with a new identity, then move it (Shift+D)"} onClick={() => run()()}>Duplicate</button>}
+        </Show>
+        <Show when={props.onDelete}>{run =>
+          <button type="button" aria-keyshortcuts="X Delete" disabled={blocked() || props.ready === false}
+            title={props.unavailable?.reason ?? "Delete this object from the IFC after confirmation (X or Delete)"} onClick={() => run()()}>Delete</button>}
+        </Show>
       </div>
       <Show when={props.unavailable}>{info =>
         <p id="teldra-transform-unavailable" class="teldra-transform-toolbar__reason" role="status" data-testid="transform-unavailable-reason">

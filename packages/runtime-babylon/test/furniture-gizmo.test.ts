@@ -155,3 +155,29 @@ it("rejects animated or mixed-identity affine scenes without partial mesh mutati
     bridge.dispose();
   } finally {scene.dispose();engine.dispose();}
 });
+
+it("invalidate forgets measurements and base poses of replaced meshes and frees an affine hierarchy", () => {
+  const engine = new NullEngine(), scene = new Scene(engine);
+  try {
+    let meshes = [CreateBox("old", {}, scene)];
+    meshes[0]!.material = new StandardMaterial("source", scene);
+    const bridge = new FurnitureGizmoBridge(scene, C, () => meshes);
+    const before = bridge.measureSourceGeometry("chair", original);
+    bridge.applyMatrix({ canonicalId: "chair", matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1] });
+    const old = meshes[0]!;
+    old.dispose(false, false);
+    meshes = [CreateBox("regenerated", { width: 3 }, scene)];
+    meshes[0]!.material = old.material;
+    bridge.invalidate("chair", [old]);
+    // A fresh measurement reads the new mesh, and a fresh delta starts from the new mesh's own pose.
+    expect(bridge.measureSourceGeometry("chair", original)).not.toEqual(before);
+    bridge.applyMatrix({ canonicalId: "chair", matrix: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] });
+    expect(meshes[0]!.position.asArray()).toEqual([0, 0, 0]);
+    // Shearing edit builds an affine hierarchy; invalidate must dispose its transform nodes.
+    const nodesBefore = scene.transformNodes.length;
+    bridge.applyMatrix({ canonicalId: "chair", matrix: [2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] });
+    bridge.invalidate("chair", meshes);
+    expect(scene.transformNodes.length).toBeLessThanOrEqual(nodesBefore);
+    bridge.dispose();
+  } finally { scene.dispose(); engine.dispose(); }
+});

@@ -16,6 +16,8 @@ export interface SceneRegenerationRequest {
   readonly changedGlobalIds: readonly string[];
   /** Must read the IFC snapshot of exactly `revision`. */
   readonly tessellate: AsyncElementTessellator;
+  /** Overrides the coordinator's patch-size limit for this request (a deliberate full regeneration passes Infinity). */
+  readonly maxPatchElements?: number;
 }
 export type SceneRegenerationResult =
   | { readonly status: "applied"; readonly revision: number; readonly elements: readonly string[] }
@@ -34,6 +36,7 @@ export interface SceneRegenerationCoordinatorOptions {
   readonly initialRevision: number;
   readonly sink: SceneMeshSink;
   readonly resolveCanonicalId?: (globalId: string) => string | undefined;
+  readonly resolveMaterialSource?: (globalId: string) => string | undefined;
   readonly maxPatchElements?: number;
 }
 
@@ -98,7 +101,8 @@ export class SceneRegenerationCoordinator {
       nodes: this.#nodes, canonicalToScene: this.#options.canonicalToScene, changedGlobalIds: ids,
       tessellate: () => { if (!loaded) throw loadError ?? new Error("Tessellation unavailable."); return loaded; },
       ...(this.#options.resolveCanonicalId ? { resolveCanonicalId: this.#options.resolveCanonicalId } : {}),
-      ...(this.#options.maxPatchElements === undefined ? {} : { maxPatchElements: this.#options.maxPatchElements }),
+      ...(this.#options.resolveMaterialSource ? { resolveMaterialSource: this.#options.resolveMaterialSource } : {}),
+      ...((request.maxPatchElements ?? this.#options.maxPatchElements) === undefined ? {} : { maxPatchElements: (request.maxPatchElements ?? this.#options.maxPatchElements)! }),
     });
     if (plan.kind === "rebuild") return { status: "rebuild-required", revision, reason: plan.reason, detail: plan.detail };
     if (plan.kind === "noop") { this.#settle(revision, ids); return { status: "noop", revision }; }

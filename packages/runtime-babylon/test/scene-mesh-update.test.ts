@@ -6,6 +6,7 @@ import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { planSceneRegeneration, SceneRegenerationCoordinator, type ElementMesh, type SceneNodeRecord } from "@teldra/projection";
+import { createMeshBatch } from "../src/mesh-batching";
 import { applySceneMeshUpdate, type SceneMeshUpdateContext } from "../src/scene-mesh-update";
 import { SceneLayers } from "../src/view-controls";
 import type { TwinRenderIdentity } from "../src/identity";
@@ -24,13 +25,14 @@ const wall = (id: string, x: number): ElementMesh => ({ globalId: id, parts: [{
 let engine: NullEngine, scene: Scene, ctx: SceneMeshUpdateContext;
 let materials: Record<string, StandardMaterial>;
 const batchByPart = new Map<AbstractMesh, MeshBatch>();
+const batchesByMesh = new Map<AbstractMesh, MeshBatch>();
 
 beforeEach(() => {
   engine = new NullEngine(); scene = new Scene(engine);
   materials = {};
   const layers = new SceneLayers();
   ctx = { scene, layers, manifestByNodeKey: new Map(), identityByMesh: new WeakMap(), meshByNodeKey: new Map(),
-    meshesByCanonicalId: new Map(), renderMeshes: [], physicalMeshes: [], batchByPart, sourceHiddenMeshes: new Set() };
+    meshesByCanonicalId: new Map(), renderMeshes: [], physicalMeshes: [], batchByPart, batchesByMesh, sourceHiddenMeshes: new Set() };
   for (const id of [A, B, C]) {
     const mesh = CreateBox(`ifc:${id}:body`, {}, scene);
     const material = materials[id] = new StandardMaterial(`texture-${id}`, scene);
@@ -42,7 +44,7 @@ beforeEach(() => {
     layers.add(mesh, identity.canonicalId, false);
     ctx.renderMeshes.push(mesh); ctx.physicalMeshes.push(mesh);
   }
-  batchByPart.clear();
+  batchByPart.clear(); batchesByMesh.clear();
 });
 afterEach(() => { scene.dispose(); engine.dispose(); });
 
@@ -149,5 +151,156 @@ describe("applySceneMeshUpdate (Babylon adapter)", () => {
     expect(coordinator.reflectedRevision).toBe(2);
     expect(snapshot()).toEqual(keep);
     expect(ctx.meshByNodeKey.get(`ifc:${A}:body`)).toBeInstanceOf(Mesh);
+  });
+
+  describe("merged batches (Studio batches opaque parts by default)", () => {
+    const M = G("M");
+    /** Two parts of one canonical element folded into one merged mesh, registered exactly like runtime.load does. */
+    const addBatchedElement = () => {
+      const material = materials[M] = new StandardMaterial(`texture-${M}`, scene);
+      const parts = [0, 1].map((n) => {
+        const mesh = CreateBox(`ifc:${M}:body:${n}`, {}, scene); mesh.material = material;
+        const identity: TwinRenderIdentity = { nodeKey: `ifc:${M}:body:${n}`, canonicalId: `wall:${M}`, ifcGlobalId: M };
+        ctx.manifestByNodeKey.set(identity.nodeKey, identity); ctx.identityByMesh.set(mesh, identity);
+        ctx.meshByNodeKey.set(identity.nodeKey, mesh); ctx.layers.add(mesh, identity.canonicalId, false);
+        ctx.renderMeshes.push(mesh);
+        return { mesh, identity };
+      });
+      const batch = createMeshBatch(parts)!;
+      ctx.layers.addBatch(batch.mesh, parts.map((p) => p.mesh));
+      batchesByMesh.set(batch.mesh, batch); ctx.identityByMesh.set(batch.mesh, parts[0]!.identity);
+      for (const p of parts) batchByPart.set(p.mesh, batch);
+      ctx.meshesByCanonicalId.set(`wall:${M}`, [batch.mesh]); ctx.physicalMeshes.push(batch.mesh);
+      return { batch, parts: parts.map((p) => p.mesh) };
+    };
+    const nodesWithM = [...nodes, ...[0, 1].map((n) => ({ ...record(M), nodeKey: `ifc:${M}:body:${n}` }))];
+    const planM = (table: Record<string, ElementMesh | null>) => {
+      const result = planSceneRegeneration({ nodes: nodesWithM, canonicalToScene: Y_UP, changedGlobalIds: [M],
+        tessellate: (ids) => new Map(ids.map((id) => [id, table[id] ?? null])), resolveCanonicalId: (id) => `wall:${id}` });
+      if (result.kind !== "patch") throw new Error(result.kind);
+      return result.update;
+    };
+    const twoPart = (): ElementMesh => ({ globalId: M, parts: [wall(M, 0).parts[0]!, wall(M, 3).parts[0]!] });
+    it("replaces a fully batched element: merged mesh and parts are retired with no registry leftovers; material survives", () => {
+      const { batch, parts } = addBatchedElement();
+      expect(applySceneMeshUpdate(ctx, planM({ [M]: twoPart() }))).toEqual({ ok: true });
+      expect(batch.mesh.isDisposed()).toBe(true);
+      expect(parts.every((m) => m.isDisposed())).toBe(true);
+      expect(batchesByMesh.size).toBe(0); expect(batchByPart.size).toBe(0);
+      expect(ctx.physicalMeshes).not.toContain(batch.mesh);
+      const fresh = ctx.meshesByCanonicalId.get(`wall:${M}`)!;
+      expect(fresh).toHaveLength(2);
+      expect(fresh.every((m) => !m.isDisposed() && m.material === materials[M] && ctx.physicalMeshes.includes(m))).toBe(true);
+      expect(scene.materials).toContain(materials[M]!);
+    });
+    it("removes a batched element entirely", () => {
+      const { batch, parts } = addBatchedElement();
+      expect(applySceneMeshUpdate(ctx, planM({ [M]: null }))).toEqual({ ok: true });
+      expect([batch.mesh, ...parts].every((m) => m.isDisposed())).toBe(true);
+      expect(ctx.meshesByCanonicalId.has(`wall:${M}`)).toBe(false);
+      expect(ctx.physicalMeshes.some((m) => m.name.includes(M))).toBe(false);
+      expect(scene.meshes.filter((m) => m.name.includes(M))).toHaveLength(0);
+    });
+    it("refuses (without touching anything) when a batch also holds a part the update does not replace", () => {
+      const { batch } = addBatchedElement();
+      const only = planM({ [M]: twoPart() });
+      const partial = { ...only, replace: [{ ...only.replace[0]!, previousNodeKeys: [`ifc:${M}:body:0`] }] };
+      const before = snapshot();
+      const result = applySceneMeshUpdate(ctx, partial);
+      expect(result).toMatchObject({ ok: false });
+      expect(snapshot()).toEqual(before);
+      expect(batch.mesh.isDisposed()).toBe(false);
+    });
+  });
+  describe("duplicates", () => {
+    it("a new element shares its named source's material (no clone, no extra material) and keeps the source's layer metadata", () => {
+      const before = scene.materials.length;
+      const result = planSceneRegeneration({ nodes, canonicalToScene: Y_UP, changedGlobalIds: [NEW],
+        tessellate: (ids) => new Map(ids.map((id) => [id, wall(id, 1)])), resolveCanonicalId: (id) => `wall:${id}`,
+        resolveMaterialSource: () => A });
+      if (result.kind !== "patch") throw new Error(result.kind);
+      expect(applySceneMeshUpdate(ctx, result.update)).toEqual({ ok: true });
+      const copy = ctx.meshByNodeKey.get(`ifc:${NEW}:body`)!;
+      expect(copy.material).toBe(materials[A]);
+      expect(scene.materials.length).toBe(before);
+      expect(copy.metadata.gltf.extras.teldraSourceLayer).toEqual({ levelId: "L1", levelName: "Level 1" });
+      expect(ctx.meshByNodeKey.get(`ifc:${A}:body`)!.material).toBe(materials[A]);
+    });
+    it("removing the copy disposes only its own geometry, never the shared source material; neutral fallback materials are freed", () => {
+      const add = (source?: string) => {
+        const r = planSceneRegeneration({ nodes, canonicalToScene: Y_UP, changedGlobalIds: [NEW],
+          tessellate: (ids) => new Map(ids.map((id) => [id, wall(id, 1)])), resolveCanonicalId: (id) => `wall:${id}`,
+          ...(source ? { resolveMaterialSource: () => source } : {}) });
+        if (r.kind !== "patch") throw new Error(r.kind);
+        return applySceneMeshUpdate(ctx, r.update);
+      };
+      const remove = () => {
+        const r = planSceneRegeneration({ nodes: [...nodes, record(NEW)], canonicalToScene: Y_UP, changedGlobalIds: [NEW], tessellate: (ids) => new Map(ids.map((id) => [id, null])) });
+        if (r.kind !== "patch") throw new Error(r.kind);
+        return applySceneMeshUpdate(ctx, r.update);
+      };
+      const ownMaterials = () => scene.materials.filter((m) => m.name !== "default material").length;
+      const baseline = ownMaterials(), baselineMeshes = scene.meshes.length;
+      expect(add(A)).toEqual({ ok: true }); expect(remove()).toEqual({ ok: true });
+      expect(scene.materials).toContain(materials[A]!);
+      expect(ownMaterials()).toBe(baseline); expect(scene.meshes.length).toBe(baselineMeshes);
+      expect(add()).toEqual({ ok: true }); expect(ownMaterials()).toBe(baseline + 1);
+      expect(remove()).toEqual({ ok: true });
+      expect(ownMaterials()).toBe(baseline); expect(scene.meshes.length).toBe(baselineMeshes);
+    });
+  });
+});
+
+describe("GPU resource lifecycle", () => {
+  const dupOf = (source?: string) => {
+    const r = planSceneRegeneration({ nodes, canonicalToScene: Y_UP, changedGlobalIds: [NEW],
+      tessellate: (ids) => new Map(ids.map((id) => [id, wall(id, 1)])), resolveCanonicalId: (id) => `wall:${id}`,
+      ...(source ? { resolveMaterialSource: () => source } : {}) });
+    if (r.kind !== "patch") throw new Error(r.kind);
+    return r.update;
+  };
+  const removeNew = () => {
+    const r = planSceneRegeneration({ nodes: [...nodes, record(NEW)], canonicalToScene: Y_UP, changedGlobalIds: [NEW], tessellate: (ids) => new Map(ids.map((id) => [id, null])) });
+    if (r.kind !== "patch") throw new Error(r.kind);
+    return r.update;
+  };
+  const counts = () => ({ meshes: scene.meshes.length, geometries: scene.geometries.length, materials: scene.materials.filter((m) => m.name !== "default material").length,
+    textures: scene.textures.length, registry: ctx.meshByNodeKey.size, physical: ctx.physicalMeshes.length, render: ctx.renderMeshes.length, layers: JSON.stringify(ctx.layers.list()) });
+  it("50 duplicate/delete cycles (shared material and neutral material) leak no meshes, geometries, materials, textures or registry entries", () => {
+    const baseline = counts();
+    for (let i = 0; i < 50; i++) {
+      expect(applySceneMeshUpdate(ctx, dupOf(i % 2 ? A : undefined))).toEqual({ ok: true });
+      expect(counts().meshes).toBe(baseline.meshes + 1);
+      expect(applySceneMeshUpdate(ctx, removeNew())).toEqual({ ok: true });
+    }
+    expect(counts()).toEqual(baseline);
+  });
+  it("50 replace cycles of one element keep exactly one live mesh and the original material", () => {
+    const baseline = counts();
+    for (let i = 0; i < 50; i++) expect(applySceneMeshUpdate(ctx, plan([A], { [A]: wall(A, i) }))).toEqual({ ok: true });
+    expect(counts()).toEqual(baseline);
+    expect(ctx.meshByNodeKey.get(`ifc:${A}:body`)!.material).toBe(materials[A]);
+  });
+  it("a failed staging after partial work disposes everything it created (no orphan meshes or materials)", () => {
+    const baseline = counts();
+    const good = dupOf();
+    const bad = { ...good, add: [...good.add, { ...good.add[0]!, globalId: G("Q"), parts: [{ ...good.add[0]!.parts[0]!, node: { ...good.add[0]!.parts[0]!.node, nodeKey: "ifc:Q:body" }, indices: new Uint32Array([0, 1, 99]) }] }] };
+    expect(applySceneMeshUpdate(ctx, bad)).toMatchObject({ ok: false });
+    expect(counts()).toEqual(baseline);
+  });
+});
+
+describe("duplicates of hidden source content", () => {
+  it("a copy borrows the source's material but not its hidden-source visibility", () => {
+    const source = ctx.meshByNodeKey.get(`ifc:${A}:body`)!;
+    ctx.sourceHiddenMeshes.add(source); ctx.layers.add(CreateBox("x", {}, scene), "wall:x", true);
+    const r = planSceneRegeneration({ nodes, canonicalToScene: Y_UP, changedGlobalIds: [NEW],
+      tessellate: (ids) => new Map(ids.map((id) => [id, wall(id, 1)])), resolveCanonicalId: (id) => `wall:${id}`, resolveMaterialSource: () => A });
+    if (r.kind !== "patch") throw new Error(r.kind);
+    expect(applySceneMeshUpdate(ctx, r.update)).toEqual({ ok: true });
+    const copy = ctx.meshByNodeKey.get(`ifc:${NEW}:body`)!;
+    expect(copy.material).toBe(materials[A]);
+    expect(ctx.sourceHiddenMeshes.has(copy)).toBe(false);
+    expect(copy.isEnabled()).toBe(true);
   });
 });

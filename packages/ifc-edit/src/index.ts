@@ -1,4 +1,6 @@
 import { IfcAPI, IFCRELFILLSELEMENT, IFCLIGHTFIXTURE, IFCBUILDINGELEMENTPROXY, IFCFURNITURE, IFCPROJECT, IFCSIUNIT, IFCLOCALPLACEMENT, IFCAXIS2PLACEMENT3D, IFCCARTESIANPOINT, IFCDIRECTION, IFCLENGTHMEASURE, IFCREAL, IFCPRODUCT, IFCPRODUCTDEFINITIONSHAPE, IFCSHAPEREPRESENTATION, IFCMAPPEDITEM, IFCREPRESENTATIONMAP, IFCCARTESIANTRANSFORMATIONOPERATOR3D, IFCCARTESIANTRANSFORMATIONOPERATOR3DNONUNIFORM, IFCRELDEFINESBYPROPERTIES, IFCPROPERTYSET, IFCPROPERTYSINGLEVALUE, IFCTRIANGULATEDFACESET, IFCCARTESIANPOINTLIST3D } from "web-ifc";
+import { IFCRELCONTAINEDINSPATIALSTRUCTURE, IFCRELDEFINESBYTYPE, IFCRELASSOCIATES, IFCRELATIONSHIP, IFCROOT, IFCSTYLEDITEM, IFCPRESENTATIONLAYERASSIGNMENT, IFCGEOMETRICREPRESENTATIONCONTEXT, IFCGEOMETRICREPRESENTATIONSUBCONTEXT, IFCOWNERHISTORY, IFCGLOBALLYUNIQUEID, IFCLABEL, Handle } from "web-ifc";
+import * as ifcTypes from "web-ifc";
 import { chain, epsilon, model, numeric, type FurniturePose, type Line } from "./ifc-session.js";
 export type { FurniturePose } from "./ifc-session.js";
 export * from "./wall.js";
@@ -29,20 +31,23 @@ function find(api: IfcAPI, modelID: number, guid: string): Line {
 export function readFurniturePose(api: IfcAPI, bytes: Uint8Array, guid: string): FurniturePose {
   return model(api, bytes, (id) => chain(api, id, find(api, id, guid).ObjectPlacement).pose);
 }
+function applyPose(api: IfcAPI, id: number, furniture: Line, pose: FurniturePose): void {
+  const { parent, relativeParent } = chain(api, id, furniture.ObjectPlacement);
+  const dx = pose.position[0] - parent.position[0], dy = pose.position[1] - parent.position[1];
+  const c = Math.cos(parent.yawRadians), s = Math.sin(parent.yawRadians), yaw = pose.yawRadians - parent.yawRadians;
+  const number = (value: number) => api.CreateIfcType(id, IFCLENGTHMEASURE, value);
+  const real = (value: number) => api.CreateIfcType(id, IFCREAL, value);
+  const point = api.CreateIfcEntity(id, IFCCARTESIANPOINT, [number(c * dx + s * dy), number(-s * dx + c * dy), number(pose.position[2] - parent.position[2])]);
+  const axis = api.CreateIfcEntity(id, IFCDIRECTION, [real(0), real(0), real(1)]);
+  const direction = api.CreateIfcEntity(id, IFCDIRECTION, [real(Math.cos(yaw)), real(Math.sin(yaw)), real(0)]);
+  const relative = api.CreateIfcEntity(id, IFCAXIS2PLACEMENT3D, point, axis, direction);
+  furniture.ObjectPlacement = api.CreateIfcEntity(id, IFCLOCALPLACEMENT, relativeParent, relative);
+  api.WriteLine(id, furniture);
+}
 export function writeFurniturePose(api: IfcAPI, bytes: Uint8Array, guid: string, pose: FurniturePose): Uint8Array {
   if (pose.position.length !== 3 || ![...pose.position, pose.yawRadians].every(Number.isFinite)) throw new Error("Furniture pose must be finite.");
   return model(api, bytes, (id) => {
-    const furniture = find(api, id, guid); const { parent, relativeParent } = chain(api, id, furniture.ObjectPlacement);
-    const dx = pose.position[0] - parent.position[0], dy = pose.position[1] - parent.position[1];
-    const c = Math.cos(parent.yawRadians), s = Math.sin(parent.yawRadians), yaw = pose.yawRadians - parent.yawRadians;
-    const number = (value: number) => api.CreateIfcType(id, IFCLENGTHMEASURE, value);
-    const real = (value: number) => api.CreateIfcType(id, IFCREAL, value);
-    const point = api.CreateIfcEntity(id, IFCCARTESIANPOINT, [number(c * dx + s * dy), number(-s * dx + c * dy), number(pose.position[2] - parent.position[2])]);
-    const axis = api.CreateIfcEntity(id, IFCDIRECTION, [real(0), real(0), real(1)]);
-    const direction = api.CreateIfcEntity(id, IFCDIRECTION, [real(Math.cos(yaw)), real(Math.sin(yaw)), real(0)]);
-    const relative = api.CreateIfcEntity(id, IFCAXIS2PLACEMENT3D, point, axis, direction);
-    furniture.ObjectPlacement = api.CreateIfcEntity(id, IFCLOCALPLACEMENT, relativeParent, relative);
-    api.WriteLine(id, furniture);
+    applyPose(api, id, find(api, id, guid), pose);
     return api.SaveModel(id);
   });
 }
@@ -245,5 +250,229 @@ export function readFurnitureSourceDimensions(
       readLength("SourceDepthMetres"),
       readLength("SourceHeightMetres"),
     ];
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Furniture lifecycle: duplicate and remove. IFC bytes in, new IFC bytes out.
+// ---------------------------------------------------------------------------
+
+export type FurnitureLifecycleErrorCode =
+  | "not-found" | "invalid-global-id" | "duplicate-global-id"
+  | "hosted-element" | "dependent-placement" | "unsupported-relation" | "unsupported-model";
+/** Explicit, machine-readable refusal. The input bytes are never modified. */
+export class FurnitureLifecycleError extends Error {
+  readonly code: FurnitureLifecycleErrorCode;
+  constructor(code: FurnitureLifecycleErrorCode, message: string, cause?: unknown) { super(message, cause === undefined ? undefined : { cause }); this.name = "FurnitureLifecycleError"; this.code = code; }
+}
+/** Compressed IFC GlobalId: 22 chars of [0-9A-Za-z_$], first char 0-3 (128 bits). */
+const GLOBAL_ID_PATTERN = /^[0-3][0-9A-Za-z_$]{21}$/;
+const BASE64_IFC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
+/** Deterministic, valid IFC GlobalId derived from a seed GlobalId and a label (for owned relations/property sets). */
+export function deriveGlobalId(seed: string, label: string, attempt = 0): string {
+  const mask = (1n << 64n) - 1n;
+  const fnv = (offset: bigint) => { let h = offset; for (const ch of `${seed}|${label}|${attempt}`) { h ^= BigInt(ch.codePointAt(0)!); h = (h * 0x100000001b3n) & mask; } return h; };
+  const value = (fnv(0xcbf29ce484222325n) << 64n) | fnv(0x84222325cbf29ce4n);
+  let text = BASE64_IFC[Number((value >> 126n) & 3n)]!;
+  for (let shift = 120n; shift >= 0n; shift -= 6n) text += BASE64_IFC[Number((value >> shift) & 63n)]!;
+  return text;
+}
+
+const sharedGeometryTypes = new Set<number>([IFCGEOMETRICREPRESENTATIONCONTEXT, IFCGEOMETRICREPRESENTATIONSUBCONTEXT,
+  IFCREPRESENTATIONMAP, IFCOWNERHISTORY, IFCSIUNIT]);
+const bookkeeping = new Set(["expressID", "type"]);
+
+function lifecycleFind(api: IfcAPI, id: number, guid: string): Line {
+  try { return find(api, id, guid); }
+  catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const code: FurnitureLifecycleErrorCode = message.includes("host-aware") ? "hosted-element"
+      : message.includes("dependent IFC placements") ? "dependent-placement"
+      : message.startsWith("Expected one") ? "not-found" : "unsupported-model";
+    throw new FurnitureLifecycleError(code, message);
+  }
+}
+function lifecycleModel<T>(api: IfcAPI, bytes: Uint8Array, run: (id: number) => T): T {
+  try { return model(api, bytes, run); }
+  catch (error) {
+    if (error instanceof FurnitureLifecycleError) throw error;
+    throw new FurnitureLifecycleError("unsupported-model", error instanceof Error ? error.message : String(error), error);
+  }
+}
+function childRefs(value: any, out: number[] = []): number[] {
+  if (Array.isArray(value)) value.forEach(item => childRefs(item, out));
+  else if (value && value.type === 5 && Number.isInteger(value.value)) out.push(value.value);
+  return out;
+}
+const lineRefs = (line: Line): number[] =>
+  childRefs(Object.entries(line).filter(([key]) => !bookkeeping.has(key)).map(([, value]) => value));
+/** inverse[target] = ids of lines that hold a reference to target. */
+function inverseReferences(api: IfcAPI, id: number): Map<number, Set<number>> {
+  const inverse = new Map<number, Set<number>>();
+  const all = api.GetAllLines(id);
+  for (let i = 0; i < all.size(); i++) {
+    const lineId = all.get(i);
+    for (const target of lineRefs(api.GetLine(id, lineId) as Line)) {
+      let set = inverse.get(target); if (!set) inverse.set(target, set = new Set());
+      set.add(lineId);
+    }
+  }
+  return inverse;
+}
+function typeSet(api: IfcAPI, id: number, type: number): Set<number> {
+  const ids = api.GetLineIDsWithType(id, type, true); const set = new Set<number>();
+  for (let i = 0; i < ids.size(); i++) set.add(ids.get(i)); return set;
+}
+function takenGlobalIds(api: IfcAPI, id: number): Set<string> {
+  const taken = new Set<string>(); const ids = api.GetLineIDsWithType(id, IFCROOT, true);
+  for (let i = 0; i < ids.size(); i++) { const g = (api.GetLine(id, ids.get(i)) as Line).GlobalId?.value; if (typeof g === "string") taken.add(g); }
+  return taken;
+}
+
+export interface DuplicateFurnitureOptions {
+  /** World-frame (IFC metres, Z up) displacement of the copy from the source; default none. */
+  readonly offset?: readonly [number, number, number];
+  /** Optional name for the copy; defaults to the source name. */
+  readonly name?: string;
+}
+/**
+ * Copies one furniture/fixture/proxy element under a caller-supplied GlobalId.
+ * The copy keeps the source's spatial containment, type and material (and other
+ * IfcRelAssociates) memberships, gets its own placement and owned geometry
+ * instances (shared IfcRepresentationMap sources stay shared), and a deep copy
+ * of single-object property sets (e.g. Teldra_Source provenance).
+ * Relations of other kinds (groups, connections, aggregates) are not copied.
+ */
+export function duplicateFurniture(api: IfcAPI, bytes: Uint8Array, sourceGuid: string, newGuid: string,
+  options: DuplicateFurnitureOptions = {}): Uint8Array {
+  if (!GLOBAL_ID_PATTERN.test(newGuid)) throw new FurnitureLifecycleError("invalid-global-id", "A compressed 22-character IFC GlobalId is required for the copy.");
+  const offset = options.offset ?? [0, 0, 0];
+  if (offset.length !== 3 || !offset.every(Number.isFinite)) throw new FurnitureLifecycleError("unsupported-model", "Duplicate offset must be three finite metres.");
+  return lifecycleModel(api, bytes, id => {
+    const source = lifecycleFind(api, id, sourceGuid);
+    const taken = takenGlobalIds(api, id);
+    if (taken.has(newGuid)) throw new FurnitureLifecycleError("duplicate-global-id", "The IFC GlobalId is already used by another entity.");
+    const inverse = inverseReferences(api, id);
+    const relationships = typeSet(api, id, IFCRELATIONSHIP);
+    const associates = typeSet(api, id, IFCRELASSOCIATES);
+    const memo = new Map<number, number>();
+    const derived = (label: string) => { let attempt = 0, value: string; do value = deriveGlobalId(newGuid, label, attempt++); while (taken.has(value)); taken.add(value); return value; };
+    // web-ifc reads typed values (IfcLabel, IfcLengthMeasure, ...) as wrapper instances whose browser build cannot be written back
+    // directly; re-create each through the API so the copy is written identically in Node and the browser.
+    const retype = (value: any): any => Array.isArray(value) ? value.map(retype)
+      : value && typeof value === "object" && value.type !== 5 && typeof value.name === "string" && (ifcTypes as any)[value.name] !== undefined && "value" in value
+        ? api.CreateIfcType(id, (ifcTypes as any)[value.name], value.value) : value;
+    const write = (line: any): number => {
+      for (const key of Object.keys(line)) if (!bookkeeping.has(key)) line[key] = retype(line[key]);
+      line.expressID = -1; api.WriteLine(id, line); return line.expressID;
+    };
+    const remap = (value: any): any => Array.isArray(value) ? value.map(remap)
+      : value && value.type === 5 && Number.isInteger(value.value) ? new Handle(clone(value.value)) : value;
+    const label = (text: string) => api.CreateIfcType(id, IFCLABEL, text);
+    const guidValue = (text: string) => api.CreateIfcType(id, IFCGLOBALLYUNIQUEID, text);
+    function clone(oldId: number): number {
+      const known = memo.get(oldId); if (known !== undefined) return known;
+      const line = api.GetLine(id, oldId) as Line;
+      if (sharedGeometryTypes.has(line.type)) return oldId;
+      const copy: any = { ...line };
+      for (const key of Object.keys(copy)) if (!bookkeeping.has(key)) copy[key] = remap(copy[key]);
+      const created = write(copy); memo.set(oldId, created);
+      for (const referrer of inverse.get(oldId) ?? []) {
+        const other = api.GetLine(id, referrer) as Line;
+        if (other.type === IFCSTYLEDITEM && other.Item?.value === oldId) write({ ...other, Item: new Handle(created) });
+        else if (other.type === IFCPRESENTATIONLAYERASSIGNMENT) { other.AssignedItems = [...other.AssignedItems, new Handle(created)]; api.WriteLine(id, other); }
+      }
+      return created;
+    }
+    // Element: own placement (parent chain shared) and owned geometry instances.
+    const placement = api.GetLine(id, source.ObjectPlacement.value) as Line;
+    const placementId = write({ ...placement, RelativePlacement: new Handle(clone(placement.RelativePlacement.value)) });
+    const element: any = { ...source, ObjectPlacement: new Handle(placementId),
+      Representation: source.Representation ? new Handle(clone(source.Representation.value)) : source.Representation };
+    element.GlobalId = guidValue(newGuid);
+    if (options.name !== undefined) element.Name = label(options.name);
+    const copyId = write(element);
+    // Relations naming the source.
+    for (const relId of inverse.get(source.expressID) ?? []) {
+      if (!relationships.has(relId)) continue;
+      const rel = api.GetLine(id, relId) as Line;
+      const append = (field: "RelatedElements" | "RelatedObjects") => { rel[field] = [...rel[field], new Handle(copyId)]; api.WriteLine(id, rel); };
+      if (rel.type === IFCRELCONTAINEDINSPATIALSTRUCTURE) append("RelatedElements");
+      else if (rel.type === IFCRELDEFINESBYTYPE) append("RelatedObjects");
+      else if (rel.type === IFCRELDEFINESBYPROPERTIES) {
+        if (rel.RelatedObjects.length === 1) {
+          const pset: any = { ...(api.GetLine(id, rel.RelatingPropertyDefinition.value) as Line) };
+          if (pset.HasProperties) pset.HasProperties = remap(pset.HasProperties);
+          if (pset.GlobalId) pset.GlobalId = guidValue(derived("pset:" + relId));
+          const psetId = write(pset);
+          write({ ...rel, GlobalId: guidValue(derived("rel:" + relId)),
+            RelatedObjects: [new Handle(copyId)], RelatingPropertyDefinition: new Handle(psetId) });
+        } else append("RelatedObjects");
+      } else if (associates.has(relId)) append("RelatedObjects");
+    }
+    if (offset.some(v => v !== 0)) {
+      const copy = api.GetLine(id, copyId) as Line;
+      const pose = chain(api, id, copy.ObjectPlacement).pose;
+      applyPose(api, id, copy, { position: [pose.position[0] + offset[0], pose.position[1] + offset[1], pose.position[2] + offset[2]], yawRadians: pose.yawRadians });
+    }
+    return api.SaveModel(id);
+  });
+}
+
+/**
+ * Removes one furniture/fixture/proxy element and the data it owns: containment, type,
+ * material/associate and property-set memberships, its placement and geometry instances
+ * (shared IfcRepresentationMap sources, types and materials survive).
+ * Refuses with `unsupported-relation` when any other relation or entity references the element.
+ */
+export function removeFurniture(api: IfcAPI, bytes: Uint8Array, guid: string): Uint8Array {
+  return lifecycleModel(api, bytes, id => {
+    const source = lifecycleFind(api, id, guid);
+    const inverse = inverseReferences(api, id);
+    const relationships = typeSet(api, id, IFCRELATIONSHIP);
+    const associates = typeSet(api, id, IFCRELASSOCIATES);
+    const plan: { rel: Line; field: "RelatedElements" | "RelatedObjects" }[] = [];
+    for (const referrer of inverse.get(source.expressID) ?? []) {
+      const rel = api.GetLine(id, referrer) as Line;
+      const field = rel.type === IFCRELCONTAINEDINSPATIALSTRUCTURE ? "RelatedElements"
+        : rel.type === IFCRELDEFINESBYTYPE || rel.type === IFCRELDEFINESBYPROPERTIES || associates.has(referrer) ? "RelatedObjects" : null;
+      if (!relationships.has(referrer) || field === null) throw new FurnitureLifecycleError("unsupported-relation",
+        `The element is referenced by ${api.GetNameFromTypeCode(rel.type).replace(/^IFC/, "Ifc")}, which cannot be safely cleaned. Remove that relation in the IFC authoring tool first.`);
+      plan.push({ rel, field });
+    }
+    const deleted = new Set<number>();
+    const presentation = (referrer: number, target: number) => {
+      const other = api.GetLine(id, referrer) as Line;
+      return (other.type === IFCSTYLEDITEM && other.Item?.value === target) || other.type === IFCPRESENTATIONLAYERASSIGNMENT;
+    };
+    function release(target: number): void {
+      if (deleted.has(target)) return;
+      const line = api.GetLine(id, target) as Line;
+      if (sharedGeometryTypes.has(line.type)) return;
+      if ([...(inverse.get(target) ?? [])].some(r => !deleted.has(r) && !presentation(r, target))) return;
+      deleted.add(target);
+      for (const referrer of inverse.get(target) ?? []) {
+        if (deleted.has(referrer)) continue;
+        const other = api.GetLine(id, referrer) as Line;
+        if (other.type === IFCSTYLEDITEM) { deleted.add(referrer); api.DeleteLine(id, referrer); }
+        else if (other.type === IFCPRESENTATIONLAYERASSIGNMENT) {
+          other.AssignedItems = other.AssignedItems.filter((item: any) => item.value !== target); api.WriteLine(id, other);
+        }
+      }
+      api.DeleteLine(id, target);
+      for (const child of lineRefs(line)) release(child);
+    }
+    for (const { rel, field } of plan) {
+      const remaining = rel[field].filter((item: any) => item.value !== source.expressID);
+      if (remaining.length > 0) { rel[field] = remaining; api.WriteLine(id, rel); continue; }
+      deleted.add(rel.expressID); api.DeleteLine(id, rel.expressID);
+      // Only owned property definitions go with an emptied relation; types, materials and structures are shared entities.
+      if (rel.type === IFCRELDEFINESBYPROPERTIES) release(rel.RelatingPropertyDefinition.value);
+    }
+    deleted.add(source.expressID);
+    api.DeleteLine(id, source.expressID);
+    for (const child of lineRefs(source)) release(child);
+    return api.SaveModel(id);
   });
 }

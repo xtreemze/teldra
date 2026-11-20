@@ -449,11 +449,20 @@ export async function createBabylonTwinRuntime(
     applySceneMeshUpdate(update, revision) {
       if (disposed || loading) return { ok: false, error: new Error("Viewport is not ready for a mesh update.") };
       const context: SceneMeshUpdateContext = {
-        scene, manifestByNodeKey, identityByMesh, meshByNodeKey, meshesByCanonicalId, batchByPart,
+        scene, manifestByNodeKey, identityByMesh, meshByNodeKey, meshesByCanonicalId, batchByPart, batchesByMesh,
         sourceHiddenMeshes, layers, renderMeshes, physicalMeshes,
       };
+      const touched = new Map<string, AbstractMesh[]>();
+      for (const element of [...update.replace, ...update.remove])
+        touched.set(element.canonicalId, [...(touched.get(element.canonicalId) ?? []), ...(meshesByCanonicalId.get(element.canonicalId) ?? [])]);
       const result = applySceneMeshUpdate(context, update);
       if (result.ok) {
+        // Regenerated meshes already carry canonical IFC truth: no projected placement delta may survive on them.
+        for (const [id, olds] of touched) furniture.invalidate(id, olds);
+        if (touched.size) {
+          for (const id of touched.keys()) projectedPlacementIds.delete(id);
+          committedPlacements = committedPlacements.filter((placement) => !touched.has(placement.canonicalId));
+        }
         sceneMeshRevision = revision;
         if (lightingProfile !== "preview") assignSourceLights(scene, physicalMeshes);
       }

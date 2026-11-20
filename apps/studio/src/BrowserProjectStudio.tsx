@@ -61,7 +61,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     (props.openProject !== undefined || supportsBrowserTeldraFileAccess());
 
   const open = async (demo = false, launchedFile?: FileSystemFileHandle) => {
-    setOpening(true);
+    setOpening(true);const TT=performance.now();console.log("[tt] open start");
     setError("");
 
     try {
@@ -75,7 +75,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
             )
           : await props.openProject();
 
-      const firstDevice = next.controller.twin.devices[0];
+      console.log("[tt] project opened",performance.now()-TT);const firstDevice = next.controller.twin.devices[0];
       next.controller.selectCanonicalId(firstDevice?.id ?? null);
       const current = project();
       if (current?.controller.dirty && !window.confirm("This project has unsaved changes. Open another project and discard them?")) {
@@ -181,8 +181,10 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
           </section>
         }
       >
+        {/* keyed: opening another project must dispose the previous workspace, viewport and 3D scene, not reuse them. */}
         <Show
           when={project()}
+          keyed
           fallback={
             <section class="teldra-browser-studio__empty">
               <p class="teldra-browser-studio__eyebrow">GET STARTED</p>
@@ -196,7 +198,8 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
             </section>
           }
         >
-          {(ready) => {
+          {(openProject) => {
+            const ready = () => openProject;
             const firstDevice = () => ready().controller.twin.devices[0];
             return (
               <section class="teldra-browser-studio__workspace">

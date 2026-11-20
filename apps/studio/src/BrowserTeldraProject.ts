@@ -4,7 +4,7 @@ import {
   openProjectPersistence,
   openTeldraArchive,
   replaceTeldraTwin,
-  replaceTeldraBuilding,
+  applyTeldraBuilding,
   rebakeTeldraSceneCopy,
   readScenePlacementOverrides,
   type ScenePlacementOverride,
@@ -251,10 +251,10 @@ export class BrowserTeldraFileStorage
     handle: BrowserTeldraFileHandle,
     recoveryStore: BrowserRecoveryStore = defaultRecoveryStore(),
   ): Promise<BrowserTeldraFileStorage> {
+    const T0=performance.now();
     const file = await handle.getFile();
-    const archive = await openTeldraArchive(
-      new Uint8Array(await file.arrayBuffer()),
-    );
+    const buf=new Uint8Array(await file.arrayBuffer());console.log("[tt] read",performance.now()-T0);
+    const archive = await openTeldraArchive(buf);console.log("[tt] decode",performance.now()-T0);
     return new BrowserTeldraFileStorage(handle, archive, recoveryStore);
   }
 
@@ -384,12 +384,11 @@ export class BrowserTeldraFileStorage
     project: StoredProject<TwinProject>,
   ): Promise<string> {
     this.#assertWriteOwner(projectKey, ownerId);
-    const replacement = await replaceTeldraTwin(
-      this.#archive,
-      project.canonical,
-    );
     const building = project.derived as StudioBuildingData | undefined;
-    const combined = building === undefined ? replacement : await replaceTeldraBuilding(replacement.archive, building.bytes, building.scene, building.placements);
+    // Building first: the stored placement record is validated against the twin it was saved with. Replacing the twin first
+    // would reject a record that still names furniture removed in this very save.
+    const withBuilding = building === undefined ? this.#archive : await applyTeldraBuilding(this.#archive, building.bytes, building.scene, building.placements);
+    const combined = await replaceTeldraTwin(withBuilding, project.canonical);
     const stageId = `browser-stage:${++this.#stageSequence}`;
     this.#staged.set(stageId, {
       stored: structuredClone(project),
@@ -577,11 +576,16 @@ export async function openBrowserTeldraProject(
       readTessellationSignature(bytes: Uint8Array, guid: string): string;
     };
     let adapterPromise: Promise<RebakeIfcAdapter> | undefined;
-    const createAdapter = () => adapterPromise ??= (async () => {
-      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature }, wasm] = await Promise.all([
-        import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url"),
-      ]);
+    // One web-ifc runtime (wasm instance) shared by the edit adapter and the scene-regeneration model cache.
+    let runtimePromise: Promise<{ api: import("web-ifc").IfcAPI; edit: typeof import("@teldra/ifc-edit") }> | undefined;
+    const loadRuntime = () => runtimePromise ??= (async () => {
+      const [{ IfcAPI }, edit, wasm] = await Promise.all([import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url")]);
       const api = new IfcAPI(); await api.Init(() => wasm.default, true);
+      return { api, edit };
+    })();
+    const createModelCache = async () => { const { api, edit } = await loadRuntime(); return new edit.IfcModelCache(api); };
+    const createAdapter = () => adapterPromise ??= (async () => {
+      const { api, edit: { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature, duplicateFurniture, removeFurniture } } = await loadRuntime();
       return {
         read: (bytes: Uint8Array, id: string) => readFurniturePose(api, bytes, id),
         write: (bytes: Uint8Array, id: string, pose: import("@teldra/application").FurnitureWorldPose) => writeFurniturePose(api, bytes, id, pose),
@@ -592,6 +596,9 @@ export async function openBrowserTeldraProject(
           readFurnitureSourceDimensions(api, bytes, id),
         readTessellationSignature: (bytes: Uint8Array, id: string) =>
           readFurnitureTessellationSignature(api, bytes, id),
+        duplicate: (bytes: Uint8Array, id: string, newId: string, options?: import("@teldra/application").FurnitureDuplicateOptions) =>
+          duplicateFurniture(api, bytes, id, newId, options),
+        remove: (bytes: Uint8Array, id: string) => removeFurniture(api, bytes, id),
       };
     })();
     if (sceneResource?.scene.placements.length && sourceEntry && buildingEntry) {
@@ -603,7 +610,7 @@ export async function openBrowserTeldraProject(
       sceneResource && buildingEntry ? {
         bytes: buildingEntry.bytes.slice(), scene: sceneResource.scene.manifest, placements: sceneResource.scene.placements,
         sourceBytes: (sourceEntry ?? buildingEntry).bytes.slice(),
-        createAdapter,
+        createAdapter, createModelCache,
       } : undefined,
     );
 
