@@ -1,4 +1,4 @@
-import {defineConfig, type BrowserName} from "@playwright/test";
+import {defineConfig} from "@playwright/test";
 
 const browserName = process.env.TELDRA_COMPAT_BROWSER;
 if (browserName !== "firefox" && browserName !== "webkit") {
@@ -13,7 +13,7 @@ export default defineConfig({
   retries: 0,
   reporter: [["list"], ["json", {outputFile: `test-results/compatibility-${browserName}.json`}]],
   use: {
-    browserName: browserName as BrowserName,
+    browserName,
     baseURL: "http://127.0.0.1:4174/teldra/studio/",
     viewport: {width: 390, height: 844},
     trace: "retain-on-failure",
