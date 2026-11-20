@@ -339,10 +339,14 @@ describe(".teldra stored ZIP codec", () => {
   });
 
   it("falls back to stored for entries whose ratio would trip the reader's bomb guard", async () => {
-    const zeros = new Uint8Array(1_000_000);
+    // 300 kB of zeros deflates far beyond the reader's 200:1 guard; compare bytes with a plain loop
+    // because element-wise deep equality on large arrays is slow on loaded CI runners.
+    const zeros = new Uint8Array(300_000);
     const zip = await encodeCompressedZip([{ path: "zeros.bin", bytes: zeros }]);
     expect(zip.length).toBeGreaterThan(zeros.length);
-    expect(decodeStoredZip(zip)[0]!.bytes).toEqual(zeros);
+    const decoded = decodeStoredZip(zip)[0]!.bytes;
+    expect(decoded.length).toBe(zeros.length);
+    expect(decoded.every((byte) => byte === 0)).toBe(true);
   });
 
   describe("verbatim reuse of unchanged compressed entries", () => {
