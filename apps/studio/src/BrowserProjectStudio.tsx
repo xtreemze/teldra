@@ -181,8 +181,10 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
           </section>
         }
       >
+        {/* keyed: opening another project must dispose the previous workspace, viewport and 3D scene, not reuse them. */}
         <Show
           when={project()}
+          keyed
           fallback={
             <section class="teldra-browser-studio__empty">
               <p class="teldra-browser-studio__eyebrow">GET STARTED</p>
@@ -196,7 +198,8 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
             </section>
           }
         >
-          {(ready) => {
+          {(openProject) => {
+            const ready = () => openProject;
             const firstDevice = () => ready().controller.twin.devices[0];
             return (
               <section class="teldra-browser-studio__workspace">

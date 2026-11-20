@@ -21,12 +21,17 @@ export interface TwinViewportClientPoint {
 
 export interface TwinViewportHandle {
   layers(): ReturnType<BabylonTwinRuntime["layers"]>;
+  setLayerVisible: BabylonTwinRuntime["setLayerVisible"];
   viewState(): ReturnType<BabylonTwinRuntime["viewState"]>;
   fitHome(): boolean;
+  fit(canonicalId: string): boolean;
   assetSummary(): ReturnType<BabylonTwinRuntime["assetSummary"]>;
   renderStats(): ReturnType<BabylonTwinRuntime["renderStats"]>;
   batchingStats(): ReturnType<BabylonTwinRuntime["batchingStats"]>;
   applyScenePlacements: BabylonTwinRuntime["applyScenePlacements"];
+  /** Atomic patch of regenerated IFC element meshes (see `@teldra/projection` scene regeneration). */
+  applySceneMeshUpdate: BabylonTwinRuntime["applySceneMeshUpdate"];
+  sceneMeshRevision: BabylonTwinRuntime["sceneMeshRevision"];
   measureFurnitureGeometry: BabylonTwinRuntime["measureFurnitureGeometry"];
   assertFurnitureAffineProjectable: BabylonTwinRuntime["assertFurnitureAffineProjectable"];
   beginFurnitureEdit: BabylonTwinRuntime["beginFurnitureEdit"];
@@ -220,12 +225,16 @@ export function TwinViewport(props: TwinViewportProps) {
         const readyRuntime = runtime;
         props.onReady?.({
           fitHome: () => readyRuntime.fitHome(),
+          fit: (canonicalId) => readyRuntime.fit(canonicalId),
           layers: () => readyRuntime.layers(),
+          setLayerVisible: (id, visible) => readyRuntime.setLayerVisible(id, visible),
           viewState: () => readyRuntime.viewState(),
           assetSummary: () => readyRuntime.assetSummary(),
           renderStats: () => readyRuntime.renderStats(),
           batchingStats: () => readyRuntime.batchingStats(),
           applyScenePlacements: (placements) => readyRuntime.applyScenePlacements(placements),
+          applySceneMeshUpdate: (update, revision) => readyRuntime.applySceneMeshUpdate(update, revision),
+          sceneMeshRevision: () => readyRuntime.sceneMeshRevision(),
           measureFurnitureGeometry: (canonicalId, original) => readyRuntime.measureFurnitureGeometry(canonicalId, original),
           assertFurnitureAffineProjectable: (canonicalId, delta) => readyRuntime.assertFurnitureAffineProjectable(canonicalId, delta),
           beginFurnitureEdit: (placement, onPreview, onDragState, onScalePreview) => readyRuntime.beginFurnitureEdit(placement, onPreview, onDragState, onScalePreview),

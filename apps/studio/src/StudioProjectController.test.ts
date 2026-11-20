@@ -503,11 +503,9 @@ describe("StudioProjectController furniture lifecycle", () => {
     await controller.removeFurniture("chair");
     expect(controller.twin.building.refs.some(r => r.id === "chair")).toBe(false);
     expect(controller.selectedCanonicalId).toBeNull();
-    expect(controller.removedSceneNodeIds).toEqual(["chair"]);
     controller.undo();
     expect(controller.twin.building.refs.some(r => r.id === "chair")).toBe(true);
     expect(controller.furniturePose("chair").position).toEqual([1, -1, 0]);
-    expect(controller.removedSceneNodeIds).toEqual([]);
     controller.redo();
     expect(controller.twin.building.refs.some(r => r.id === "chair")).toBe(false);
   });

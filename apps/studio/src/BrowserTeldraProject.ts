@@ -576,11 +576,16 @@ export async function openBrowserTeldraProject(
       readTessellationSignature(bytes: Uint8Array, guid: string): string;
     };
     let adapterPromise: Promise<RebakeIfcAdapter> | undefined;
-    const createAdapter = () => adapterPromise ??= (async () => {
-      const [{ IfcAPI }, { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature, duplicateFurniture, removeFurniture }, wasm] = await Promise.all([
-        import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url"),
-      ]);
+    // One web-ifc runtime (wasm instance) shared by the edit adapter and the scene-regeneration model cache.
+    let runtimePromise: Promise<{ api: import("web-ifc").IfcAPI; edit: typeof import("@teldra/ifc-edit") }> | undefined;
+    const loadRuntime = () => runtimePromise ??= (async () => {
+      const [{ IfcAPI }, edit, wasm] = await Promise.all([import("web-ifc"), import("@teldra/ifc-edit"), import("web-ifc/web-ifc.wasm?url")]);
       const api = new IfcAPI(); await api.Init(() => wasm.default, true);
+      return { api, edit };
+    })();
+    const createModelCache = async () => { const { api, edit } = await loadRuntime(); return new edit.IfcModelCache(api); };
+    const createAdapter = () => adapterPromise ??= (async () => {
+      const { api, edit: { readFurniturePose, writeFurniturePose, readFurnitureGeometryScale, writeFurnitureGeometryScale, readFurnitureSourceDimensions, readFurnitureTessellationSignature, duplicateFurniture, removeFurniture } } = await loadRuntime();
       return {
         read: (bytes: Uint8Array, id: string) => readFurniturePose(api, bytes, id),
         write: (bytes: Uint8Array, id: string, pose: import("@teldra/application").FurnitureWorldPose) => writeFurniturePose(api, bytes, id, pose),
@@ -605,7 +610,7 @@ export async function openBrowserTeldraProject(
       sceneResource && buildingEntry ? {
         bytes: buildingEntry.bytes.slice(), scene: sceneResource.scene.manifest, placements: sceneResource.scene.placements,
         sourceBytes: (sourceEntry ?? buildingEntry).bytes.slice(),
-        createAdapter,
+        createAdapter, createModelCache,
       } : undefined,
     );
 

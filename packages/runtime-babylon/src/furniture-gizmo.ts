@@ -97,6 +97,22 @@ export class FurnitureGizmoBridge {
   constructor(private readonly scene: Scene, private readonly canonicalToScene: Matrix,
     private readonly meshesForId: (id: string) => AbstractMesh[]) {}
 
+  /**
+   * The canonical element's render meshes were replaced or removed (scene regeneration). Drop everything cached against
+   * the old meshes: measurements, base poses, and any affine hierarchy (whose parent nodes must not leak).
+   * Call after the old meshes are disposed; `oldMeshes` are only used to forget their cached base transforms.
+   */
+  invalidate(canonicalId: string, oldMeshes: readonly AbstractMesh[]): void {
+    this.sourceMeasurements.delete(canonicalId);
+    for (const mesh of oldMeshes) this.baseWorld.delete(mesh);
+    const group = this.affineGroups.get(canonicalId);
+    if (group) {
+      for (const mesh of group.parentByMesh.keys()) this.baseWorld.delete(mesh);
+      group.pre.dispose(true); group.root.dispose(true);
+      this.affineGroups.delete(canonicalId);
+    }
+  }
+
   measureSourceGeometry(canonicalId: string, original: FurnitureWorldPose): FurnitureMeasuredBounds {
     const cached = this.sourceMeasurements.get(canonicalId);
     if (cached) return cached;

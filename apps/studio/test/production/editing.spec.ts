@@ -439,3 +439,57 @@ test("deleting a device-bound fixture is vetoed with an explicit reason and chan
  await expect(page.getByRole("alert").filter({hasText:"attached to it"}).first()).toBeVisible();
  await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("scene regeneration on the sample: the render set follows IFC without inventing geometry the IFC does not have, and never goes stale", async ({page},testInfo) => {
+ // The sample's chair is a placement-only IFC element (no IFC-authored geometry); its mesh comes from the baked GLB. Regeneration
+ // must leave baked meshes alone and must not fabricate a mesh for a copy that has nothing to tessellate. Mesh-level lifecycle on
+ // IFC that does carry geometry is covered by furniture-lifecycle-21d.spec.ts and the Babylon/NullEngine tests.
+ const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
+ await page.goto("./?demo=sample&e2e=1");await page.getByRole("button",{name:"Try demo",exact:true}).click();
+ await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ const objects=page.getByRole("list",{name:"Building objects",exact:true});
+ const chair=objects.getByRole("button",{name:/^Chair furniture$/});
+ const copy=objects.getByRole("button",{name:/^Chair \(copy\) furniture$/});
+ const tools=page.getByRole("toolbar",{name:"Transform tools",exact:true});
+ const sync=page.getByTestId("scene-sync");
+ const probe=(canonicalId:string)=>page.evaluate((id)=>{
+  const e2e=(window as any).__teldraE2E;const ref=e2e.controller.twin.building.refs.find((r:any)=>r.id===id);
+  if(!ref)return {ref:false,point:null};
+  const point=e2e.viewport.projectNode(`ifc:${ref.ifcGlobalId}:body`)??e2e.viewport.projectNode(`ifc:${ref.ifcGlobalId}:body:0`);
+  return {ref:true,point};
+ },canonicalId);
+ const settled=async()=>{await expect(sync).toHaveAttribute("data-state","in-sync");
+  await expect.poll(async()=>(await sync.getAttribute("data-model-revision"))===(await sync.getAttribute("data-rendered-revision"))).toBe(true);};
+ await chair.click();
+ const chairId=(await page.getByTestId("workspace-selected-canonical-id").textContent())!.trim();
+ expect((await probe(chairId)).point).not.toBeNull();
+ await page.getByTestId("twin-canvas").focus();
+ await page.keyboard.press("Shift+D");
+ await expect(copy).toBeVisible();await settled();
+ const copyId=(await page.getByTestId("workspace-selected-canonical-id").textContent())!.trim();
+ expect((await probe(copyId)).ref).toBe(true);
+ expect((await probe(copyId)).point).toBeNull(); // nothing to tessellate: no invented mesh
+ expect((await probe(chairId)).point).not.toBeNull(); // the baked original is untouched
+ await expect(page.getByTestId("scene-stale")).toHaveCount(0);
+ const x=page.getByLabel("Position X (m)",{exact:true});
+ await x.fill("3");await page.getByRole("button",{name:"Apply placement",exact:true}).click();
+ await copy.click();
+ await tools.getByRole("button",{name:"Delete",exact:true}).click();
+ await page.getByRole("alertdialog",{name:"Confirm delete"}).getByRole("button",{name:/^Delete Chair/}).click();
+ await expect(copy).toHaveCount(0);await settled();
+ expect((await probe(chairId)).point).not.toBeNull();
+ await page.getByRole("button",{name:"Undo",exact:true}).click();await expect(copy).toBeVisible();await settled();
+ await page.getByRole("button",{name:"Redo",exact:true}).click();await expect(copy).toHaveCount(0);await settled();
+ await page.getByRole("button",{name:"Undo",exact:true}).click();await settled();
+ const pending=page.waitForEvent("download");await page.getByRole("button",{name:"Save project",exact:true}).click();
+ const path=testInfo.outputPath("regen.teldra");await (await pending).saveAs(path);
+ await page.addInitScript(()=>Object.defineProperty(window,"showOpenFilePicker",{value:undefined,configurable:true}));
+ await page.reload();const picker=page.waitForEvent("filechooser");await page.getByRole("button",{name:"Open .teldra",exact:true}).click();
+ await(await picker).setFiles(path);await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ await expect(copy).toBeVisible();
+ await expect(page.getByTestId("scene-stale")).toHaveCount(0);
+ expect((await probe(chairId)).point).not.toBeNull();
+ await copy.click();await tools.getByRole("button",{name:"Move",exact:true}).click();
+ await expect(x).toHaveValue("3");
+ expect(errors).toEqual([]);
+});

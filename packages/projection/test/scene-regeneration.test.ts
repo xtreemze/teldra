@@ -46,6 +46,14 @@ describe("planSceneRegeneration", () => {
     expect(plan).toMatchObject({ kind: "patch", update: { replace: [], add: [{ globalId: NEW, canonicalId: `wall:${NEW}`, previousNodeKeys: [] }],
       remove: [{ globalId: C, canonicalId: `wall:${C}`, nodeKeys: [`ifc:${C}:body`] }] } });
   });
+  it("tells the renderer which rendered element a new element should borrow its material from (duplicates)", () => {
+    const base = { nodes, canonicalToScene: Y_UP, tessellate: tess({ [NEW]: mesh(NEW), [A]: mesh(A) }), resolveCanonicalId: (id: string) => `wall:${id}`,
+      resolveMaterialSource: (id: string) => id === NEW ? A : undefined };
+    const plan = planSceneRegeneration({ ...base, changedGlobalIds: [NEW, A] });
+    if (plan.kind !== "patch") throw new Error(plan.kind);
+    expect(plan.update.add[0]).toMatchObject({ globalId: NEW, materialSourceGlobalId: A });
+    expect(plan.update.replace[0]!.materialSourceGlobalId).toBeUndefined(); // replaced elements keep their own material
+  });
   it("is a noop for no ids or for unknown, already absent elements", () => {
     expect(planSceneRegeneration({ nodes, canonicalToScene: Y_UP, changedGlobalIds: [], tessellate: tess({}) })).toEqual({ kind: "noop" });
     expect(planSceneRegeneration({ nodes, canonicalToScene: Y_UP, changedGlobalIds: [NEW], tessellate: tess({}) })).toEqual({ kind: "noop" });

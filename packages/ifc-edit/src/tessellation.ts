@@ -16,22 +16,72 @@ import type { ElementMesh, ElementMeshPart, ElementTessellator } from "@teldra/p
 export function tessellateElements(
   api: IfcAPI, bytes: Uint8Array, globalIds: readonly string[],
 ): Map<string, ElementMesh | null> {
-  const wanted = new Set(globalIds);
-  const result = new Map<string, ElementMesh | null>(globalIds.map((id) => [id, null]));
-  if (wanted.size === 0) return result;
-  const modelID = api.OpenModel(bytes);
-  try {
-    const expressIds: number[] = [];
-    const guidByExpress = new Map<number, string>();
-    const products = api.GetLineIDsWithType(modelID, IFCPRODUCT, true);
+  const cache = new IfcModelCache(api);
+  try { return new Map(cache.tessellator(bytes, 0)(globalIds)); } finally { cache.dispose(); }
+}
+
+/**
+ * Keeps ONE web-ifc model open per IFC byte revision so repeated regeneration (every edit, undo, redo) does not
+ * re-parse the whole building each time. The GlobalId -> express id index is built once per opened model.
+ *
+ * A tessellator is bound to an immutable snapshot: `bytes` must not be mutated by the caller afterwards
+ * (editors hand out copies). Calling a tessellator whose revision is not the open one re-opens that snapshot, so a
+ * stale tessellator is still correct; it only costs a re-open. {@link dispose} closes the model and frees WASM memory.
+ */
+export class IfcModelCache {
+  readonly #api: IfcAPI;
+  #modelID: number | undefined;
+  #key: string | number | undefined;
+  #index: Map<string, number> | undefined;
+  /** Number of times a model was opened; diagnostic and test hook. */
+  opens = 0;
+  constructor(api: IfcAPI) { this.#api = api; }
+  get openRevision(): string | number | undefined { return this.#modelID === undefined ? undefined : this.#key; }
+  tessellator(bytes: Uint8Array, revisionKey: string | number): ElementTessellator {
+    return (globalIds) => this.#tessellate(bytes, revisionKey, globalIds);
+  }
+  /** Which of `globalIds` are products in the model of this revision (index lookup on the parsed model, no text scan). */
+  existingGlobalIds(bytes: Uint8Array, revisionKey: string | number, globalIds: Iterable<string>): Set<string> {
+    const index = this.#productIndex(this.#ensure(bytes, revisionKey));
+    const found = new Set<string>();
+    for (const id of globalIds) if (index.has(id)) found.add(id);
+    return found;
+  }
+  dispose(): void {
+    if (this.#modelID !== undefined) { try { this.#api.CloseModel(this.#modelID); } catch { /* already closed */ } }
+    this.#modelID = undefined; this.#key = undefined; this.#index = undefined;
+  }
+  #ensure(bytes: Uint8Array, key: string | number): number {
+    if (this.#modelID !== undefined && this.#key === key) return this.#modelID;
+    this.dispose();
+    this.#modelID = this.#api.OpenModel(bytes); this.#key = key; this.opens++;
+    return this.#modelID;
+  }
+  #productIndex(modelID: number): Map<string, number> {
+    if (this.#index) return this.#index;
+    const index = new Map<string, number>();
+    const products = this.#api.GetLineIDsWithType(modelID, IFCPRODUCT, true);
     for (let i = 0; i < products.size(); i++) {
       const expressID = products.get(i);
-      const guid = (api.GetLine(modelID, expressID) as { GlobalId?: { value?: unknown } }).GlobalId?.value;
-      if (typeof guid === "string" && wanted.has(guid)) { expressIds.push(expressID); guidByExpress.set(expressID, guid); }
+      const guid = (this.#api.GetLine(modelID, expressID) as { GlobalId?: { value?: unknown } }).GlobalId?.value;
+      if (typeof guid === "string") index.set(guid, expressID);
     }
-    for (const guid of guidByExpress.values()) result.set(guid, { globalId: guid, parts: [] });
+    return this.#index = index;
+  }
+  #tessellate(bytes: Uint8Array, key: string | number, globalIds: readonly string[]): Map<string, ElementMesh | null> {
+    const api = this.#api;
+    const result = new Map<string, ElementMesh | null>(globalIds.map((id) => [id, null]));
+    if (result.size === 0) return result;
+    const modelID = this.#ensure(bytes, key);
+    const index = this.#productIndex(modelID);
+    const expressIds: number[] = [];
+    const guidByExpress = new Map<number, string>();
+    for (const guid of result.keys()) {
+      const expressID = index.get(guid);
+      if (expressID !== undefined) { expressIds.push(expressID); guidByExpress.set(expressID, guid); result.set(guid, { globalId: guid, parts: [] }); }
+    }
     if (expressIds.length === 0) return result;
-    api.StreamMeshes(modelID, expressIds, (flat) => {
+    streamMeshes(api, modelID, expressIds, (flat) => {
       const guid = guidByExpress.get(flat.expressID);
       if (guid === undefined) return;
       const parts: ElementMeshPart[] = [];
@@ -48,7 +98,25 @@ export function tessellateElements(
       result.set(guid, { globalId: guid, parts });
     });
     return result;
-  } finally { api.CloseModel(modelID); }
+  }
+}
+
+type FlatMeshCallback = Parameters<IfcAPI["StreamMeshes"]>[2];
+const threeArgStream = new WeakSet<IfcAPI>();
+/**
+ * `web-ifc@0.0.78` ships a browser wasm (`web-ifc.wasm`) whose `StreamMeshes` takes three arguments, while its JS wrapper
+ * (and the node wasm) pass a fourth `applyLinearScalingFactor`. Embind rejects the arity mismatch, so on that exact error
+ * the call is repeated against the wasm module with the three-argument signature; the choice is remembered per API.
+ */
+function streamMeshes(api: IfcAPI, modelID: number, expressIds: number[], callback: FlatMeshCallback): void {
+  const wasm = (api as unknown as { wasmModule?: { StreamMeshes(m: number, ids: number[], cb: FlatMeshCallback): void } }).wasmModule;
+  if (threeArgStream.has(api) && wasm) { wasm.StreamMeshes(modelID, expressIds, callback); return; }
+  try { api.StreamMeshes(modelID, expressIds, callback); }
+  catch (error) {
+    if (!wasm || !/called with 4 arguments, expected 3/.test(error instanceof Error ? error.message : String(error))) throw error;
+    threeArgStream.add(api);
+    wasm.StreamMeshes(modelID, expressIds, callback);
+  }
 }
 
 /** Adapts {@link tessellateElements} to the projection port for one immutable IFC snapshot. */

@@ -19,9 +19,14 @@ export interface SceneMeshUpdateContext {
   readonly layers: SceneLayers;
   readonly renderMeshes: AbstractMesh[];
   readonly physicalMeshes: AbstractMesh[];
-  readonly batchByPart: ReadonlyMap<AbstractMesh, MeshBatch>;
+  /** Part mesh -> merged batch it was folded into. Batches whose parts are all replaced/removed are unbatched. */
+  readonly batchByPart: Map<AbstractMesh, MeshBatch>;
+  /** Merged batch mesh -> batch. Without it a batched part cannot be patched (full rebuild required). */
+  readonly batchesByMesh?: Map<AbstractMesh, MeshBatch>;
   readonly sourceHiddenMeshes: Set<AbstractMesh>;
 }
+
+const REGENERATED_MATERIAL_PREFIX = "teldra-regenerated:";
 
 export class SceneMeshUpdateUnsupportedError extends Error {
   constructor(message: string) { super(message); this.name = "SceneMeshUpdateUnsupportedError"; }
@@ -36,7 +41,9 @@ export class SceneMeshUpdateUnsupportedError extends Error {
  * Materials of replaced elements are reused (never cloned or disposed), so textures/PBR
  * settings of unaffected and replaced objects survive; brand-new elements get a neutral material
  * from the IFC colour. Batched (merged) parts are not patchable and are rejected, which the
- * caller treats as "full rebuild required".
+ * caller treats as "full rebuild required". A merged batch is only ever built from the parts of one canonical
+ * element, so when every part of a batch is replaced or removed the whole batch (merged mesh + parts) is retired.
+ * New elements may name `materialSourceGlobalId` (a duplicate's source): they then share that element's material.
  */
 export function applySceneMeshUpdate(ctx: SceneMeshUpdateContext, update: SceneMeshUpdate): SceneMeshApplyResult {
   const staged: Mesh[] = [];
@@ -44,12 +51,18 @@ export function applySceneMeshUpdate(ctx: SceneMeshUpdateContext, update: SceneM
   try {
     const dropped = new Map<string, AbstractMesh>(); // nodeKey -> old mesh
     const oldByGlobalId = new Map<string, AbstractMesh[]>();
+    const retiredBatches = new Set<MeshBatch>();
     const collect = (globalId: string, nodeKeys: readonly string[]) => {
       const meshes: AbstractMesh[] = [];
       for (const key of nodeKeys) {
         const mesh = ctx.meshByNodeKey.get(key);
         if (!mesh) throw new SceneMeshUpdateUnsupportedError(`Scene has no mesh for node ${key}.`);
-        if (ctx.batchByPart.has(mesh)) throw new SceneMeshUpdateUnsupportedError(`Node ${key} is part of a merged batch.`);
+        const batch = ctx.batchByPart.get(mesh);
+        if (batch) {
+          if (!ctx.batchesByMesh?.has(batch.mesh) || ctx.batchesByMesh.get(batch.mesh) !== batch)
+            throw new SceneMeshUpdateUnsupportedError(`Node ${key} is part of a merged batch.`);
+          retiredBatches.add(batch);
+        }
         if (dropped.has(key)) throw new SceneMeshUpdateUnsupportedError(`Node ${key} appears twice in the update.`);
         dropped.set(key, mesh); meshes.push(mesh);
       }
@@ -57,6 +70,22 @@ export function applySceneMeshUpdate(ctx: SceneMeshUpdateContext, update: SceneM
     };
     for (const element of update.replace) collect(element.globalId, element.previousNodeKeys);
     for (const element of update.remove) collect(element.globalId, element.nodeKeys);
+
+    for (const batch of retiredBatches) {
+      for (const part of batch.parts)
+        if (!dropped.has(part.identity.nodeKey) || dropped.get(part.identity.nodeKey) !== part.mesh)
+          throw new SceneMeshUpdateUnsupportedError(`Batch of ${batch.parts[0]!.identity.nodeKey} also holds parts that are not being replaced.`);
+    }
+    // The source part with the most triangles dominates the look of a duplicate whose IFC geometry is a single part.
+    const materialSourceOf = (globalId: string): AbstractMesh | undefined => {
+      let best: AbstractMesh | undefined;
+      for (const [key, identity] of ctx.manifestByNodeKey) {
+        if (identity.ifcGlobalId !== globalId || dropped.has(key)) continue;
+        const mesh = ctx.meshByNodeKey.get(key);
+        if (mesh?.material && (!best || mesh.getTotalIndices() > best.getTotalIndices())) best = mesh;
+      }
+      return best;
+    };
 
     const created: Array<{ mesh: Mesh; part: ScenePart; hidden: boolean }> = [];
     const newKeys = new Set<string>();
@@ -72,7 +101,8 @@ export function applySceneMeshUpdate(ctx: SceneMeshUpdateContext, update: SceneM
             part.indices.length === 0 || part.indices.length % 3 ||
             part.indices.some((i) => i >= part.positions.length / 3))
           throw new Error(`Malformed mesh data for ${key}.`);
-        const source = olds[index] ?? olds[0];
+        const source = olds[index] ?? olds[0] ??
+          (element.materialSourceGlobalId === undefined ? undefined : materialSourceOf(element.materialSourceGlobalId));
         const mesh = new Mesh(key, ctx.scene);
         staged.push(mesh);
         mesh.setEnabled(false);
@@ -87,7 +117,7 @@ export function applySceneMeshUpdate(ctx: SceneMeshUpdateContext, update: SceneM
           mesh.layerMask = source.layerMask;
         } else {
           fallback ??= fallbackMaterial = (() => {
-            const material = new StandardMaterial(`teldra-regenerated:${key}`, ctx.scene);
+            const material = new StandardMaterial(`${REGENERATED_MATERIAL_PREFIX}${key}`, ctx.scene);
             material.diffuseColor = new Color3(part.color[0], part.color[1], part.color[2]);
             material.alpha = part.color[3];
             material.backFaceCulling = false;
@@ -100,13 +130,29 @@ export function applySceneMeshUpdate(ctx: SceneMeshUpdateContext, update: SceneM
           ...(sourceGltf?.extras ?? {}),
           teldra: { nodeKey: key, canonicalId: part.node.canonicalId, ifcGlobalId: element.globalId },
         } } };
-        created.push({ mesh, part, hidden: source ? ctx.sourceHiddenMeshes.has(source) : false });
+        // Only a replaced element keeps its own hidden flag; a duplicate borrows a material, never the source's visibility.
+        const replaced = olds[index] ?? olds[0];
+        created.push({ mesh, part, hidden: replaced ? ctx.sourceHiddenMeshes.has(replaced) : false });
       });
     }
     for (const { mesh } of created) mesh.computeWorldMatrix(true);
 
     // Commit: registry edits only; nothing below throws on validated input.
+    for (const batch of retiredBatches) {
+      const identity = ctx.identityByMesh.get(batch.mesh);
+      ctx.batchesByMesh?.delete(batch.mesh);
+      for (const part of batch.parts) ctx.batchByPart.delete(part.mesh);
+      if (identity) {
+        const list = (ctx.meshesByCanonicalId.get(identity.canonicalId) ?? []).filter((m) => m !== batch.mesh);
+        if (list.length) ctx.meshesByCanonicalId.set(identity.canonicalId, list); else ctx.meshesByCanonicalId.delete(identity.canonicalId);
+      }
+      const at = ctx.physicalMeshes.indexOf(batch.mesh);
+      if (at >= 0) ctx.physicalMeshes.splice(at, 1);
+      batch.mesh.dispose(false, false);
+    }
+    const orphanCandidates = new Set<NonNullable<AbstractMesh["material"]>>();
     for (const [key, mesh] of dropped) {
+      if (mesh.material?.name.startsWith(REGENERATED_MATERIAL_PREFIX)) orphanCandidates.add(mesh.material);
       const identity = ctx.identityByMesh.get(mesh);
       ctx.layers.remove(mesh);
       ctx.manifestByNodeKey.delete(key);
@@ -119,6 +165,8 @@ export function applySceneMeshUpdate(ctx: SceneMeshUpdateContext, update: SceneM
       for (const list of [ctx.renderMeshes, ctx.physicalMeshes]) { const at = list.indexOf(mesh); if (at >= 0) list.splice(at, 1); }
       mesh.dispose(false, false);
     }
+    // Neutral materials made for regenerated elements are ours to free once nothing renders with them.
+    for (const material of orphanCandidates) if (!ctx.scene.meshes.some((m) => m.material === material)) material.dispose(false, false);
     for (const { mesh, part, hidden } of created) {
       const identity: TwinRenderIdentity = { nodeKey: part.node.nodeKey, canonicalId: part.node.canonicalId,
         ...(part.node.ifcGlobalId === undefined ? {} : { ifcGlobalId: part.node.ifcGlobalId }) };

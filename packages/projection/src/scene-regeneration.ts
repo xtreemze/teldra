@@ -41,6 +41,8 @@ export interface SceneElementMesh {
   readonly parts: readonly ScenePart[];
   /** Node keys the element had before this update (empty for additions). */
   readonly previousNodeKeys: readonly string[];
+  /** For additions: a rendered element whose material the renderer should reuse (e.g. the source of a duplicate). */
+  readonly materialSourceGlobalId?: string;
 }
 export interface SceneElementRemoval {
   readonly globalId: string;
@@ -73,6 +75,8 @@ export interface SceneRegenerationInput {
   readonly tessellate: ElementTessellator;
   /** Canonical identity for GlobalIds the manifest does not know yet (e.g. a newly created wall). */
   readonly resolveCanonicalId?: (globalId: string) => string | undefined;
+  /** For GlobalIds the scene does not render yet: an already rendered GlobalId whose material a new element reuses. */
+  readonly resolveMaterialSource?: (globalId: string) => string | undefined;
   /** Above this many changed elements a patch is not worth its risk; default 64. */
   readonly maxPatchElements?: number;
 }
@@ -129,7 +133,9 @@ export function planSceneRegeneration(input: SceneRegenerationInput): SceneRegen
           renderPart: mesh.parts.length === 1 ? "body" : `body:${index}`,
         },
       }));
-      const element = { globalId, canonicalId, parts, previousNodeKeys: nodes.map((node) => node.nodeKey) };
+      const materialSource = nodes.length ? undefined : input.resolveMaterialSource?.(globalId);
+      const element: SceneElementMesh = { globalId, canonicalId, parts, previousNodeKeys: nodes.map((node) => node.nodeKey),
+        ...(materialSource === undefined ? {} : { materialSourceGlobalId: materialSource }) };
       (nodes.length ? replace : add).push(element);
     }
     if (!replace.length && !add.length && !remove.length) return { kind: "noop" };

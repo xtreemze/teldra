@@ -20,6 +20,7 @@ import {
   TwinViewport,
   type TwinViewportHandle,
 } from "./TwinViewport";
+import type { TeldraSceneManifest } from "@teldra/scene-manifest";
 import "./StudioSelectionWorkspace.css";
 import "./TransformToolbar.css";
 
@@ -33,8 +34,8 @@ export interface StudioSelectionWorkspaceProps {
   readonly liveState?: StudioLiveStateController;
 }
 
-/** Column-major canonical-frame delta: 1/1000 scale, 1 km below the building. Presentation only; never persisted or written to IFC. */
-const HIDDEN_SCENE_MATRIX: readonly number[] = [0.001,0,0,0, 0,0.001,0,0, 0,0,0.001,0, 0,0,-1000,1];
+/** Decided once at load: later navigation inside the app may drop the query string. */
+const E2E_SURFACE = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("e2e");
 const FURNITURE_KINDS = ["furniture", "fixture", "other", "distribution-element"];
 
 export function StudioSelectionWorkspace(
@@ -137,6 +138,11 @@ export function StudioSelectionWorkspace(
   };
 
   const selectRenderIdentity = (identity: TwinRenderIdentity | null) => {
+    if (identity && props.controller.isSceneStale(identity.canonicalId)) {
+      // The mesh under the pointer shows geometry that no longer matches canonical IFC: do not act on it.
+      setTransformMessage("That object's 3D geometry is out of date. Rebuild the 3D view before selecting it.");
+      return;
+    }
     selectCanonicalId(resolveSceneSelection(identity,
       props.controller.twin.devices.map(device => device.id),
       props.controller.twin.building.refs));
@@ -179,11 +185,7 @@ export function StudioSelectionWorkspace(
     } finally { setRebaking(false); }
   };
   const projectPlacements = () => {
-    try {
-      // Stopgap until incremental scene regeneration: a removed element's baked mesh stays in the GLB, so park it far below the model.
-      const hidden = props.controller.removedSceneNodeIds.map(canonicalId => ({ canonicalId, matrix: HIDDEN_SCENE_MATRIX }));
-      viewport()?.applyScenePlacements([...props.controller.placementOverrides, ...hidden]);
-    }
+    try { viewport()?.applyScenePlacements(props.controller.liveSceneOverrides); }
     catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
   };
   const stopFurnitureEdit = () => {
@@ -266,7 +268,7 @@ export function StudioSelectionWorkspace(
         // A copy has no baked mesh yet: numeric IFC placement only.
         setMeasuredGeometry(undefined); setMeasuredGeometryError("");
         setEditingFurniture(true);
-        setTransformMessage("This copy has no 3D mesh until the scene is rebuilt (Rebuild 3D copy). Set its position numerically; the IFC and twin already contain it.");
+        setTransformMessage("This object has no up-to-date 3D mesh yet. Set its position numerically; the IFC and twin already contain it, and the 3D view will catch up.");
         setActionError("");
         return;
       }
@@ -365,6 +367,26 @@ export function StudioSelectionWorkspace(
     tactile("menu");
   };
   createEffect(() => { selectionVersion(); viewport(); projectPlacements(); });
+  const [sceneStatus, setSceneStatus] = createSignal(props.controller.sceneSyncStatus);
+  const [renderedRevision, setRenderedRevision] = createSignal<number | null>(props.controller.renderedRevision);
+  const unsubscribeScene = props.controller.onSceneChange(() => {
+    setSceneStatus(props.controller.sceneSyncStatus); setRenderedRevision(props.controller.renderedRevision);
+    refreshSelection(); projectPlacements();
+  });
+  onCleanup(() => { unsubscribeScene(); props.controller.detachSceneRenderer(); });
+  const rebuildScene = async () => {
+    try { await props.controller.rebuildScene(); }
+    catch (error) { setActionError(error instanceof Error ? error.message : String(error)); }
+  };
+  const attachScene = (handle: TwinViewportHandle) => {
+    // Read-only inspection surface for end-to-end tests; present only when the page is opened with ?e2e.
+    if (E2E_SURFACE)
+      (window as unknown as { __teldraE2E?: unknown }).__teldraE2E = { viewport: handle, controller: props.controller, manifest: props.manifest };
+    void props.controller.attachSceneRenderer({
+      sink: { applyUpdate: (update, revision) => handle.applySceneMeshUpdate(update, revision) },
+      manifest: props.manifest as TeldraSceneManifest,
+    }).catch(error => setActionError(error instanceof Error ? error.message : String(error)));
+  };
   createEffect(() => {
     const current = viewport();
     props.controller.setAffineProjectionValidator(current
@@ -383,6 +405,7 @@ export function StudioSelectionWorkspace(
     setLifecycleBusy(true); setDeleteConfirm(null);
     try {
       const copyId = await props.controller.duplicateFurniture(ref.id);
+      await props.controller.sceneIdle(); // the copy's mesh must exist before it is selected and its gizmo attached
       setActionError("");
       selectCanonicalId(copyId);
       setTransformMessage(`Duplicated ${ref.name ?? ref.kind}. Move the copy, then Apply. Undo removes it.`);
@@ -621,6 +644,14 @@ export function StudioSelectionWorkspace(
           <Show when={transformMessage()}><span>{transformMessage()}</span></Show>
         </div>
       </Show>
+      <output hidden data-testid="scene-sync" data-state={sceneStatus().state}
+        data-model-revision={(selectionVersion(), props.controller.revision)} data-rendered-revision={renderedRevision() ?? ""} />
+      <Show when={sceneStatus().state === "degraded"}>
+        <div class="teldra-studio-selection-workspace__transform-hint" role="status" aria-live="polite" data-testid="scene-stale">
+          <span>3D view out of date: {(sceneStatus() as { message: string }).message} Model revision {props.controller.revision}, shown revision {renderedRevision() ?? "n/a"}.</span>
+          <button type="button" onClick={() => void rebuildScene()}>Rebuild 3D view</button>
+        </div>
+      </Show>
       <Show when={deleteConfirm()}>{pending =>
         <div class="teldra-studio-selection-workspace__transform-hint" role="alertdialog" aria-label="Confirm delete" aria-describedby="teldra-delete-confirm-text" data-testid="delete-confirmation">
           <span id="teldra-delete-confirm-text">Delete {pending().label} from the IFC? Its placement, geometry instance and memberships are removed. You can undo this.</span>
@@ -691,7 +722,7 @@ export function StudioSelectionWorkspace(
         <TwinViewport
           manifest={props.manifest}
           glbUrl={props.glbUrl}
-          onReady={(handle) => { setViewport(handle); props.onViewportReady?.(handle); }}
+          onReady={(handle) => { setViewport(handle); attachScene(handle); props.onViewportReady?.(handle); }}
           selectedCanonicalId={selectedCanonicalId() ?? null}
           onSelect={selectRenderIdentity}
           gesturesDisabled={editingFurniture() || Boolean(transformModal()) || saving() || mobileContextOpen()}
