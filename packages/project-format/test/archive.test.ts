@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import goldenAppearance from "../../../fixtures/projects/golden-home/appearance.manifest.json";
 import goldenLighting from "../../../fixtures/projects/golden-home/lighting.manifest.json";
 import goldenScene from "../../../fixtures/projects/golden-home/scene.manifest.json";
@@ -343,6 +343,83 @@ describe(".teldra stored ZIP codec", () => {
     const zip = await encodeCompressedZip([{ path: "zeros.bin", bytes: zeros }]);
     expect(zip.length).toBeGreaterThan(zeros.length);
     expect(decodeStoredZip(zip)[0]!.bytes).toEqual(zeros);
+  });
+
+  describe("verbatim reuse of unchanged compressed entries", () => {
+    afterEach(() => vi.unstubAllGlobals());
+    const ifcText = (n: number) => new TextEncoder().encode(Array.from({ length: n }, (_, i) => `#${i}=IFCWALL('${(i * 2654435761 >>> 0).toString(36)}',$,$);\n`).join(""));
+    function countDeflates() {
+      const Original = CompressionStream;
+      const calls = { count: 0 };
+      vi.stubGlobal("CompressionStream", class extends Original {
+        constructor(format: CompressionFormat) { super(format); calls.count += 1; }
+      });
+      return calls;
+    }
+    function payloadOf(zip: Uint8Array, path: string): Uint8Array {
+      const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+      for (let offset = 0; offset + 30 < zip.length;) {
+        if (view.getUint32(offset, true) !== 0x04034b50) break;
+        const size = view.getUint32(offset + 18, true);
+        const nameLength = view.getUint16(offset + 26, true);
+        const name = new TextDecoder().decode(zip.subarray(offset + 30, offset + 30 + nameLength));
+        const start = offset + 30 + nameLength + view.getUint16(offset + 28, true);
+        if (name === path) return zip.subarray(start, start + size);
+        offset = start + size;
+      }
+      throw new Error(`no ${path}`);
+    }
+    async function bigArchive(building: Uint8Array): Promise<Uint8Array> {
+      const entries = (await goldenEntries()).map((e) => e.path === "building.ifc" ? { path: e.path, bytes: building } : e);
+      const manifest = JSON.parse(new TextDecoder().decode(entries.find((e) => e.path === "project.json")!.bytes));
+      manifest.building.sha256 = await sha256Bytes(building);
+      return encodeCompressedZip(entries.map((e) => e.path === "project.json" ? { path: e.path, bytes: new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`) } : e));
+    }
+
+    it("copies the original deflate payload without recompressing an unchanged entry", async () => {
+      const original = await bigArchive(ifcText(30_000));
+      const opened = await openTeldraArchive(original);
+      const calls = countDeflates();
+      const saved = await replaceTeldraTwin(opened, opened.twin);
+      expect(calls.count).toBe(0);
+      expect(payloadOf(saved.bytes, "building.ifc")).toEqual(payloadOf(original, "building.ifc"));
+      expect(saved.archive.entries.find((e) => e.path === "building.ifc")!.bytes).toEqual(opened.entries.find((e) => e.path === "building.ifc")!.bytes);
+    });
+
+    it("recompresses only the entry whose bytes were replaced", async () => {
+      const original = await bigArchive(ifcText(30_000));
+      const opened = await openTeldraArchive(original);
+      const edited = ifcText(31_000);
+      const calls = countDeflates();
+      const zip = await encodeCompressedZip(opened.entries.map((e) => e.path === "building.ifc" ? { path: e.path, bytes: edited } : e));
+      expect(calls.count).toBe(1);
+      expect(payloadOf(zip, "building.ifc")).not.toEqual(payloadOf(original, "building.ifc"));
+      expect(payloadOf(zip, "twin.json")).toEqual(payloadOf(original, "twin.json"));
+      // Valid bytes round-trip: a consistent archive built from the same replacement reads back identically.
+      const consistent = await bigArchive(edited);
+      expect((await openTeldraArchive(consistent)).entries.find((e) => e.path === "building.ifc")!.bytes).toEqual(edited);
+    });
+
+    it("reuses one compressed form for the same bytes stored under a second path", async () => {
+      const original = await bigArchive(ifcText(30_000));
+      const opened = await openTeldraArchive(original);
+      const building = opened.entries.find((e) => e.path === "building.ifc")!;
+      const calls = countDeflates();
+      const zip = await encodeCompressedZip([...opened.entries, { path: "teldra/scene-source.ifc", bytes: building.bytes }]);
+      expect(calls.count).toBe(0);
+      expect(payloadOf(zip, "teldra/scene-source.ifc")).toEqual(payloadOf(original, "building.ifc"));
+    });
+
+    it("does not reuse a compressed form for a copy with different bytes", async () => {
+      const original = await bigArchive(ifcText(30_000));
+      const opened = await openTeldraArchive(original);
+      const building = opened.entries.find((e) => e.path === "building.ifc")!;
+      const calls = countDeflates();
+      const copy = building.bytes.slice();
+      copy[copy.length - 2] ^= 1;
+      await encodeCompressedZip([{ path: "x.ifc", bytes: copy }]);
+      expect(calls.count).toBe(1);
+    });
   });
 
   it("keeps a saved twin edit within 1.1x of the original archive size", async () => {

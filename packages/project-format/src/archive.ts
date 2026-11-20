@@ -65,26 +65,79 @@ export async function encodeCompressedZip(
   entries: readonly TeldraArchiveEntry[],
 ): Promise<Uint8Array> {
   validateEntryCollection(entries);
-  const records: ZipRecord[] = [];
-  for (const entry of sortedEntries(entries)) {
-    const crc = crc32(entry.bytes);
-    const deflated =
-      entry.bytes.length >= MIN_COMPRESSIBLE_BYTES
-        ? await deflateRaw(entry.bytes)
-        : null;
-    // Never emit an entry our own reader would reject as a zip bomb.
+  const sorted = sortedEntries(entries);
+  const records: ZipRecord[] = new Array(sorted.length);
+  const pending: number[] = [];
+  for (let index = 0; index < sorted.length; index += 1) {
+    const entry = sorted[index]!;
+    const raw = RAW_ENTRIES.get(entry.bytes);
+    // Verbatim reuse: bytes that came out of an opened archive and were not
+    // replaced keep their original compressed form and CRC. No inflate, hash,
+    // CRC or re-deflate; the stored size/ratio were validated when it was read.
     if (
-      deflated !== null &&
-      deflated.length <= entry.bytes.length * (1 - MIN_COMPRESSION_SAVING) &&
-      entry.bytes.length / Math.max(deflated.length, 1) <= MAX_COMPRESSION_RATIO
+      raw !== undefined &&
+      (raw.method === DEFLATE_METHOD ||
+        entry.bytes.length < MIN_COMPRESSIBLE_BYTES)
     ) {
-      records.push({ entry, method: DEFLATE_METHOD, data: deflated, crc });
+      records[index] = {
+        entry,
+        method: raw.method,
+        data: raw.data,
+        crc: raw.crc,
+      };
     } else {
-      records.push({ entry, method: STORED_METHOD, data: entry.bytes, crc });
+      pending.push(index);
     }
   }
+  // Compression runs on the platform's own threads (CompressionStream); keep a
+  // small number in flight so a 2-vCPU machine is not oversubscribed.
+  let cursor = 0;
+  const worker = async (): Promise<void> => {
+    while (cursor < pending.length) {
+      const index = pending[cursor++]!;
+      records[index] = await compressRecord(sorted[index]!);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(COMPRESSION_CONCURRENCY, pending.length) }, worker),
+  );
   return assembleZip(records);
 }
+
+const COMPRESSION_CONCURRENCY = 2;
+
+async function compressRecord(entry: TeldraArchiveEntry): Promise<ZipRecord> {
+  const raw = RAW_ENTRIES.get(entry.bytes);
+  const crc = raw?.crc ?? crc32(entry.bytes);
+  const deflated =
+    entry.bytes.length >= MIN_COMPRESSIBLE_BYTES
+      ? await deflateRaw(entry.bytes)
+      : null;
+  // Never emit an entry our own reader would reject as a zip bomb.
+  if (
+    deflated !== null &&
+    deflated.length <= entry.bytes.length * (1 - MIN_COMPRESSION_SAVING) &&
+    entry.bytes.length / Math.max(deflated.length, 1) <= MAX_COMPRESSION_RATIO
+  ) {
+    // Remember it so the next save of these exact bytes is a verbatim copy.
+    RAW_ENTRIES.set(entry.bytes, { method: DEFLATE_METHOD, data: deflated, crc });
+    return { entry, method: DEFLATE_METHOD, data: deflated, crc };
+  }
+  return { entry, method: STORED_METHOD, data: entry.bytes, crc };
+}
+
+/**
+ * Compressed form of entry bytes produced by openTeldraArchive, keyed by the
+ * decoded Uint8Array identity. Replacing an entry's bytes (a new array) drops
+ * the association automatically, so only provably unchanged entries are reused.
+ * Decoded bytes must not be mutated in place.
+ */
+interface RawZipEntry {
+  readonly method: number;
+  readonly data: Uint8Array;
+  readonly crc: number;
+}
+const RAW_ENTRIES = new WeakMap<Uint8Array, RawZipEntry>();
 
 interface ZipRecord {
   readonly entry: TeldraArchiveEntry;
@@ -103,9 +156,7 @@ function sortedEntries(
 
 async function deflateRaw(bytes: Uint8Array): Promise<Uint8Array | null> {
   if (typeof CompressionStream === "undefined") return null;
-  const input = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(input).set(bytes);
-  const stream = new Blob([input])
+  const stream = new Blob([bytes as unknown as BlobPart])
     .stream()
     .pipeThrough(new CompressionStream("deflate-raw" as CompressionFormat));
   return new Uint8Array(await new Response(stream).arrayBuffer());
@@ -499,6 +550,11 @@ async function decodePortableZip(
       );
     }
 
+    RAW_ENTRIES.set(data, {
+      method,
+      data: method === STORED_METHOD ? data : compressed,
+      crc: expectedCrc,
+    });
     entries.push({ path, bytes: data });
     offset += 46 + nameLength + extraLength + commentLengthEntry;
   }
@@ -608,8 +664,17 @@ export async function replaceTeldraTwin(
   }));
 
   const bytes = await encodeCompressedZip(entries);
-  const reopened = await openTeldraArchive(bytes);
-  return { bytes, archive: reopened };
+  // The unchanged entries were verified when the archive was opened and the two
+  // replaced ones are small JSON documents, so return the in-memory archive
+  // instead of inflating, CRC-checking and hashing the whole file again.
+  return {
+    bytes,
+    archive: {
+      entries,
+      manifest: parseProjectManifest(JSON.parse(new TextDecoder().decode(projectBytes))),
+      twin: parseTwinProject(JSON.parse(new TextDecoder().decode(twinBytes))),
+    },
+  };
 }
 
 export async function sha256Bytes(bytes: Uint8Array): Promise<string> {
