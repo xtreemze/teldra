@@ -13,6 +13,12 @@ export type CapabilityKind = TwinCapability["kind"];
 
 export type ExternalBinding = TwinProject["bindings"][number];
 
+type GeneratedSitePlacement = NonNullable<TwinProject["building"]["sitePlacement"]>;
+/** Mapped (not interface) so it is assignable to JSON command payloads. */
+export type SitePlacement = { [K in keyof GeneratedSitePlacement]: GeneratedSitePlacement[K] };
+export type SitePlacementStatus = SitePlacement["provenance"]["status"];
+export type SiteHeight = SitePlacement["anchor"]["height"];
+
 export class TwinIntegrityError extends Error {
   constructor(message: string) {
     super(message);
@@ -20,7 +26,38 @@ export class TwinIntegrityError extends Error {
   }
 }
 
+export class SitePlacementError extends TwinIntegrityError {
+  constructor(message: string) {
+    super(message);
+    this.name = "SitePlacementError";
+  }
+}
+
+/**
+ * Semantic checks the JSON Schema cannot express. Orientation is a clockwise
+ * bearing of building +Y (project north) from geographic north in [0, 360).
+ */
+export function assertSitePlacement(placement: SitePlacement): void {
+  const { anchor, orientation, provenance } = placement;
+  const { latitudeDegrees: lat, longitudeDegrees: lon, height } = anchor;
+  if (![lat, lon, height.metres, orientation.projectNorthBearingDegrees].every(Number.isFinite))
+    throw new SitePlacementError("Site placement requires finite anchor coordinates, height and bearing.");
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180)
+    throw new SitePlacementError("Site placement anchor is outside WGS84 bounds.");
+  if (height.geoidSeparationMetres !== undefined && !Number.isFinite(height.geoidSeparationMetres))
+    throw new SitePlacementError("Site placement geoid separation must be finite.");
+  if (height.reference === "orthometric" && (height.verticalDatum ?? "").length === 0)
+    throw new SitePlacementError("Orthometric site heights require a named vertical datum.");
+  const bearing = orientation.projectNorthBearingDegrees;
+  if (bearing < 0 || bearing >= 360)
+    throw new SitePlacementError("Project-north bearing must be within [0, 360) degrees.");
+  const confirmed = provenance.status === "user-confirmed";
+  if (confirmed !== (provenance.confirmedAt !== undefined))
+    throw new SitePlacementError("Site placement confirmedAt must be present exactly when status is user-confirmed.");
+}
+
 export function assertTwinIntegrity(project: TwinProject): void {
+  if (project.building.sitePlacement !== undefined) assertSitePlacement(project.building.sitePlacement);
   const canonicalIds = [
     ...project.building.refs.map((value) => value.id),
     ...project.devices.flatMap((device) => [

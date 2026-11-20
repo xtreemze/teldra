@@ -5,8 +5,8 @@ import {
   type GeodeticAnchor,
 } from "../src/building-georeference.js";
 
-const malmo: GeodeticAnchor = {
-  latitudeDegrees: 55.605, longitudeDegrees: 13.0038,
+const anchor0: GeodeticAnchor = {
+  latitudeDegrees: 45.005, longitudeDegrees: 0.5038,
   ellipsoidalHeightMetres: 38, clockwiseYawRadians: 0,
 };
 const near = (actual: readonly number[], expected: readonly number[], tolerance = 1e-6) => {
@@ -22,12 +22,12 @@ describe("building georeference", () => {
 
   it("roundtrips ENU metre offsets with sub-millimetre numerical error", () => {
     for (const offset of [[0, 0, 0], [100, -50, 12], [-5000, 800, -20]] as const) {
-      near(ecefToEnu(malmo, enuToEcef(malmo, offset)), offset);
+      near(ecefToEnu(anchor0, enuToEcef(anchor0, offset)), offset);
     }
   });
 
   it("rotates local building axes clockwise to true north without altering the original point", () => {
-    const anchor = { ...malmo, clockwiseYawRadians: Math.PI / 2 };
+    const anchor = { ...anchor0, clockwiseYawRadians: Math.PI / 2 };
     const original = [4, 10, 3] as const;
     const ecef = buildingLocalToEcef(anchor, original);
     near(ecefToEnu(anchor, ecef), [10, -4, 3]);
@@ -37,8 +37,8 @@ describe("building georeference", () => {
 
   it("preserves precision at high latitudes, antimeridian and negative altitudes", () => {
     for (const anchor of [
-      { ...malmo, latitudeDegrees: 89.9, longitudeDegrees: -179.99 },
-      { ...malmo, latitudeDegrees: -78, longitudeDegrees: 180, ellipsoidalHeightMetres: -20 },
+      { ...anchor0, latitudeDegrees: 89.9, longitudeDegrees: -179.99 },
+      { ...anchor0, latitudeDegrees: -78, longitudeDegrees: 180, ellipsoidalHeightMetres: -20 },
     ]) {
       const local = [12.345, -3.567, 2.5] as const;
       near(ecefToBuildingLocal(anchor, buildingLocalToEcef(anchor, local)), local);
@@ -47,18 +47,18 @@ describe("building georeference", () => {
 
   it("rejects invalid coordinates, missing altitude datum assumptions and nonfinite offsets", () => {
     for (const invalid of [
-      { ...malmo, latitudeDegrees: 91 },
-      { ...malmo, longitudeDegrees: 181 },
-      { ...malmo, ellipsoidalHeightMetres: Infinity },
-      { ...malmo, clockwiseYawRadians: NaN },
+      { ...anchor0, latitudeDegrees: 91 },
+      { ...anchor0, longitudeDegrees: 181 },
+      { ...anchor0, ellipsoidalHeightMetres: Infinity },
+      { ...anchor0, clockwiseYawRadians: NaN },
     ]) expect(() => assertGeodeticAnchor(invalid)).toThrow();
-    expect(() => buildingLocalToEcef(malmo, [1, NaN, 3])).toThrow(/finite/);
-    expect(() => ecefToEnu(malmo, [Infinity, 0, 0])).toThrow(/finite/);
+    expect(() => buildingLocalToEcef(anchor0, [1, NaN, 3])).toThrow(/finite/);
+    expect(() => ecefToEnu(anchor0, [Infinity, 0, 0])).toThrow(/finite/);
   });
 
-  describe("Malmo, Sweden site (~55.6N, 13.0E)", () => {
+  describe("synthetic mid-latitude site (45N, 0.5E)", () => {
     const site: GeodeticAnchor = {
-      latitudeDegrees: 55.6, longitudeDegrees: 13.0,
+      latitudeDegrees: 45.0, longitudeDegrees: 0.5,
       ellipsoidalHeightMetres: 0, clockwiseYawRadians: 0,
     };
     const DEG = Math.PI / 180;
@@ -74,8 +74,8 @@ describe("building georeference", () => {
       const [east, north, up] = ecefToEnu(site, neighbour);
       const expectedEast = prime * Math.cos(site.latitudeDegrees * DEG) * dLon * DEG;
       const expectedNorth = meridian * dLat * DEG;
-      expect(east).toBeGreaterThan(60);
-      expect(east).toBeLessThan(66);
+      expect(east).toBeGreaterThan(75);
+      expect(east).toBeLessThan(82);
       expect(Math.abs(east - expectedEast)).toBeLessThan(0.01);
       expect(Math.abs(north - expectedNorth)).toBeLessThan(0.01);
       // The ellipsoid curves away from the tangent plane: tiny negative Up.

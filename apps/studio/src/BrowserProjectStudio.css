@@ -155,3 +155,10 @@ body:has(.teldra-browser-studio) { margin: 0; background: #101821; font-family: 
 .teldra-browser-studio__file { pointer-events: none; }
 .teldra-browser-studio__file .teldra-browser-studio__agent-read,
 .teldra-browser-studio__file .teldra-browser-studio__agent-read input { pointer-events: auto; }
+
+.teldra-browser-studio__site { display: inline-flex; align-items: center; gap: .35rem; }
+.teldra-browser-studio__site svg { width: 1.1rem; height: 1.1rem; flex: none; }
+@media (max-width: 48rem) {
+  .teldra-browser-studio__site { justify-content: center; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: .7rem; }
+  .teldra-browser-studio__site span { display: none; }
+}

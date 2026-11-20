@@ -1,5 +1,6 @@
 import {
   assertTwinIntegrity,
+  type SitePlacement,
   type TwinProject,
 } from "@teldra/domain";
 import {
@@ -20,11 +21,23 @@ export type RenameTwinDeviceCommand = CanonicalCommand<
 
 export type DevicePlacement = NonNullable<TwinProject["devices"][number]["placement"]>;
 export type PlaceTwinDeviceCommand = CanonicalCommand<"twin.device.place", { readonly deviceId: string; readonly placement: DevicePlacement | null }>;
-export type TwinEditorCommand = RenameTwinDeviceCommand | PlaceTwinDeviceCommand;
+export type PlaceBuildingSiteCommand = CanonicalCommand<"twin.building.place-site", { readonly placement: SitePlacement | null }>;
+export type TwinEditorCommand = RenameTwinDeviceCommand | PlaceTwinDeviceCommand | PlaceBuildingSiteCommand;
 
 const resolveTwinEditorCommand: CommandResolver<TwinProject, TwinEditorCommand> =
   () => (state, command) => {
     switch (command.kind) {
+      case "twin.building.place-site": {
+        const previous = state.building.sitePlacement;
+        const { sitePlacement: _old, ...building } = state.building;
+        const placement = command.payload.placement;
+        const next: TwinProject = {
+          ...state,
+          building: placement === null ? building : { ...building, sitePlacement: structuredClone(placement) },
+        };
+        assertTwinIntegrity(next);
+        return { state: next, inverse: { id: `inverse:${command.id}`, kind: "twin.building.place-site", authority: "canonical-project", payload: { placement: previous === undefined ? null : structuredClone(previous) }, ...(command.correlationId === undefined ? {} : { correlationId: command.correlationId }) } };
+      }
       case "twin.device.place": {
         const previous = state.devices.find((device) => device.id === command.payload.deviceId);
         if (!previous) throw new Error(`Cannot place unknown device "${command.payload.deviceId}".`);
@@ -145,6 +158,12 @@ export class TwinEditor {
   placeDevice(deviceId: string, placement: DevicePlacement, correlationId?: string): CommandCommit<TwinProject, TwinEditorCommand> {
     this.#sequence += 1;
     return this.#processor.execute({ id: `transaction:twin-device-place:${this.#sequence}`, expectedRevision: this.#processor.revision, ...(correlationId === undefined ? {} : { correlationId }), commands: [{ id: `command:twin-device-place:${this.#sequence}`, kind: "twin.device.place", authority: "canonical-project", payload: { deviceId, placement }, ...(correlationId === undefined ? {} : { correlationId }) }] });
+  }
+
+  /** Set (or clear with null) the geographic building placement. Never touches IFC geometry. */
+  placeBuildingSite(placement: SitePlacement | null, correlationId?: string): CommandCommit<TwinProject, TwinEditorCommand> {
+    this.#sequence += 1;
+    return this.#processor.execute({ id: `transaction:twin-building-place-site:${this.#sequence}`, expectedRevision: this.#processor.revision, ...(correlationId === undefined ? {} : { correlationId }), commands: [{ id: `command:twin-building-place-site:${this.#sequence}`, kind: "twin.building.place-site", authority: "canonical-project", payload: { placement }, ...(correlationId === undefined ? {} : { correlationId }) }] });
   }
 
   undo(): CommandCommit<TwinProject, TwinEditorCommand> | null {
