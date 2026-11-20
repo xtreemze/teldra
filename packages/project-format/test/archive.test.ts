@@ -416,7 +416,7 @@ describe(".teldra stored ZIP codec", () => {
       const building = opened.entries.find((e) => e.path === "building.ifc")!;
       const calls = countDeflates();
       const copy = building.bytes.slice();
-      copy[copy.length - 2] ^= 1;
+      copy[copy.length - 2] = copy[copy.length - 2]! ^ 1;
       await encodeCompressedZip([{ path: "x.ifc", bytes: copy }]);
       expect(calls.count).toBe(1);
     });
