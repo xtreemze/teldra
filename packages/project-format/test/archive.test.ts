@@ -6,6 +6,7 @@ import goldenTwin from "../../../fixtures/projects/golden-home/twin.json";
 import type { TwinProject } from "@teldra/domain";
 import {
   decodeStoredZip,
+  encodeCompressedZip,
   encodeStoredZip,
   openTeldraArchive,
   replaceTeldraTwin,
@@ -275,7 +276,7 @@ describe(".teldra stored ZIP codec", () => {
     );
 
     const saved = await replaceTeldraTwin(opened, opened.twin);
-    expect(decodeStoredZip(saved.bytes).length).toBe(entries.length);
+    expect((await openTeldraArchive(saved.bytes)).entries.length).toBe(entries.length);
     expect(await openTeldraArchive(saved.bytes)).toMatchObject({
       twin: opened.twin,
     });
@@ -310,6 +311,54 @@ describe(".teldra stored ZIP codec", () => {
     await expect(openTeldraArchive(mutated)).rejects.toThrow(
       "Symbolic-link",
     );
+  });
+
+  it("round-trips DEFLATE-compressed entries byte-for-byte and stores incompressible ones", async () => {
+    const compressible = new TextEncoder().encode(Array.from({ length: 20_000 }, (_, i) => `#${i}=IFCWALL('${(i * 2654435761 >>> 0).toString(36)}');\n`).join(""));
+    const noise = new Uint8Array(50_000);
+    let seed = 12345;
+    for (let i = 0; i < noise.length; i += 1) { seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; noise[i] = seed >>> 24; }
+    const entries = [
+      { path: "a/compressible.bin", bytes: compressible },
+      { path: "b/noise.bin", bytes: noise },
+      { path: "c/tiny.txt", bytes: new TextEncoder().encode("x") },
+    ];
+    const zip = await encodeCompressedZip(entries);
+    expect(zip.length).toBeLessThan(compressible.length * 0.8 + noise.length + 2_000);
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    // Local header method fields: first entry is deflated, second and third stored.
+    const methods: number[] = [];
+    for (let offset = 0; offset + 30 < zip.length && methods.length < 3;) {
+      if (view.getUint32(offset, true) !== 0x04034b50) break;
+      methods.push(view.getUint16(offset + 8, true));
+      offset += 30 + view.getUint16(offset + 26, true) + view.getUint16(offset + 28, true) + view.getUint32(offset + 18, true);
+    }
+    expect(methods).toEqual([8, 0, 0]);
+    // Re-encoding is deterministic.
+    expect(await encodeCompressedZip(entries)).toEqual(zip);
+  });
+
+  it("falls back to stored for entries whose ratio would trip the reader's bomb guard", async () => {
+    const zeros = new Uint8Array(1_000_000);
+    const zip = await encodeCompressedZip([{ path: "zeros.bin", bytes: zeros }]);
+    expect(zip.length).toBeGreaterThan(zeros.length);
+    expect(decodeStoredZip(zip)[0]!.bytes).toEqual(zeros);
+  });
+
+  it("keeps a saved twin edit within 1.1x of the original archive size", async () => {
+    const filler = new TextEncoder().encode(Array.from({ length: 30_000 }, (_, i) => `#${i}=IFCWALL('${(i * 2654435761 >>> 0).toString(36)}',$,$,$,$,$,$,$);\n`).join(""));
+    const base = await goldenEntries();
+    const entries = base.map((e) => e.path === "building.ifc" ? { path: e.path, bytes: filler } : e);
+    // Rebuild a consistent manifest around the larger IFC.
+    const manifest = JSON.parse(new TextDecoder().decode(entries.find((e) => e.path === "project.json")!.bytes));
+    manifest.building.sha256 = await sha256Bytes(filler);
+    const withManifest = entries.map((e) => e.path === "project.json" ? { path: e.path, bytes: new TextEncoder().encode(`${JSON.stringify(manifest, null, 2)}\n`) } : e);
+    const original = await encodeCompressedZip(withManifest);
+    const opened = await openTeldraArchive(original);
+    const saved = await replaceTeldraTwin(opened, opened.twin);
+    expect(saved.bytes.length).toBeLessThanOrEqual(original.length * 1.1);
+    expect(saved.bytes.length).toBeLessThan(filler.length / 4);
+    expect((await openTeldraArchive(saved.bytes)).entries.find((e) => e.path === "building.ifc")!.bytes).toEqual(filler);
   });
 
 });

@@ -4,7 +4,7 @@ import {
   openProjectPersistence,
   openTeldraArchive,
   replaceTeldraTwin,
-  replaceTeldraBuilding,
+  applyTeldraBuilding,
   rebakeTeldraSceneCopy,
   readScenePlacementOverrides,
   type ScenePlacementOverride,
@@ -387,8 +387,8 @@ export class BrowserTeldraFileStorage
     const building = project.derived as StudioBuildingData | undefined;
     // Building first: the stored placement record is validated against the twin it was saved with. Replacing the twin first
     // would reject a record that still names furniture removed in this very save.
-    const withBuilding = building === undefined ? { archive: this.#archive } : await replaceTeldraBuilding(this.#archive, building.bytes, building.scene, building.placements);
-    const combined = await replaceTeldraTwin(withBuilding.archive, project.canonical);
+    const withBuilding = building === undefined ? this.#archive : await applyTeldraBuilding(this.#archive, building.bytes, building.scene, building.placements);
+    const combined = await replaceTeldraTwin(withBuilding, project.canonical);
     const stageId = `browser-stage:${++this.#stageSequence}`;
     this.#staged.set(stageId, {
       stored: structuredClone(project),

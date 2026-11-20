@@ -1,5 +1,5 @@
 import {
-  encodeStoredZip, openTeldraArchive, readScenePlacementOverrides,
+  encodeCompressedZip, openTeldraArchive, readScenePlacementOverrides,
   sha256Bytes, SCENE_PLACEMENT_OVERRIDES_PATH, SCENE_SOURCE_IFC_PATH, TeldraArchiveError,
   type OpenTeldraArchive, type ScenePlacementOverride, type SceneProvenance,
 } from "./archive.js";
@@ -76,7 +76,7 @@ export async function rebakeTeldraSceneCopy<T extends SceneProvenance & {
     ["scene.manifest.json",serializedScene],
     ["project.json",new TextEncoder().encode(JSON.stringify(manifest,null,2)+"\n")],
   ]);
-  const bytes=encodeStoredZip(archive.entries
+  const bytes=await encodeCompressedZip(archive.entries
     .filter(entry=>entry.path!==SCENE_SOURCE_IFC_PATH&&entry.path!==SCENE_PLACEMENT_OVERRIDES_PATH)
     .map(entry=>({path:entry.path,bytes:replacements.get(entry.path)??entry.bytes})));
   const reopened=await openTeldraArchive(bytes);
