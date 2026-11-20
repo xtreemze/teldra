@@ -57,9 +57,9 @@ export async function openPortableProject(): Promise<BrowserStudioProject> {
 }
 
 export async function openDemoProject(url: string, options: {
-  fileName?: string; onProgress?: (loaded: number, total: number) => void;
+  fileName?: string; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal | undefined;
 } = {}): Promise<BrowserStudioProject> {
-  const response = await fetch(url);
+  const response = await fetch(url, options.signal ? { signal: options.signal } : undefined);
   if (!response.ok) throw new Error(`Demo could not be loaded (${response.status}).`);
   let bytes: Uint8Array;
   if (response.body && options.onProgress) {

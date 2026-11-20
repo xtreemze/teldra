@@ -6,6 +6,7 @@ import {
 } from "./BrowserTeldraProject";
 import { ProjectDeviceEditor } from "./ProjectDeviceEditor";
 import { openLaunchedProject } from "./PortableProject";
+import { createLatestOpen } from "./LatestOpen";
 import { PwaControls } from "./PwaControls";
 import { StudioIcon } from "./StudioIcon";
 import { StudioSelectionWorkspace } from "./StudioSelectionWorkspace";
@@ -18,7 +19,7 @@ export interface BrowserProjectStudioProps {
   readonly autoOpenDemo?: boolean;
   readonly downloadProgress?: string;
   readonly openProject?: () => Promise<BrowserStudioProject>;
-  readonly openDemoProject?: () => Promise<BrowserStudioProject>;
+  readonly openDemoProject?: (signal?: AbortSignal) => Promise<BrowserStudioProject>;
   readonly fileAccessSupported?: boolean;
   readonly launchedFile?: FileSystemFileHandle | null;
   readonly onLaunchHandled?: () => void;
@@ -63,23 +64,28 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
     props.fileAccessSupported ??
     (props.openProject !== undefined || supportsBrowserTeldraFileAccess());
 
-  const open = async (demo = false, launchedFile?: FileSystemFileHandle) => {
-    setOpening(true);
-    setError("");
+  // Every open (auto demo, picker, launched file) is a request in one latest-wins gate: a newer request aborts the
+  // older one, and an older one that still completes is closed and discarded rather than replacing the user's choice.
+  const latestOpen = createLatestOpen<BrowserStudioProject>(stale => stale.close(), setOpening);
 
+  const open = async (demo = false, launchedFile?: FileSystemFileHandle) => {
+    setError("");
     try {
-      const next = launchedFile !== undefined
+      const outcome = await latestOpen.start(async signal => {
+        const next = launchedFile !== undefined
           ? await openLaunchedProject(launchedFile)
           : demo && props.openDemoProject !== undefined
-          ? await props.openDemoProject()
+          ? await props.openDemoProject(signal)
           : props.openProject === undefined
           ? await openBrowserTeldraProjectWithPicker(
               `studio:${crypto.randomUUID()}`,
             )
           : await props.openProject();
-
-      const firstDevice = next.controller.twin.devices[0];
-      next.controller.selectCanonicalId(firstDevice?.id ?? null);
+        next.controller.selectCanonicalId(next.controller.twin.devices[0]?.id ?? null);
+        return next;
+      });
+      if (outcome.status === "superseded") return;
+      const next = outcome.value;
       const current = project();
       if (current?.controller.dirty && !window.confirm("This project has unsaved changes. Open another project and discard them?")) {
         await next.close();
@@ -91,8 +97,6 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
       if (!(cause instanceof DOMException && cause.name === "AbortError")) {
         setError(cause instanceof Error ? cause.message : String(cause));
       }
-    } finally {
-      setOpening(false);
     }
   };
 
@@ -137,6 +141,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
   });
   onCleanup(() => {
     window.removeEventListener("beforeunload", protectUnsavedChanges);
+    latestOpen.cancelAll();
     const current = project();
     if (current !== null) {
       void current.close();
@@ -166,7 +171,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
           classList={{"teldra-browser-studio__open--project": project() !== null}}
           type="button"
           onClick={() => void open()}
-          disabled={!supported() || opening()}
+          disabled={!supported()}
           aria-label={project() === null ? "Open .teldra" : "Open another"}
           title={project() === null ? "Open a project" : "Open another project"}
         >
