@@ -17,6 +17,7 @@
     ]
   },
   "dependencies": {
-    "@teldra/domain": "workspace:*"
+    "@teldra/domain": "workspace:*",
+    "@teldra/furniture-catalog": "workspace:*"
   }
 }

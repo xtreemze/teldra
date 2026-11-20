@@ -56,6 +56,19 @@
       ]
     },
     {
+      "id": "furniture-catalog-synthetic-boxes",
+      "paths": [
+        "fixtures/furniture-catalog/synthetic-boxes.catalog.json"
+      ],
+      "provenance": "Teldra-authored synthetic box and footprint-extrusion items; no third-party model, name or data.",
+      "license": "CC0-1.0",
+      "invariants": [
+        "Catalog items validate against schemas/json/furniture-catalog.schema.json with explicit metre dimensions and bottom-centre origin.",
+        "Inserting an item writes IFC geometry whose bounds equal the nominal dimensions.",
+        "Every item is CC0 and bundle-safe; third-party licences never enter the corpus implicitly."
+      ]
+    },
+    {
       "id": "sh3d-visual-transport",
       "paths": [
         "fixtures/sh3d/visual-transport/fixture.json"

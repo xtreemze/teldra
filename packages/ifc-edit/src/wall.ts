@@ -414,7 +414,7 @@ function applyMaterial(g: Graph, plan: MaterialPlan, thickness: number): void {
 }
 
 /** Deterministic, unique compressed IFC GlobalId derived from a seed (relationship ids of created walls). */
-function derivedGuid(seed: string, taken: ReadonlySet<string>): string {
+export function derivedGuid(seed: string, taken: ReadonlySet<string>): string {
   const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
   for (let salt = 0; ; salt++) {
     const bytes: number[] = [];
