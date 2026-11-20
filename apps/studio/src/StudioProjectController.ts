@@ -8,6 +8,9 @@ import {
   nominalDimensionsForScale,
   scaleForNominalDimensions,
   canonicalTwinFingerprint,
+  assertFurnitureRemovable,
+  nextFurnitureCopyId,
+  ifcGlobalIdFromBytes,
   type CommandHistoryStatus,
   type DevicePlacement,
 } from "@teldra/application";
@@ -32,8 +35,9 @@ export class StudioProjectController {
   #dimensionsUnsupported = new Map<string, string>();
   /** Installed only by a loaded renderer that has inspected physical GLB mesh parts. */
   #affineProjectionValidator: ((canonicalId: string, canonicalDelta: readonly number[]) => void) | undefined;
-  #undo: ("twin" | "ifc")[] = [];
-  #redo: ("twin" | "ifc")[] = [];
+  /** "both" = one atomic user step that changed IFC and the twin together (duplicate / remove). */
+  #undo: ("twin" | "ifc" | "both")[] = [];
+  #redo: ("twin" | "ifc" | "both")[] = [];
   #revision: number;
 
   constructor(
@@ -44,6 +48,10 @@ export class StudioProjectController {
     this.#persistence = persistence;
     this.#revision = persistence.savedRevision ?? 0;
     if (building) { this.#building = building; this.#originalBytes = building.bytes.slice(); }
+    if (building) {
+      const text = new TextDecoder().decode(building.bytes);
+      for (const node of building.scene.nodes) if (node.ifcGlobalId !== undefined && !text.includes(node.ifcGlobalId)) this.#missingAtOpen.add(node.canonicalId);
+    }
     this.#editor = new TwinEditor(
       initialTwin,
       persistence.savedRevision ?? 0,
@@ -115,12 +123,15 @@ export class StudioProjectController {
     const context = this.#building;
     if (!context) throw new Error("This project has no editable IFC scene.");
     const ref = this.#furnitureRef(canonicalId);
-    if (!context.scene.nodes.some((node) => node.canonicalId === canonicalId && node.ifcGlobalId === ref.ifcGlobalId)) throw new Error("This furniture has no mapped scene geometry.");
-    if (!this.#ifc) {
-      const adapter = await context.createAdapter();
-      if (!this.#ifc) { this.#ifcAdapter = adapter; this.#ifc = new IfcFurnitureEditor(context.bytes, adapter); }
+    await this.#ensureIfc();
+    const current = this.#ifc!.read(ref.ifcGlobalId);
+    if (!this.isSceneBacked(canonicalId)) {
+      // Added after the 3D scene was built (a duplicate): numeric editing against IFC only; no scene delta exists to project.
+      if (!this.#sourcePoses.has(canonicalId)) this.#sourcePoses.set(canonicalId, current);
+      this.#scaleUnsupported.set(canonicalId, "Scale needs the 3D scene geometry, which a new copy has until the scene is rebuilt.");
+      this.#dimensionsUnsupported.set(canonicalId, "Source dimensions are unavailable until the 3D scene is rebuilt.");
+      return current;
     }
-    const current = this.#ifc.read(ref.ifcGlobalId);
     if (!this.#sourcePoses.has(canonicalId)) {
       this.#sourcePoses.set(canonicalId, this.#ifcAdapter!.read(context.sourceBytes, ref.ifcGlobalId));
     }
@@ -128,7 +139,7 @@ export class StudioProjectController {
       try {
         const sourceScale = this.#ifcAdapter!.readScale?.(context.sourceBytes, ref.ifcGlobalId);
         if (!sourceScale) throw new Error("This IFC adapter does not support mapped geometry scaling.");
-        this.#ifc.readScale(ref.ifcGlobalId); // Validate both versions.
+        this.#ifc!.readScale(ref.ifcGlobalId); // Validate both versions.
         this.#sourceScales.set(canonicalId, sourceScale);
       } catch (error) {
         this.#scaleUnsupported.set(canonicalId, error instanceof Error ? error.message : String(error));
@@ -148,6 +159,66 @@ export class StudioProjectController {
       }
     }
     return current;
+  }
+  async #ensureIfc(): Promise<void> {
+    const context = this.#building;
+    if (!context) throw new Error("This project has no editable IFC scene.");
+    if (this.#ifc) return;
+    const adapter = await context.createAdapter();
+    if (!this.#ifc) { this.#ifcAdapter = adapter; this.#ifc = new IfcFurnitureEditor(context.bytes, adapter); }
+  }
+  /** True when the loaded 3D scene has geometry for this canonical furniture. */
+  isSceneBacked(canonicalId: string): boolean {
+    const ref = this.twin.building.refs.find(value => value.id === canonicalId);
+    return !!ref && !!this.#building?.scene.nodes.some(node => node.canonicalId === canonicalId && node.ifcGlobalId === ref.ifcGlobalId);
+  }
+  /** Scene nodes whose canonical furniture was removed; the derived scene still holds their meshes until it is rebuilt. */
+  get removedSceneNodeIds(): readonly string[] {
+    const refs = new Set(this.twin.building.refs.map(ref => ref.id));
+    return (this.#building?.scene.nodes ?? [])
+      .filter(node => node.ifcGlobalId !== undefined && !refs.has(node.canonicalId) &&
+        (this.#removedEver.has(node.canonicalId) || this.#missingAtOpen.has(node.canonicalId)))
+      .map(node => node.canonicalId);
+  }
+  /** Scene nodes whose IFC GlobalId was already absent from the opened IFC (removed in an earlier saved session). */
+  #missingAtOpen = new Set<string>();
+  #removedEver = new Set<string>();
+  #lifecycleIds = new Set<string>();
+  #dropStaleSelection(): void {
+    const id = this.#selectedCanonicalId;
+    if (id && this.#lifecycleIds.has(id) && !this.twin.building.refs.some(ref => ref.id === id)) this.#selectedCanonicalId = null;
+  }
+  /**
+   * Duplicate canonical IFC furniture as one atomic, undoable step: a new IFC element under a fresh GlobalId plus a new twin
+   * building reference under a fresh canonical id. Devices, capabilities and external bindings are never copied.
+   */
+  async duplicateFurniture(canonicalId: string, offset: readonly [number, number, number] = [0.5, 0, 0]): Promise<string> {
+    const ref = this.#furnitureRef(canonicalId);
+    await this.#ensureIfc();
+    const taken = [...this.twin.building.refs.map(value => value.id), ...this.twin.devices.flatMap(device => [device.id, ...device.capabilities.map(c => c.id)]), ...this.twin.bindings.map(value => value.id)];
+    const newId = nextFurnitureCopyId(canonicalId, taken);
+    const used = new Set(this.twin.building.refs.map(value => value.ifcGlobalId));
+    let newGuid: string;
+    do newGuid = ifcGlobalIdFromBytes(crypto.getRandomValues(new Uint8Array(16))); while (used.has(newGuid));
+    const name = `${ref.name ?? ref.kind} (copy)`;
+    this.#ifc!.duplicate(ref.ifcGlobalId, newGuid, { offset, name });
+    try { this.#editor.addBuildingRef({ id: newId, ifcGlobalId: newGuid, kind: ref.kind, name }); }
+    catch (error) { this.#ifc!.undo(); throw error; }
+    this.#lifecycleIds.add(newId);
+    this.#record("both");
+    return newId;
+  }
+  /** Remove canonical IFC furniture atomically (IFC + twin). Vetoed while a twin device is attached; refused if IFC cannot be cleaned. */
+  async removeFurniture(canonicalId: string): Promise<void> {
+    const ref = this.#furnitureRef(canonicalId);
+    assertFurnitureRemovable(this.twin, canonicalId); // veto first: nothing is touched when a device is attached
+    await this.#ensureIfc();
+    this.#ifc!.remove(ref.ifcGlobalId);
+    try { this.#editor.removeBuildingRef(canonicalId); }
+    catch (error) { this.#ifc!.undo(); throw error; }
+    this.#removedEver.add(canonicalId);
+    if (this.#selectedCanonicalId === canonicalId) this.#selectedCanonicalId = null;
+    this.#record("both");
   }
   furniturePose(canonicalId: string): FurnitureWorldPose {
     if (!this.#ifc) throw new Error("Prepare IFC editing first.");
@@ -262,8 +333,10 @@ export class StudioProjectController {
   get placementOverrides(): readonly ScenePlacementOverride[] {
     const context = this.#building;
     if (!context) return [];
-    const result = new Map(context.placements.map((entry) => [entry.canonicalId, entry]));
+    const live = new Set(this.twin.building.refs.map(ref => ref.id));
+    const result = new Map(context.placements.filter(entry => live.has(entry.canonicalId)).map((entry) => [entry.canonicalId, entry]));
     if (this.#ifc) for (const [id, source] of this.#sourcePoses) {
+      if (!this.twin.building.refs.some(value => value.id === id) || !this.isSceneBacked(id)) continue;
       const ref = this.#furnitureRef(id); const current = this.#ifc.read(ref.ifcGlobalId);
       const originalScale = this.#sourceScales.get(id);
       const currentScale = originalScale && this.#ifc.readScale(ref.ifcGlobalId);
@@ -282,18 +355,22 @@ export class StudioProjectController {
     if (!ref) throw new Error("Only canonical IFC furniture can be edited.");
     return ref;
   }
-  #record(kind: "twin" | "ifc"): void { this.#undo.push(kind); this.#redo = []; this.#revision++; this.#syncPersistence(); }
+  #record(kind: "twin" | "ifc" | "both"): void { this.#undo.push(kind); this.#redo = []; this.#revision++; this.#syncPersistence(); }
   undo(): boolean {
     const kind = this.#undo.at(-1); if (!kind) return false;
-    const result = kind === "twin" ? this.#editor.undo() !== null : this.#ifc?.undo() === true;
+    const result = kind === "twin" ? this.#editor.undo() !== null
+      : kind === "ifc" ? this.#ifc?.undo() === true
+      : this.#editor.undo() !== null && this.#ifc?.undo() === true;
     if (!result) throw new Error("Inconsistent project history.");
-    this.#undo.pop(); this.#redo.push(kind); this.#revision++; this.#syncPersistence(); return true;
+    this.#undo.pop(); this.#redo.push(kind); this.#revision++; this.#dropStaleSelection(); this.#syncPersistence(); return true;
   }
   redo(): boolean {
     const kind = this.#redo.at(-1); if (!kind) return false;
-    const result = kind === "twin" ? this.#editor.redo() !== null : this.#ifc?.redo() === true;
+    const result = kind === "twin" ? this.#editor.redo() !== null
+      : kind === "ifc" ? this.#ifc?.redo() === true
+      : this.#ifc?.redo() === true && this.#editor.redo() !== null;
     if (!result) throw new Error("Inconsistent project history.");
-    this.#redo.pop(); this.#undo.push(kind); this.#revision++; this.#syncPersistence(); return true;
+    this.#redo.pop(); this.#undo.push(kind); this.#revision++; this.#dropStaleSelection(); this.#syncPersistence(); return true;
   }
 
   async save(): Promise<void> {

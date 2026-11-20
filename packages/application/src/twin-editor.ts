@@ -3,6 +3,7 @@ import {
   type SitePlacement,
   type TwinProject,
 } from "@teldra/domain";
+import { assertFurnitureRemovable } from "./furniture-lifecycle.js";
 import {
   CommandProcessor,
   type CanonicalCommand,
@@ -21,12 +22,27 @@ export type RenameTwinDeviceCommand = CanonicalCommand<
 
 export type DevicePlacement = NonNullable<TwinProject["devices"][number]["placement"]>;
 export type PlaceTwinDeviceCommand = CanonicalCommand<"twin.device.place", { readonly deviceId: string; readonly placement: DevicePlacement | null }>;
+export type BuildingReferenceValue = TwinProject["building"]["refs"][number];
+export type AddBuildingRefCommand = CanonicalCommand<"twin.building-ref.add", { readonly ref: { readonly [key: string]: string } }>;
+export type RemoveBuildingRefCommand = CanonicalCommand<"twin.building-ref.remove", { readonly refId: string }>;
 export type PlaceBuildingSiteCommand = CanonicalCommand<"twin.building.place-site", { readonly placement: SitePlacement | null }>;
-export type TwinEditorCommand = RenameTwinDeviceCommand | PlaceTwinDeviceCommand | PlaceBuildingSiteCommand;
+export type TwinEditorCommand = RenameTwinDeviceCommand | PlaceTwinDeviceCommand | AddBuildingRefCommand | RemoveBuildingRefCommand | PlaceBuildingSiteCommand;
 
 const resolveTwinEditorCommand: CommandResolver<TwinProject, TwinEditorCommand> =
   () => (state, command) => {
     switch (command.kind) {
+      case "twin.building-ref.add": {
+        const ref = structuredClone(command.payload.ref) as unknown as BuildingReferenceValue;
+        const next: TwinProject = { ...state, building: { ...state.building, refs: [...state.building.refs, ref] } };
+        assertTwinIntegrity(next); // rejects duplicate canonical ids and IFC GlobalIds
+        return { state: next, inverse: { id: `inverse:${command.id}`, kind: "twin.building-ref.remove", authority: "canonical-project", payload: { refId: ref.id }, ...(command.correlationId === undefined ? {} : { correlationId: command.correlationId }) } };
+      }
+      case "twin.building-ref.remove": {
+        const ref = assertFurnitureRemovable(state, command.payload.refId);
+        const next: TwinProject = { ...state, building: { ...state.building, refs: state.building.refs.filter(value => value.id !== ref.id) } };
+        assertTwinIntegrity(next);
+        return { state: next, inverse: { id: `inverse:${command.id}`, kind: "twin.building-ref.add", authority: "canonical-project", payload: { ref: structuredClone(ref) as unknown as { [key: string]: string } }, ...(command.correlationId === undefined ? {} : { correlationId: command.correlationId }) } };
+      }
       case "twin.building.place-site": {
         const previous = state.building.sitePlacement;
         const { sitePlacement: _old, ...building } = state.building;
@@ -158,6 +174,19 @@ export class TwinEditor {
   placeDevice(deviceId: string, placement: DevicePlacement, correlationId?: string): CommandCommit<TwinProject, TwinEditorCommand> {
     this.#sequence += 1;
     return this.#processor.execute({ id: `transaction:twin-device-place:${this.#sequence}`, expectedRevision: this.#processor.revision, ...(correlationId === undefined ? {} : { correlationId }), commands: [{ id: `command:twin-device-place:${this.#sequence}`, kind: "twin.device.place", authority: "canonical-project", payload: { deviceId, placement }, ...(correlationId === undefined ? {} : { correlationId }) }] });
+  }
+
+  /** Registers a new canonical building reference (e.g. a duplicated IFC element). */
+  addBuildingRef(ref: BuildingReferenceValue, correlationId?: string): CommandCommit<TwinProject, TwinEditorCommand> {
+    this.#sequence += 1;
+    return this.#processor.execute({ id: `transaction:twin-building-ref-add:${this.#sequence}`, expectedRevision: this.#processor.revision, ...(correlationId === undefined ? {} : { correlationId }), commands: [{ id: `command:twin-building-ref-add:${this.#sequence}`, kind: "twin.building-ref.add", authority: "canonical-project", payload: { ref: structuredClone(ref) as unknown as { [key: string]: string } }, ...(correlationId === undefined ? {} : { correlationId }) }] });
+  }
+
+  /** Removes a furniture reference; vetoed (FurnitureRemovalVetoError) while a twin device is attached to it. */
+  removeBuildingRef(refId: string, correlationId?: string): CommandCommit<TwinProject, TwinEditorCommand> {
+    assertFurnitureRemovable(this.#processor.state, refId);
+    this.#sequence += 1;
+    return this.#processor.execute({ id: `transaction:twin-building-ref-remove:${this.#sequence}`, expectedRevision: this.#processor.revision, ...(correlationId === undefined ? {} : { correlationId }), commands: [{ id: `command:twin-building-ref-remove:${this.#sequence}`, kind: "twin.building-ref.remove", authority: "canonical-project", payload: { refId }, ...(correlationId === undefined ? {} : { correlationId }) }] });
   }
 
   /** Set (or clear with null) the geographic building placement. Never touches IFC geometry. */

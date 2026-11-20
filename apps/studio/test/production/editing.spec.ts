@@ -357,3 +357,85 @@ test("translating an angle-constrained wall preserves the visible direction and 
   await expect(panel.getByText("Length: 4.123 m")).toBeVisible();
   await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
 });
+
+test("furniture lifecycle: select, duplicate, move, apply, delete, undo, redo, save and reopen", async ({page},testInfo) => {
+ const errors:string[]=[];page.on("pageerror",e=>errors.push(e.message));
+ await page.goto("./?demo=sample");await page.getByRole("button",{name:"Try demo",exact:true}).click();
+ await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ const objects=page.getByRole("list",{name:"Building objects",exact:true});
+ const chair=objects.getByRole("button",{name:/^Chair furniture$/});
+ const copy=objects.getByRole("button",{name:/^Chair \(copy\) furniture$/});
+ const save=page.getByRole("button",{name:"Save project",exact:true});
+ await chair.click();
+ const tools=page.getByRole("toolbar",{name:"Transform tools",exact:true});
+ // Duplicate with Shift+D: the copy is selected and Move starts.
+ await page.getByTestId("twin-canvas").focus();
+ await page.keyboard.press("Shift+D");
+ await expect(copy).toBeVisible();
+ await expect(copy).toHaveAttribute("aria-pressed","true");
+ await expect(tools.getByRole("button",{name:"Move",exact:true})).toHaveAttribute("aria-pressed","true");
+ await expect(page.getByTestId("workspace-selected-canonical-id")).not.toHaveText("chair");
+ const x=page.getByLabel("Position X (m)",{exact:true});
+ await expect(x).toHaveValue("1.5");
+ await x.fill("3");
+ await page.getByRole("button",{name:"Apply placement",exact:true}).click();
+ await expect(save).toBeEnabled();
+ // The original did not move.
+ await chair.click();
+ await tools.getByRole("button",{name:"Move",exact:true}).click();
+ await expect(x).toHaveValue("1");
+ await page.keyboard.press("Escape");
+ // Delete the copy with confirmation.
+ await copy.click();
+ await tools.getByRole("button",{name:"Delete",exact:true}).click();
+ const confirm=page.getByRole("alertdialog",{name:"Confirm delete"});
+ await expect(confirm).toBeVisible();
+ await confirm.getByRole("button",{name:"Cancel",exact:true}).click();
+ await expect(copy).toBeVisible();
+ await tools.getByRole("button",{name:"Delete",exact:true}).click();
+ await page.getByRole("alertdialog",{name:"Confirm delete"}).getByRole("button",{name:/^Delete Chair/}).click();
+ await expect(copy).toHaveCount(0);
+ // Undo restores it with its placement; redo removes it again.
+ await page.getByRole("button",{name:"Undo",exact:true}).click();
+ await expect(copy).toBeVisible();
+ await page.getByRole("button",{name:"Redo",exact:true}).click();
+ await expect(copy).toHaveCount(0);
+ await page.getByRole("button",{name:"Undo",exact:true}).click();
+ await expect(copy).toBeVisible();
+ // Save, reopen: the copy, with its moved pose, is canonical in the saved project.
+ const pending=page.waitForEvent("download");await save.click();
+ const path=testInfo.outputPath("lifecycle.teldra");await (await pending).saveAs(path);
+ await page.addInitScript(()=>Object.defineProperty(window,"showOpenFilePicker",{value:undefined,configurable:true}));
+ await page.reload();const picker=page.waitForEvent("filechooser");await page.getByRole("button",{name:"Open .teldra",exact:true}).click();
+ await(await picker).setFiles(path);await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ await expect(chair).toBeVisible();
+ await expect(copy).toBeVisible();
+ await copy.click();
+ await tools.getByRole("button",{name:"Move",exact:true}).click();
+ await expect(x).toHaveValue("3");
+ await page.keyboard.press("Escape");
+ // Delete the original, save, reopen: it stays gone.
+ await chair.click();
+ await tools.getByRole("button",{name:"Delete",exact:true}).click();
+ await page.getByRole("alertdialog",{name:"Confirm delete"}).getByRole("button",{name:/^Delete Chair/}).click();
+ await expect(chair).toHaveCount(0);
+ const second=page.waitForEvent("download");await save.click();
+ const path2=testInfo.outputPath("lifecycle2.teldra");await (await second).saveAs(path2);
+ await page.reload();const picker2=page.waitForEvent("filechooser");await page.getByRole("button",{name:"Open .teldra",exact:true}).click();
+ await(await picker2).setFiles(path2);await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ await expect(chair).toHaveCount(0);
+ await expect(copy).toBeVisible();
+ expect(errors).toEqual([]);
+});
+
+test("deleting a device-bound fixture is vetoed with an explicit reason and changes nothing", async ({page}) => {
+ await page.goto("./?demo=sample");await page.getByRole("button",{name:"Try demo",exact:true}).click();
+ await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+ const objects=page.getByRole("list",{name:"Building objects",exact:true});
+ await objects.getByRole("button",{name:/lamp/i}).first().click();
+ const tools=page.getByRole("toolbar",{name:"Transform tools",exact:true});
+ await tools.getByRole("button",{name:"Delete",exact:true}).click();
+ await page.getByRole("alertdialog",{name:"Confirm delete"}).getByRole("button",{name:/^Delete /}).click();
+ await expect(page.getByRole("alert").filter({hasText:"attached to it"}).first()).toBeVisible();
+ await expect(page.getByRole("button",{name:"Save project",exact:true})).toBeDisabled();
+});

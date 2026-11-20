@@ -1,6 +1,7 @@
 import {
   openBrowserTeldraProject,
   openBrowserTeldraProjectWithPicker,
+  pickBrowserTeldraFile,
   supportsBrowserTeldraFileAccess,
   type BrowserTeldraFileHandle,
   type BrowserStudioProject,
@@ -38,10 +39,28 @@ function downloadProject(bytes: Uint8Array, name: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Phase 1: only the user's file choice. Rejects on cancel; nothing is opened yet. Phase 2 opens what was chosen. */
+export async function choosePortableProject(): Promise<() => Promise<BrowserStudioProject>> {
+  const owner = `studio:${crypto.randomUUID()}`;
+  if (supportsBrowserTeldraFileAccess()) {
+    const handle = await pickBrowserTeldraFile();
+    return () => openBrowserTeldraProject(handle, owner);
+  }
+  const file = await chooseFileViaInput();
+  return async () => openBrowserTeldraProject(createDownloadProjectHandle(file.name,
+    new Uint8Array(await file.arrayBuffer())), owner);
+}
+
 export async function openPortableProject(): Promise<BrowserStudioProject> {
   const owner = `studio:${crypto.randomUUID()}`;
   if (supportsBrowserTeldraFileAccess()) return openBrowserTeldraProjectWithPicker(owner);
-  const file = await new Promise<File>((resolve, reject) => {
+  const file = await chooseFileViaInput();
+  return openBrowserTeldraProject(createDownloadProjectHandle(file.name,
+    new Uint8Array(await file.arrayBuffer())), owner);
+}
+
+function chooseFileViaInput(): Promise<File> {
+  return new Promise<File>((resolve, reject) => {
     const input = document.createElement("input"); input.type = "file"; input.accept = ".teldra";
     input.hidden = true;
     const dispose = () => input.remove();
@@ -52,14 +71,12 @@ export async function openPortableProject(): Promise<BrowserStudioProject> {
     input.addEventListener("cancel", () => { dispose(); reject(new DOMException("Project selection was cancelled.", "AbortError")); }, {once: true});
     document.body.append(input); input.click();
   });
-  return openBrowserTeldraProject(createDownloadProjectHandle(file.name,
-    new Uint8Array(await file.arrayBuffer())), owner);
 }
 
 export async function openDemoProject(url: string, options: {
-  fileName?: string; onProgress?: (loaded: number, total: number) => void;
+  fileName?: string; onProgress?: (loaded: number, total: number) => void; signal?: AbortSignal | undefined;
 } = {}): Promise<BrowserStudioProject> {
-  const response = await fetch(url);
+  const response = await fetch(url, options.signal ? { signal: options.signal } : undefined);
   if (!response.ok) throw new Error(`Demo could not be loaded (${response.status}).`);
   let bytes: Uint8Array;
   if (response.body && options.onProgress) {

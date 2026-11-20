@@ -55,7 +55,8 @@ async function createStoryProject() {
     `${JSON.stringify(goldenTwin, null, 2)}\n`,
   );
   const buildingBytes = encoder.encode(
-    "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\nEND-ISO-10303-21;\n",
+    // IFC is authoritative: the scene's fixture wall must exist in the building, or Studio treats it as removed.
+    "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1=IFCWALL('1234567890123456789012',$,'Fixture wall',$,$,$,$,$,$);\nENDSEC;\nEND-ISO-10303-21;\n",
   );
   const glbResponse = await fetch("/fixtures/twin-pick.glb");
   if (!glbResponse.ok) {

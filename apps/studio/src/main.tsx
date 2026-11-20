@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import { openDemoProject, openPortableProject } from "./PortableProject";
+import { openDemoProject, choosePortableProject } from "./PortableProject";
 import { BrowserProjectStudio } from "./BrowserProjectStudio";
 
 const root = document.getElementById("root");
@@ -18,10 +18,10 @@ type LaunchQueueHost = Window & { launchQueue?: { setConsumer: (callback: (param
   if (handle) setLaunchedFile(handle);
 });
 const [downloadProgress, setDownloadProgress] = createSignal("");
-render(() => <BrowserProjectStudio openProject={openPortableProject}
+render(() => <BrowserProjectStudio chooseProject={choosePortableProject}
   autoOpenDemo={!sample && !launchedFromFileAssociation} downloadProgress={downloadProgress()}
   launchedFile={launchedFile()} onLaunchHandled={() => setLaunchedFile(null)}
-  openDemoProject={() => openDemoProject(`${import.meta.env.BASE_URL}${sample ? "demo.teldra" : "21D.teldra"}`, {
-    fileName: sample ? "teldra-demo.teldra" : "21D - Sweet Home 3D.teldra",
+  openDemoProject={signal => openDemoProject(`${import.meta.env.BASE_URL}${sample ? "demo.teldra" : "21D.teldra"}`, {
+    signal, fileName: sample ? "teldra-demo.teldra" : "21D - Sweet Home 3D.teldra",
     onProgress: (loaded, total) => setDownloadProgress(total > 0 ? `Downloading 21D home: ${Math.min(100,Math.round(loaded/total*100))}%` : `Downloading 21D home: ${(loaded/1048576).toFixed(1)} MB`),
   })} />, root);
