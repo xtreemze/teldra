@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
-import { openDemoProject, openPortableProject } from "./PortableProject";
+import { openDemoProject, choosePortableProject } from "./PortableProject";
 import { BrowserProjectStudio } from "./BrowserProjectStudio";
 
 const root = document.getElementById("root");
@@ -18,7 +18,7 @@ type LaunchQueueHost = Window & { launchQueue?: { setConsumer: (callback: (param
   if (handle) setLaunchedFile(handle);
 });
 const [downloadProgress, setDownloadProgress] = createSignal("");
-render(() => <BrowserProjectStudio openProject={openPortableProject}
+render(() => <BrowserProjectStudio chooseProject={choosePortableProject}
   autoOpenDemo={!sample && !launchedFromFileAssociation} downloadProgress={downloadProgress()}
   launchedFile={launchedFile()} onLaunchHandled={() => setLaunchedFile(null)}
   openDemoProject={signal => openDemoProject(`${import.meta.env.BASE_URL}${sample ? "demo.teldra" : "21D.teldra"}`, {

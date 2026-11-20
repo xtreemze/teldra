@@ -18,6 +18,8 @@ import "./BrowserProjectStudio.css";
 export interface BrowserProjectStudioProps {
   readonly autoOpenDemo?: boolean;
   readonly downloadProgress?: string;
+  /** Two-phase picker: resolves once the user has chosen (rejects on cancel); the returned opener loads it. */
+  readonly chooseProject?: () => Promise<() => Promise<BrowserStudioProject>>;
   readonly openProject?: () => Promise<BrowserStudioProject>;
   readonly openDemoProject?: (signal?: AbortSignal) => Promise<BrowserStudioProject>;
   readonly fileAccessSupported?: boolean;
@@ -62,7 +64,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
 
   const supported = () =>
     props.fileAccessSupported ??
-    (props.openProject !== undefined || supportsBrowserTeldraFileAccess());
+    (props.openProject !== undefined || props.chooseProject !== undefined || supportsBrowserTeldraFileAccess());
 
   // Every open (auto demo, picker, launched file) is a request in one latest-wins gate: a newer request aborts the
   // older one, and an older one that still completes is closed and discarded rather than replacing the user's choice.
@@ -71,8 +73,15 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
   const open = async (demo = false, launchedFile?: FileSystemFileHandle) => {
     setError("");
     try {
-      const outcome = await latestOpen.start(async signal => {
-        const next = launchedFile !== undefined
+      const finish = (next: BrowserStudioProject) => {
+        next.controller.selectCanonicalId(next.controller.twin.devices[0]?.id ?? null);
+        return next;
+      };
+      // Choosing a file (picker) happens outside the gate, so cancelling it never disturbs an in-flight open.
+      const outcome = launchedFile === undefined && !demo && props.chooseProject !== undefined
+        ? await latestOpen.startAfterChoice(props.chooseProject, async opener => finish(await opener()))
+        : await latestOpen.start(async signal => finish(
+          launchedFile !== undefined
           ? await openLaunchedProject(launchedFile)
           : demo && props.openDemoProject !== undefined
           ? await props.openDemoProject(signal)
@@ -80,10 +89,7 @@ export function BrowserProjectStudio(props: BrowserProjectStudioProps) {
           ? await openBrowserTeldraProjectWithPicker(
               `studio:${crypto.randomUUID()}`,
             )
-          : await props.openProject();
-        next.controller.selectCanonicalId(next.controller.twin.devices[0]?.id ?? null);
-        return next;
-      });
+          : await props.openProject()));
       if (outcome.status === "superseded") return;
       const next = outcome.value;
       const current = project();

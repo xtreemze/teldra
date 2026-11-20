@@ -10,6 +10,11 @@ export type LatestOpenOutcome<T> =
 export interface LatestOpen<T> {
   /** Starts a request. Older in-flight requests are aborted and will resolve as superseded. */
   start(load: (signal: AbortSignal) => Promise<T>): Promise<LatestOpenOutcome<T>>;
+  /**
+   * Waits for the user to choose something (a file picker) WITHOUT touching in-flight requests, then starts a
+   * request for that choice. If choosing rejects (cancelled), the gate and any in-flight request are untouched.
+   */
+  startAfterChoice<C>(choose: () => Promise<C>, load: (choice: C, signal: AbortSignal) => Promise<T>): Promise<LatestOpenOutcome<T>>;
   /** True while the most recently started request has not settled. */
   pending(): boolean;
   /** Supersedes everything in flight, e.g. when the owner is disposed. */
@@ -28,8 +33,12 @@ export function createLatestOpen<T>(
     pending = next;
     onPendingChange(next);
   };
-  return {
+  const api: LatestOpen<T> = {
     pending: () => pending,
+    async startAfterChoice(choose, load) {
+      const choice = await choose();
+      return api.start(signal => load(choice, signal));
+    },
     cancelAll() {
       generation += 1;
       controller?.abort();
@@ -61,5 +70,6 @@ export function createLatestOpen<T>(
       settle();
       return { status: "current", value };
     },
-  };
+   };
+  return api;
 }
