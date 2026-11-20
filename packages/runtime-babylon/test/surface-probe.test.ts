@@ -6,8 +6,12 @@ import {PickingInfo} from "@babylonjs/core/Collisions/pickingInfo";
 import {Matrix, Vector3} from "@babylonjs/core/Maths/math.vector";
 import type {BaseTexture} from "@babylonjs/core/Materials/Textures/baseTexture";
 import {CreateBox} from "@babylonjs/core/Meshes/Builders/boxBuilder";
+import {MultiMaterial} from "@babylonjs/core/Materials/multiMaterial";
+import {SubMesh} from "@babylonjs/core/Meshes/subMesh";
+import {VertexBuffer} from "@babylonjs/core/Buffers/buffer";
+import {Texture} from "@babylonjs/core/Materials/Textures/texture";
 import {RawTexture} from "@babylonjs/core/Materials/Textures/rawTexture";
-import {describeSurfacePick, diagnosticMipLevels, normalizeGpuRgb, clientToFramebufferPixel, inspectGpuMips} from "../src/surface-probe";
+import {describeSurfacePick, diagnosticMipLevels, normalizeGpuRgb, clientToFramebufferPixel, inspectGpuMips, resolvedPickedTexture, pickTextureCoordinates} from "../src/surface-probe";
 
 describe("surface probe",()=>{
  it("reports the actual material and texture without mutation or unsafe embedded names",()=>{
@@ -125,4 +129,41 @@ it("does not infer WebGPU allocation from stale internal metadata",async()=>{
  const result=await inspectGpuMips(texture);
  expect(result.mips).toEqual([]);
  expect(result.mipAvailabilityError).toBe("Allocated mip levels unavailable");
+});
+
+
+it("resolves the picked submaterial and its UV set, rejecting unsupported mappings",()=>{
+ const engine=new NullEngine(), scene=new Scene(engine);
+ try {
+  const mesh=CreateBox("two materials",{},scene);
+  mesh.releaseSubMeshes();
+  new SubMesh(0,0,mesh.getTotalVertices(),0,18,mesh);
+  new SubMesh(1,0,mesh.getTotalVertices(),18,18,mesh);
+  const first=new StandardMaterial("first",scene), second=new StandardMaterial("second",scene);
+  const texture=RawTexture.CreateRGBTexture(new Uint8Array([1,2,3]),1,1,scene,false,false);
+  texture.coordinatesIndex=1; second.diffuseTexture=texture;
+  const multi=new MultiMaterial("multi",scene);multi.subMaterials=[first,second];mesh.material=multi;
+  mesh.setVerticesData(VertexBuffer.UVKind, Array(mesh.getTotalVertices()).fill([.1,.2]).flat());
+  mesh.setVerticesData(VertexBuffer.UV2Kind, Array(mesh.getTotalVertices()).fill([.7,.8]).flat());
+  const pick=new PickingInfo();pick.hit=true;pick.pickedMesh=mesh;pick.faceId=6;pick.subMeshId=1;pick.bu=.2;pick.bv=.3;
+  expect(resolvedPickedTexture(pick)).toMatchObject({material:second,texture});
+  expect(pickTextureCoordinates(pick,texture)).toEqual([expect.closeTo(.7),expect.closeTo(.8)]);
+  expect(describeSurfacePick(pick,null)).toMatchObject({material:"second",uv:[.7,.8]});
+  texture.coordinatesMode=Texture.PLANAR_MODE;
+  expect(pickTextureCoordinates(pick,texture)).toBeNull();
+  expect(describeSurfacePick(pick,null)?.uv).toBeNull();
+  texture.coordinatesMode=Texture.EXPLICIT_MODE;texture.coordinatesIndex=0;
+  expect(pickTextureCoordinates(pick,texture)).toEqual([expect.closeTo(.1),expect.closeTo(.2)]);
+  texture.coordinatesIndex=2;
+  expect(pickTextureCoordinates(pick,texture)).toBeNull();
+  texture.coordinatesIndex=7;
+  expect(pickTextureCoordinates(pick,texture)).toBeNull();
+  texture.coordinatesIndex=0;
+  pick.faceId=0;
+  expect(resolvedPickedTexture(pick)).toMatchObject({material:null,texture:null});
+  pick.faceId=100;
+  expect(pickTextureCoordinates(pick,texture)).toBeNull();
+  pick.subMeshId=99;
+  expect(resolvedPickedTexture(pick)).toMatchObject({material:null,texture:null});
+ } finally {scene.dispose();engine.dispose();}
 });
