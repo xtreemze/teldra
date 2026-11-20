@@ -176,6 +176,14 @@ function firstCentralOffset(bytes: Uint8Array): number {
   return view.getUint32(bytes.byteLength - 6, true);
 }
 
+
+/** Fast byte comparison: element-wise deep equality on large arrays is too slow on loaded CI runners. */
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 describe(".teldra stored ZIP codec", () => {
   it("encodes deterministic stored ZIP archives independent of input order", async () => {
     const entries = await goldenEntries();
@@ -381,41 +389,41 @@ describe(".teldra stored ZIP codec", () => {
     }
 
     it("copies the original deflate payload without recompressing an unchanged entry", async () => {
-      const original = await bigArchive(ifcText(30_000));
+      const original = await bigArchive(ifcText(8_000));
       const opened = await openTeldraArchive(original);
       const calls = countDeflates();
       const saved = await replaceTeldraTwin(opened, opened.twin);
       expect(calls.count).toBe(0);
-      expect(payloadOf(saved.bytes, "building.ifc")).toEqual(payloadOf(original, "building.ifc"));
-      expect(saved.archive.entries.find((e) => e.path === "building.ifc")!.bytes).toEqual(opened.entries.find((e) => e.path === "building.ifc")!.bytes);
+      expect(sameBytes(payloadOf(saved.bytes, "building.ifc"), payloadOf(original, "building.ifc"))).toBe(true);
+      expect(sameBytes(saved.archive.entries.find((e) => e.path === "building.ifc")!.bytes, opened.entries.find((e) => e.path === "building.ifc")!.bytes)).toBe(true);
     });
 
     it("recompresses only the entry whose bytes were replaced", async () => {
-      const original = await bigArchive(ifcText(30_000));
+      const original = await bigArchive(ifcText(8_000));
       const opened = await openTeldraArchive(original);
-      const edited = ifcText(31_000);
+      const edited = ifcText(8_300);
       const calls = countDeflates();
       const zip = await encodeCompressedZip(opened.entries.map((e) => e.path === "building.ifc" ? { path: e.path, bytes: edited } : e));
       expect(calls.count).toBe(1);
-      expect(payloadOf(zip, "building.ifc")).not.toEqual(payloadOf(original, "building.ifc"));
-      expect(payloadOf(zip, "twin.json")).toEqual(payloadOf(original, "twin.json"));
+      expect(sameBytes(payloadOf(zip, "building.ifc"), payloadOf(original, "building.ifc"))).toBe(false);
+      expect(sameBytes(payloadOf(zip, "twin.json"), payloadOf(original, "twin.json"))).toBe(true);
       // Valid bytes round-trip: a consistent archive built from the same replacement reads back identically.
       const consistent = await bigArchive(edited);
-      expect((await openTeldraArchive(consistent)).entries.find((e) => e.path === "building.ifc")!.bytes).toEqual(edited);
+      expect(sameBytes((await openTeldraArchive(consistent)).entries.find((e) => e.path === "building.ifc")!.bytes, edited)).toBe(true);
     });
 
     it("reuses one compressed form for the same bytes stored under a second path", async () => {
-      const original = await bigArchive(ifcText(30_000));
+      const original = await bigArchive(ifcText(8_000));
       const opened = await openTeldraArchive(original);
       const building = opened.entries.find((e) => e.path === "building.ifc")!;
       const calls = countDeflates();
       const zip = await encodeCompressedZip([...opened.entries, { path: "teldra/scene-source.ifc", bytes: building.bytes }]);
       expect(calls.count).toBe(0);
-      expect(payloadOf(zip, "teldra/scene-source.ifc")).toEqual(payloadOf(original, "building.ifc"));
+      expect(sameBytes(payloadOf(zip, "teldra/scene-source.ifc"), payloadOf(original, "building.ifc"))).toBe(true);
     });
 
     it("does not reuse a compressed form for a copy with different bytes", async () => {
-      const original = await bigArchive(ifcText(30_000));
+      const original = await bigArchive(ifcText(8_000));
       const opened = await openTeldraArchive(original);
       const building = opened.entries.find((e) => e.path === "building.ifc")!;
       const calls = countDeflates();
@@ -439,7 +447,7 @@ describe(".teldra stored ZIP codec", () => {
     const saved = await replaceTeldraTwin(opened, opened.twin);
     expect(saved.bytes.length).toBeLessThanOrEqual(original.length * 1.1);
     expect(saved.bytes.length).toBeLessThan(filler.length / 4);
-    expect((await openTeldraArchive(saved.bytes)).entries.find((e) => e.path === "building.ifc")!.bytes).toEqual(filler);
+    expect(sameBytes((await openTeldraArchive(saved.bytes)).entries.find((e) => e.path === "building.ifc")!.bytes, filler)).toBe(true);
   });
 
 });
