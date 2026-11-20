@@ -22,7 +22,7 @@ import { sourceMaterialProjection } from "./source-material.js";
 import { applyPreviewShadowDetail, SH3D_EDITING_SHADOW_DETAIL } from "./preview-shadow-detail.js";
 import { FloorTextureInspector } from "./floor-texture-inspector.js";
 import { FloorMinificationInspector, type FloorMinificationMode } from "./floor-minification-inspector.js";
-import { clientToFramebufferPixel, describeSurfacePick, normalizeGpuRgb, inspectGpuMips, type SurfaceProbe, type GpuFloorEvidence } from "./surface-probe.js";
+import { clientToFramebufferPixel, describeSurfacePick, resolvedPickedTexture, pickTextureCoordinates, normalizeGpuRgb, inspectGpuMips, type SurfaceProbe, type GpuFloorEvidence } from "./surface-probe.js";
 import { furnitureSceneDelta, FurnitureGizmoBridge, type FurnitureEditSession, type FurniturePlacement, type FurnitureWorldPose, type ScenePlacement } from "./furniture-gizmo.js";
 import type { FurnitureMeasuredBounds } from "./furniture-bounds.js";
 import { applySceneMeshUpdate, type SceneMeshUpdateContext } from "./scene-mesh-update.js";
@@ -842,11 +842,8 @@ export async function createBabylonTwinRuntime(
             mesh => isMeshInteractable(mesh) && mesh.getTotalVertices() > 0,
             false, scene.cameraToUseForPointers ?? undefined);
           const surface = describeSurfacePick(picked, resolvePickedMesh(picked?.pickedMesh, picked?.faceId));
-          const material = picked?.pickedMesh?.material;
-          const texture = material instanceof StandardMaterial ? material.diffuseTexture :
-            material instanceof PBRMaterial ? material.albedoTexture : null;
-          const uv = picked?.faceId !== undefined && picked.faceId >= 0
-            ? picked.getTextureCoordinates()?.asArray() : null;
+          const {texture} = resolvedPickedTexture(picked);
+          const uv = pickTextureCoordinates(picked, texture);
           const capture: NonNullable<GpuFloorInspection["capture"]> = {
             backend, framebufferFormat, pixel, renderSize,
             camera: defaultCamera ? cameraState(defaultCamera) : null,
@@ -870,7 +867,7 @@ export async function createBabylonTwinRuntime(
               framebufferError = reason instanceof Error ? reason.message.slice(0,240) : "Framebuffer readback unsupported";
             }
             if (finished || disposed) return;
-            const levels = texture ? await inspectGpuMips(texture, uv ? [uv[0]!,uv[1]!] : null)
+            const levels = texture ? await inspectGpuMips(texture, uv)
               : {textureSize:null,mips:[]};
             finish(disposed ? unavailable("Runtime disposed during GPU readback")
               : {framebufferRgb,framebufferError,...levels,surface,capture});
