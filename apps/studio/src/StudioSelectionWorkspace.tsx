@@ -31,6 +31,8 @@ export interface StudioSelectionWorkspaceProps {
   readonly onExportRebakedScene?: () => Promise<void>;
   readonly onViewportReady?: (handle: TwinViewportHandle) => void;
   readonly liveState?: StudioLiveStateController;
+  /** Bump to make the workspace re-read controller state changed elsewhere. */
+  readonly externalVersion?: () => number;
 }
 
 /** Column-major canonical-frame delta: 1/1000 scale, 1 km below the building. Presentation only; never persisted or written to IFC. */
@@ -102,6 +104,8 @@ export function StudioSelectionWorkspace(
 
   const refreshSelection = () =>
     setSelectionVersion((version) => version + 1);
+  // Canonical twin changed outside this workspace (e.g. the Site panel): re-read history, dirty state and lists.
+  createEffect(() => { props.externalVersion?.(); refreshSelection(); });
 
   const selectedCanonicalId = () => {
     selectionVersion();

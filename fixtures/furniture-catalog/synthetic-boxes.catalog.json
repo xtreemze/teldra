@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "0.1.0",
+  "id": "teldra-synthetic-boxes",
+  "name": "Teldra synthetic box catalog",
+  "version": "1.0.0",
+  "provider": "Teldra test fixtures",
+  "items": [
+    {
+      "id": "box-chair",
+      "name": "Box chair",
+      "category": "Seating",
+      "tags": ["synthetic", "test"],
+      "ifc": {
+        "class": "IfcFurniture",
+        "predefinedType": "CHAIR",
+        "classifications": [
+          {
+            "system": "bSDD",
+            "identification": "IfcFurniture.CHAIR",
+            "name": "Chair",
+            "uri": "https://identifier.buildingsmart.org/uri/buildingsmart/ifc/4.3/class/IfcFurniture"
+          }
+        ]
+      },
+      "dimensions": { "unit": "m", "origin": "bbox-bottom-center", "width": 0.5, "depth": 0.45, "height": 0.9 },
+      "mount": { "type": "floor" },
+      "representation": { "kind": "box" },
+      "materials": [{ "name": "Painted wood", "baseColor": [0.6, 0.45, 0.3] }],
+      "licence": { "spdx": "CC0-1.0", "author": "Teldra contributors", "redistribution": "bundle" }
+    },
+    {
+      "id": "l-shelf",
+      "name": "L-shaped shelf unit",
+      "category": "Storage",
+      "ifc": { "class": "IfcFurniture", "predefinedType": "SHELF" },
+      "dimensions": { "unit": "m", "origin": "bbox-bottom-center", "width": 1, "depth": 0.5, "height": 1.8 },
+      "mount": { "type": "floor" },
+      "representation": {
+        "kind": "extrusion",
+        "footprint": [[-0.5, -0.25], [0.5, -0.25], [0.5, 0], [0, 0], [0, 0.25], [-0.5, 0.25]]
+      },
+      "licence": { "spdx": "CC0-1.0", "author": "Teldra contributors", "redistribution": "bundle" }
+    },
+    {
+      "id": "wall-picture",
+      "name": "Wall picture frame",
+      "category": "Decor",
+      "ifc": { "class": "IfcFurniture", "predefinedType": "USERDEFINED" },
+      "dimensions": { "unit": "m", "origin": "bbox-bottom-center", "width": 0.6, "depth": 0.03, "height": 0.4 },
+      "mount": { "type": "wall", "elevation": 1.4 },
+      "representation": { "kind": "box" },
+      "licence": { "spdx": "CC0-1.0", "author": "Teldra contributors", "redistribution": "bundle" }
+    }
+  ]
+}

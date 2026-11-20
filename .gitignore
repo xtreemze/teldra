@@ -28,3 +28,7 @@ test-results/
 # Verified demo files generated from the Git LFS source
 apps/studio/public/21D.teldra
 apps/studio/public/21D.manifest.json
+
+# Agent worktrees (nested checkouts confuse nx project graph)
+/.claude/worktrees/
+/apps/site/.astro/

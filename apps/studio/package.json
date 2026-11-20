@@ -27,6 +27,7 @@
     "@teldra/live-state": "workspace:*",
     "@teldra/scene-manifest": "workspace:*",
     "@teldra/ifc-edit": "workspace:*",
+    "@teldra/osm-overpass": "workspace:*",
     "web-ifc": "0.0.78"
   },
   "devDependencies": {

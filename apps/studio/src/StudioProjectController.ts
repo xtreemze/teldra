@@ -14,7 +14,7 @@ import {
   type CommandHistoryStatus,
   type DevicePlacement,
 } from "@teldra/application";
-import type { TwinProject } from "@teldra/domain";
+import type { SitePlacement, TwinProject } from "@teldra/domain";
 import type { ProjectPersistenceSession, ScenePlacementOverride, SceneProvenance } from "@teldra/project-format";
 
 export interface StudioBuildingData { bytes: Uint8Array; placements: readonly ScenePlacementOverride[]; scene: SceneProvenance }
@@ -110,6 +110,12 @@ export class StudioProjectController {
 
   placeDevice(deviceId: string, placement: DevicePlacement, correlationId?: string): void {
     this.#editor.placeDevice(deviceId, placement, correlationId);
+    this.#record("twin");
+  }
+
+  /** Place or clear the building georeference through the twin command history (shared undo/redo, save and reopen). */
+  placeBuildingSite(placement: SitePlacement | null, correlationId?: string): void {
+    this.#editor.placeBuildingSite(placement, correlationId);
     this.#record("twin");
   }
 

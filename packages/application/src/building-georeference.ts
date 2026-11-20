@@ -81,6 +81,28 @@ export function ecefToEnu(anchor: GeodeticAnchor, ecef: WorldPoint): WorldPoint 
   ];
 }
 
+/**
+ * Inverse of geodeticToEcef (Bowring iteration). Height is ellipsoidal.
+ */
+export function ecefToGeodetic(ecef: WorldPoint): { latitudeDegrees: number; longitudeDegrees: number; ellipsoidalHeightMetres: number } {
+  assertPoint(ecef);
+  const [x, y, z] = ecef;
+  const p = Math.hypot(x, y);
+  const lon = Math.atan2(y, x);
+  let lat = Math.atan2(z, p * (1 - E2));
+  let height = 0;
+  for (let i = 0; i < 12; i++) {
+    const sinLat = Math.sin(lat);
+    const n = A / Math.sqrt(1 - E2 * sinLat * sinLat);
+    height = p * Math.cos(lat) + z * sinLat - A * Math.sqrt(1 - E2 * sinLat * sinLat); // stable at the poles
+    const next = Math.atan2(z, p * (1 - (E2 * n) / (n + height)));
+    const done = Math.abs(next - lat) < 1e-14;
+    lat = next;
+    if (done) break;
+  }
+  return { latitudeDegrees: lat / RAD, longitudeDegrees: lon / RAD, ellipsoidalHeightMetres: height };
+}
+
 /** Place a BIM local XYZ metre point in ECEF without modifying the IFC point. */
 export function buildingLocalToEcef(anchor: GeodeticAnchor, local: WorldPoint): WorldPoint {
   assertGeodeticAnchor(anchor);

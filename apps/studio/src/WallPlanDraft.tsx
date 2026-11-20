@@ -1,4 +1,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { PlanView } from "./PlanView";
+import type { PlanEditingHost } from "./PlanEditingHost";
+import { GRID_METRES } from "./planEditing";
 import {
   constrainPlanAngle,
   straightWallFootprint,
@@ -18,10 +21,15 @@ import {
 const WIDTH = 640;
 const HEIGHT = 400;
 const PIXELS_PER_METRE = 32;
-const GRID_METRES = 0.25;
+
 
 /** Non-authoritative 2D CAD draft: never updates IFC or marks the project dirty. */
-export function WallPlanDraft(props: { currentRevision: () => number; selectedWallGlobalId?: () => string | null }) {
+export function WallPlanDraft(props: {
+  currentRevision: () => number;
+  selectedWallGlobalId?: () => string | null;
+  /** When provided, the canonical plan editor (IfcWallEditor-backed) is shown above the intent-export draft. */
+  host?: PlanEditingHost;
+}) {
   const [start, setStart] = createSignal<PlanPoint | null>(null);
   const [end, setEnd] = createSignal<PlanPoint | null>(null);
   const [pointer, setPointer] = createSignal<PlanPoint | null>(null);
@@ -364,7 +372,9 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
   };
   const gridLines = Array.from({ length: 31 }, (_, index) => index - 15);
 
-  return <section aria-label="Wall plan draft" class="teldra-wall-plan-draft">
+  return <>
+  <Show when={props.host}>{(host) => <PlanView host={host()} revision={props.currentRevision} />}</Show>
+  <section aria-label="Wall plan draft" class="teldra-wall-plan-draft">
     <h3>Draw wall — 2D plan</h3>
     <p>Drag the amber endpoint handles to reshape a completed wall, or drag its centreline to translate the entire wall. Arrow keys nudge the focused handle or centreline by 0.25 m with grid snapping, or 0.05 m without it. Escape cancels an active drag. The numeric controls provide exact metre input.</p>
     <p>Click the start and end points, or enter exact coordinates. Units are metres. Choose which face of the wall you are drawing, as in BIM parametric wall tools. This remains a reviewable CAD draft; it cannot yet modify or save IFC walls.</p>
@@ -502,5 +512,6 @@ export function WallPlanDraft(props: { currentRevision: () => number; selectedWa
       <button type="button" disabled title="Awaiting IFC-authoritative Studio wall transactions">Apply to IFC (not yet supported)</button>
     </div>
     <Show when={message()}><p role="alert">{message()}</p></Show>
-  </section>;
+  </section>
+  </>;
 }

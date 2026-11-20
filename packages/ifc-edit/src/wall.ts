@@ -414,7 +414,7 @@ function applyMaterial(g: Graph, plan: MaterialPlan, thickness: number): void {
 }
 
 /** Deterministic, unique compressed IFC GlobalId derived from a seed (relationship ids of created walls). */
-function derivedGuid(seed: string, taken: ReadonlySet<string>): string {
+export function derivedGuid(seed: string, taken: ReadonlySet<string>): string {
   const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$";
   for (let salt = 0; ; salt++) {
     const bytes: number[] = [];
@@ -699,4 +699,37 @@ export function createIfcWallAdapter(api: IfcAPI) {
         : op.kind === "create" ? createWall(api, bytes, op)
           : removeWall(api, bytes, op.globalId),
   };
+}
+
+/** @internal Shared with ./plan.ts (read-only plan projection input); not part of the package API. */
+export const wallInternals = { graph, parseWall, topology, guidOf };
+export type { Graph as WallGraph };
+// ---------------------------------------------------------------- footprint evidence
+
+export interface WallFootprintSegment {
+  readonly globalId: string;
+  readonly start: readonly [number, number];
+  readonly end: readonly [number, number];
+  readonly thickness: number;
+}
+
+/**
+ * Read-only plan evidence: axis, thickness and GlobalId of every straight wall this package can
+ * parse, in IFC world metres. Walls with unsupported representations are skipped, never guessed.
+ * Used to derive a building footprint for site alignment; it never writes to the IFC.
+ */
+export function readWallFootprintSegments(api: IfcAPI, bytes: Uint8Array): WallFootprintSegment[] {
+  return model(api, bytes, (id) => {
+    const g = graph(api, id);
+    const out: WallFootprintSegment[] = [];
+    for (const guid of [...g.wallsByGuid().keys()].sort()) {
+      try {
+        const { start, end, thickness } = parseWall(g, guid).geometry;
+        out.push({ globalId: guid, start, end, thickness });
+      } catch (error) {
+        if (!(error instanceof WallEditError)) throw error;
+      }
+    }
+    return out;
+  });
 }

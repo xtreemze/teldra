@@ -88,3 +88,30 @@ test("unsupported browsers get a non-destructive fallback", async ({ page }) => 
   await expect(page.getByRole("button", { name: "Open .teldra" })).toBeDisabled();
   await expect(page.getByText("No project data has been changed.")).toBeVisible();
 });
+
+test("Site panel opens from the Studio, accepts manual placement without any network and passes axe", async ({ page }) => {
+  const outbound: string[] = [];
+  page.on("request", (request) => { if (/^https?:/.test(request.url()) && !request.url().startsWith("http://127.0.0.1")) outbound.push(request.url()); });
+  await page.goto("/iframe.html?id=studio-browserprojectstudio--golden-home&viewMode=story");
+  await page.getByRole("button", { name: "Open .teldra" }).click();
+  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
+
+  await page.getByRole("button", { name: "Site", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Site placement" });
+  await expect(dialog.getByText("Not placed")).toBeVisible();
+  for (const [label, value] of [["Latitude (°)", "0.5004"], ["Longitude (°)", "0.5022"]] as const) {
+    const field = dialog.getByLabel(label, { exact: true });
+    await field.fill(value);
+    await field.press("Tab");
+  }
+  await dialog.getByRole("button", { name: "Confirm and save" }).click();
+  await expect(dialog.getByText("Confirmed by you", { exact: true })).toBeVisible();
+
+  const results = await new AxeBuilder({ page }).include("dialog[open]").analyze();
+  expect(results.violations).toEqual([]);
+
+  await dialog.getByRole("button", { name: "Close" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByRole("button", { name: "Save project" })).toBeEnabled();
+  expect(outbound).toEqual([]);
+});
