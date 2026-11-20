@@ -19,7 +19,7 @@ test("cross-engine Pages shell keeps project and PWA entry accessible", async ({
   expect(errors).toEqual([]);
 });
 
-test("cross-engine sample project exercises WebGL2 fallback and mobile controls when available", async ({page}) => {
+test("cross-engine sample project loads 3D and mobile controls when a graphics context is available", async ({page}) => {
   await page.goto("./?demo=sample");
   const webgl2Available = await page.evaluate(() => {
     try {
