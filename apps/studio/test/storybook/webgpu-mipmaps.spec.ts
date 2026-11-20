@@ -1,4 +1,5 @@
 import {expect,test} from "@playwright/test";
+import {requireWebGpuBackend} from "../renderer-certification";
 
 test("WebGPU initial frame submits source mip generation before the swapchain expires",async({page})=>{
  await page.addInitScript(()=>{
@@ -17,7 +18,7 @@ test("WebGPU initial frame submits source mip generation before the swapchain ex
  });
  await page.goto("/iframe.html?id=studio-sh3d-visual-transport--dark-floor-color-transfer&viewMode=story");
  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
- test.skip(await page.locator(".teldra-twin-viewport").getAttribute("data-backend")!=="webgpu","No WebGPU adapter available; run with a hardware-enabled browser");
+ await requireWebGpuBackend(page);
  const report=await page.evaluate(async()=>{
   await new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve())));
   const state=(window as unknown as {teldraGpuTest:{textures:{texture:GPUTexture;device:GPUDevice}[];errors:string[]}}).teldraGpuTest;

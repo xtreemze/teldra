@@ -1,4 +1,5 @@
 import {expect,test,type Page} from "@playwright/test";
+import {requireWebGpuBackend} from "../renderer-certification";
 
 async function screenshotPixel(page:Page,x:number,y:number):Promise<number[]> {
  const png=(await page.getByTestId("twin-canvas").screenshot()).toString("base64");
@@ -14,7 +15,7 @@ for(const backend of ["webgl","webgpu"] as const)test(`GPU probe matches asymmet
  await page.addInitScript(()=>Object.defineProperty(navigator,"clipboard",{value:{writeText:async(value:string)=>{Object.assign(window,{lastGpuReport:value});}}}));
  await page.goto(`/iframe.html?id=studio-sh3d-visual-transport--asymmetric-gpu-probe&viewMode=story${backend==="webgl"?"&renderer=webgl":""}`);
  await expect(page.getByTestId("viewport-status")).toHaveText("ready");
- test.skip(backend==="webgpu"&&await page.locator(".teldra-twin-viewport").getAttribute("data-backend")!=="webgpu","WebGPU adapter unavailable");
+ if(backend==="webgpu")await requireWebGpuBackend(page);
  await page.getByRole("button",{name:"Top",exact:true}).click();
  await page.getByText("Appearance",{exact:true}).click();
  await page.getByRole("button",{name:"Restore source appearance",exact:true}).click();

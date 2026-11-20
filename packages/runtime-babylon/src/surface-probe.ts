@@ -1,5 +1,9 @@
 import type { PickingInfo } from "@babylonjs/core/Collisions/pickingInfo";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
+import { MultiMaterial } from "@babylonjs/core/Materials/multiMaterial";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer";
+import type { BaseTexture } from "@babylonjs/core/Materials/Textures/baseTexture";
+import type { Material } from "@babylonjs/core/Materials/material";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import type { TwinRenderIdentity } from "./identity.js";
 
@@ -21,23 +25,59 @@ export interface SurfaceProbe {
   readonly distanceMetres: number;
 }
 
+/** Resolve the material used by the CPU-picked submesh. A CPU hit alone does
+ * not prove that this material produced the visible GPU fragment. */
+export function resolvedPickedTexture(picked: PickingInfo | null | undefined): {
+  material: Material | null; texture: BaseTexture | null;
+} {
+  if (!picked?.hit || !picked.pickedMesh) return {material:null,texture:null};
+  const mesh = picked.pickedMesh;
+  let material: Material | null = mesh.material;
+  if (material instanceof MultiMaterial) {
+    const submesh = Number.isSafeInteger(picked.faceId) && picked.faceId >= 0 &&
+      Number.isSafeInteger(picked.subMeshId) && picked.subMeshId >= 0
+      ? mesh.subMeshes?.[picked.subMeshId] : null;
+    const index = picked.faceId * 3;
+    material = submesh && index >= submesh.indexStart && index + 2 < submesh.indexStart + submesh.indexCount
+      ? material.subMaterials[submesh.materialIndex] ?? null : null;
+  }
+  const texture = material instanceof StandardMaterial ? material.diffuseTexture :
+    material instanceof PBRMaterial ? material.albedoTexture : null;
+  return {material, texture};
+}
+
+/** Return untransformed explicit UVs for the selected texture's UV set only. */
+export function pickTextureCoordinates(picked: PickingInfo | null | undefined,
+  texture: BaseTexture | null | undefined): [number, number] | null {
+  if (!picked?.hit || !picked.pickedMesh || !texture || texture.coordinatesMode !== 0 ||
+      !Number.isSafeInteger(picked.faceId) || picked.faceId < 0 ||
+      !Number.isFinite(picked.bu) || !Number.isFinite(picked.bv)) return null;
+  const indices = picked.pickedMesh.getIndices();
+  if (!indices || picked.faceId * 3 + 2 >= indices.length) return null;
+  const kinds = [VertexBuffer.UVKind, VertexBuffer.UV2Kind, VertexBuffer.UV3Kind,
+    VertexBuffer.UV4Kind, VertexBuffer.UV5Kind, VertexBuffer.UV6Kind];
+  const kind = kinds[texture.coordinatesIndex];
+  if (!kind || !Number.isSafeInteger(texture.coordinatesIndex)) return null;
+  const uv = picked.getTextureCoordinates(kind);
+  return uv && Number.isFinite(uv.x) && Number.isFinite(uv.y) ? [uv.x,uv.y] : null;
+}
 /** Describes the *actual hit surface*, not the first valid source room material.
  * Read-only, with no texture sampling, GPU readback, state changes, or source edits.
  */
 export function describeSurfacePick(picked: PickingInfo | null, identity: TwinRenderIdentity | null): SurfaceProbe | null {
   if (!picked?.hit || !picked.pickedMesh) return null;
   const mesh = picked.pickedMesh;
-  const material = mesh.material;
+  const {material, texture} = resolvedPickedTexture(picked);
   const standard = material instanceof StandardMaterial ? material : null;
   const pbr = material instanceof PBRMaterial ? material : null;
-  const texture = standard?.diffuseTexture ?? pbr?.albedoTexture ?? null;
+
   const extras = material?.metadata?.gltf?.extras?.teldraSourceMaterial;
   const kd: unknown = extras?.Kd;
   // Never display a base64/data: URI or embedded binary in a diagnostic panel.
   const sourceName: unknown = extras?.map_Kd;
   const textureName = typeof sourceName === "string" && sourceName.length > 0 ? sourceName.slice(0, 120)
     : texture?.name?.startsWith("data:") ? "embedded texture" : texture?.name?.slice(0, 120) ?? null;
-  const coordinates = picked.faceId >= 0 ? picked.getTextureCoordinates()?.asArray() ?? null : null;
+  const coordinates = pickTextureCoordinates(picked, texture);
   const normal = picked.faceId >= 0 ? picked.getNormal(true)?.asArray() ?? null : null;
   const rounded = (values: number[] | null): number[] | null => values?.map(v => Math.round(v * 10000) / 10000) ?? null;
   return {
